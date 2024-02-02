@@ -12,12 +12,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    if (b.host.target.os.tag == std.Target.Os.Tag.windows) {
+    if (b.host.target.os.tag == .windows) {
         exe.addIncludePath(.{.path = "include/win"});
         exe.addLibraryPath(.{.path = "lib/win"});
         exe.linkSystemLibrary("glfw3dll");
         exe.linkSystemLibrary("vulkan-1");
-    } else if (b.host.target.os.tag == std.Target.Os.Tag.linux) {
+    } else if (b.host.target.os.tag == .linux) {
         exe.linkSystemLibrary("glfw");
         exe.linkSystemLibrary("vulkan");
     } else {
@@ -31,9 +31,9 @@ pub fn build(b: *std.Build) void {
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     
-    if (b.host.target.os.tag == std.Target.Os.Tag.windows) {
+    if (b.host.target.os.tag == .windows) {
         run_cmd.addPathDir("lib/win");
-    } else if (b.host.target.os.tag == std.Target.Os.Tag.linux) {
+    } else if (b.host.target.os.tag == .linux) {
         run_cmd.addPathDir("lib/linux");
     } else {
         std.debug.panic("Unsupported OS\n", .{});
