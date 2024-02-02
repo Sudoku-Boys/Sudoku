@@ -3,6 +3,8 @@ pub const api = @cImport({
     @cInclude("vulkan/vulkan.h");
 });
 
+pub const Instance = @import("Instance.zig");
+
 /// A Vulkan error, derived from `VkResult`.
 pub const Error = error{
     UNKNOWN,
@@ -99,7 +101,7 @@ pub const Error = error{
 };
 
 /// Check if a `VkResult` is a success, and if not, return the corresponding error.
-pub fn assertSuccess(result: api.VkResult) !void {
+pub fn checkResult(result: api.VkResult) !void {
     if (result == api.VK_SUCCESS) return;
 
     return switch (result) {
