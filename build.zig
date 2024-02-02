@@ -1,6 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
+
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -11,14 +12,32 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    exe.linkSystemLibrary("glfw");
-    exe.linkSystemLibrary("vulkan");
+    if (b.host.target.os.tag == std.Target.Os.Tag.windows) {
+        exe.addIncludePath(.{.path = "include/win"});
+        exe.addLibraryPath(.{.path = "lib/win"});
+        exe.linkSystemLibrary("glfw3dll");
+        exe.linkSystemLibrary("vulkan-1");
+    } else if (b.host.target.os.tag == std.Target.Os.Tag.linux) {
+        exe.linkSystemLibrary("glfw");
+        exe.linkSystemLibrary("vulkan");
+    } else {
+        std.debug.panic("Unsupported OS\n", .{});
+    }
+
     exe.linkLibC();
 
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
+    
+    if (b.host.target.os.tag == std.Target.Os.Tag.windows) {
+        run_cmd.addPathDir("lib/win");
+    } else if (b.host.target.os.tag == std.Target.Os.Tag.linux) {
+        run_cmd.addPathDir("lib/linux");
+    } else {
+        std.debug.panic("Unsupported OS\n", .{});
+    }
 
     if (b.args) |args| {
         run_cmd.addArgs(args);
