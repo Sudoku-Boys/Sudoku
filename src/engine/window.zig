@@ -1,5 +1,5 @@
 const builtin = @import("builtin");
-pub const vk = @import("vulkan.zig");
+pub const vk = @import("vulkan/vk.zig");
 
 pub const glfw = @cImport({
     @cInclude("vulkan/vulkan.h");
@@ -56,23 +56,23 @@ pub fn pollEvents() void {
 }
 
 /// Get the required Vulkan extensions for GLFW.
-pub fn queryVkExtensions() [][*c]const u8 {
+pub fn queryVkExtensions() []const [*c]const u8 {
     var count: u32 = 0;
     const extensions = glfw.glfwGetRequiredInstanceExtensions(&count);
-    return extensions[0..count];
+    return @constCast(extensions[0..count]);
 }
 
 fn createVkSurface(window: *glfw.GLFWwindow, instance: vk.api.VkInstance) !vk.api.VkSurfaceKHR {
     var surface: vk.api.VkSurfaceKHR = undefined;
 
-    const res = glfw.glfwCreateWindowSurface(
+    const result = glfw.glfwCreateWindowSurface(
         @ptrCast(instance),
         window,
         null,
         @ptrCast(&surface),
     );
 
-    try vk.assertSuccess(res);
+    try vk.checkResult(result);
 
     return surface;
 }
@@ -94,12 +94,12 @@ pub const Descriptor = struct {
     /// The title of the window.
     title: []const u8 = "Sudoku engine",
     /// The Vulkan instance to create the surface for.
-    instance: vk.api.VkInstance,
+    instance: vk.Instance,
 };
 
 window: *glfw.GLFWwindow,
 surface: vk.api.VkSurfaceKHR,
-instance: vk.api.VkInstance,
+instance: vk.Instance,
 
 /// Create a new window, with the given descriptor.
 pub fn init(desc: Descriptor) !Self {
@@ -118,7 +118,7 @@ pub fn init(desc: Descriptor) !Self {
         null,
     ) orelse return Error.GlfwCreateWindow;
 
-    const surface = try createVkSurface(window, desc.instance);
+    const surface = try createVkSurface(window, desc.instance.vk);
 
     return Self{
         .window = window,
@@ -132,6 +132,6 @@ pub fn shouldClose(self: *const Self) bool {
 }
 
 pub fn deinit(self: *const Self) void {
-    destroyVkSurface(self.surface, self.instance);
+    destroyVkSurface(self.surface, self.instance.vk);
     glfw.glfwDestroyWindow(self.window);
 }
