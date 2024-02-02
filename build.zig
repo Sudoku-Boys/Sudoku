@@ -18,6 +18,8 @@ pub fn build(b: *std.Build) void {
         exe.linkSystemLibrary("glfw3dll");
         exe.linkSystemLibrary("vulkan-1");
     } else if (b.host.target.os.tag == .linux) {
+        exe.addIncludePath(.{.path = "include/linux"});
+        exe.addLibraryPath(.{.path = "lib/linux"});
         exe.linkSystemLibrary("glfw");
         exe.linkSystemLibrary("vulkan");
     } else {
