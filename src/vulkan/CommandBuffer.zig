@@ -38,6 +38,7 @@ pub const BeginRenderPass = struct {
 };
 
 vk: vk.api.VkCommandBuffer,
+pool: vk.api.VkCommandPool,
 device: vk.api.VkDevice,
 
 pub fn init(pool: vk.CommandPool, level: Level) !CommandBuffer {
@@ -59,19 +60,40 @@ pub fn init(pool: vk.CommandPool, level: Level) !CommandBuffer {
 
     return .{
         .vk = buffer,
+        .pool = pool.vk,
         .device = pool.device,
     };
+}
+
+pub fn deinit(self: CommandBuffer) void {
+    vk.api.vkFreeCommandBuffers(self.device, self.pool, 1, &self.vk);
 }
 
 pub fn reset(self: CommandBuffer) !void {
     try vk.check(vk.api.vkResetCommandBuffer(self.vk, 0));
 }
 
-pub fn begin(self: CommandBuffer) !void {
+pub const Usage = packed struct {
+    one_time_submit: bool = false,
+    render_pass_continue: bool = false,
+    simultaneous_use: bool = false,
+
+    _unused: u5 = 0,
+
+    comptime {
+        std.debug.assert(@sizeOf(Usage) == @sizeOf(u8));
+    }
+
+    pub fn asBits(self: Usage) u8 {
+        return @bitCast(self);
+    }
+};
+
+pub fn begin(self: CommandBuffer, usage: Usage) !void {
     const beginInfo = vk.api.VkCommandBufferBeginInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = null,
-        .flags = 0,
+        .flags = usage.asBits(),
         .pInheritanceInfo = null,
     };
 
@@ -80,6 +102,24 @@ pub fn begin(self: CommandBuffer) !void {
 
 pub fn end(self: CommandBuffer) !void {
     try vk.check(vk.api.vkEndCommandBuffer(self.vk));
+}
+
+pub const CopyBufferDescriptor = struct {
+    src: vk.Buffer,
+    dst: vk.Buffer,
+    src_offset: u64,
+    dst_offset: u64,
+    size: u64,
+};
+
+pub fn copyBuffer(self: CommandBuffer, desc: CopyBufferDescriptor) void {
+    const region = vk.api.VkBufferCopy{
+        .srcOffset = desc.src_offset,
+        .dstOffset = desc.dst_offset,
+        .size = desc.size,
+    };
+
+    vk.api.vkCmdCopyBuffer(self.vk, desc.src.vk, desc.dst.vk, 1, &region);
 }
 
 pub fn beginRenderPass(self: CommandBuffer, desc: BeginRenderPass) void {
@@ -119,6 +159,44 @@ pub fn bindGraphicsPipeline(self: CommandBuffer, pipeline: vk.GraphicsPipeline) 
     vk.api.vkCmdBindPipeline(self.vk, vk.api.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.vk);
 }
 
+pub fn bindBindGroup(
+    self: CommandBuffer,
+    pipeline: vk.GraphicsPipeline,
+    index: u32,
+    bind_group: vk.BindGroup,
+    dynamic_offsets: []u32,
+) void {
+    vk.api.vkCmdBindDescriptorSets(
+        self.vk,
+        vk.api.VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipeline.layout,
+        index,
+        1,
+        &bind_group.vk,
+        @intCast(dynamic_offsets.len),
+        dynamic_offsets.ptr,
+    );
+}
+
+pub fn bindVertexBuffer(
+    self: CommandBuffer,
+    binding: u32,
+    buffer: vk.Buffer,
+    offset: u64,
+) void {
+    const vk_buffer = buffer.vk;
+    vk.api.vkCmdBindVertexBuffers(self.vk, binding, 1, &vk_buffer, &offset);
+}
+
+pub fn bindIndexBuffer(
+    self: CommandBuffer,
+    buffer: vk.Buffer,
+    offset: u64,
+    index_type: vk.IndexType,
+) void {
+    vk.api.vkCmdBindIndexBuffer(self.vk, buffer.vk, offset, index_type.asVk());
+}
+
 pub fn setViewport(self: CommandBuffer, viewport: Viewport) void {
     const vk_viewport = vk.api.VkViewport{
         .x = viewport.x,
@@ -147,18 +225,38 @@ pub fn setScissor(self: CommandBuffer, scissor: Scissor) void {
     vk.api.vkCmdSetScissor(self.vk, 0, 1, &vk_scissor);
 }
 
-pub fn draw(
-    self: CommandBuffer,
+pub const DrawDescriptor = struct {
     vertex_count: u32,
-    instance_count: u32,
-    first_vertex: u32,
-    first_instance: u32,
-) void {
+    instance_count: u32 = 1,
+    first_vertex: u32 = 0,
+    first_instance: u32 = 0,
+};
+
+pub fn draw(self: CommandBuffer, desc: DrawDescriptor) void {
     vk.api.vkCmdDraw(
         self.vk,
-        vertex_count,
-        instance_count,
-        first_vertex,
-        first_instance,
+        desc.vertex_count,
+        desc.instance_count,
+        desc.first_vertex,
+        desc.first_instance,
+    );
+}
+
+pub const DrawIndexedDescriptor = struct {
+    index_count: u32,
+    instance_count: u32 = 1,
+    first_index: u32 = 0,
+    vertex_offset: i32 = 0,
+    first_instance: u32 = 0,
+};
+
+pub fn drawIndexed(self: CommandBuffer, desc: DrawIndexedDescriptor) void {
+    vk.api.vkCmdDrawIndexed(
+        self.vk,
+        desc.index_count,
+        desc.instance_count,
+        desc.first_index,
+        desc.vertex_offset,
+        desc.first_instance,
     );
 }

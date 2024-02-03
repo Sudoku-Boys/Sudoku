@@ -3,6 +3,10 @@ pub const api = @cImport({
     @cInclude("vulkan/vulkan.h");
 });
 
+pub const BindGroup = @import("BindGroup.zig");
+pub const BindGroupLayout = @import("BindGroupLayout.zig");
+pub const BindGroupPool = @import("BindGroupPool.zig");
+pub const Buffer = @import("Buffer.zig");
 pub const CommandBuffer = @import("CommandBuffer.zig");
 pub const CommandPool = @import("CommandPool.zig");
 pub const Device = @import("Device.zig");
@@ -15,6 +19,7 @@ pub const Instance = @import("Instance.zig");
 pub const Queue = @import("Queue.zig");
 pub const RenderPass = @import("RenderPass.zig");
 pub const Semaphore = @import("Semaphore.zig");
+pub const StagingBuffer = @import("StagingBuffer.zig");
 pub const Swapchain = @import("Swapchain.zig");
 
 pub const Attachment = RenderPass.Attachment;
@@ -49,6 +54,25 @@ pub fn vkBool(b: bool) api.VkBool32 {
 }
 
 pub const SUBPASS_EXTERNAL: u32 = api.VK_SUBPASS_EXTERNAL;
+
+pub const ShaderStages = packed struct {
+    vertex: bool = false,
+    tessellation_control: bool = false,
+    tessellation_evaluation: bool = false,
+    geometry: bool = false,
+    fragment: bool = false,
+    compute: bool = false,
+
+    _unused: u2 = 0,
+
+    comptime {
+        std.debug.assert(@sizeOf(ShaderStages) == @sizeOf(u8));
+    }
+
+    pub fn asBits(self: ShaderStages) u8 {
+        return @bitCast(self);
+    }
+};
 
 pub const PipelineStages = packed struct {
     top_of_pipe: bool = false,
@@ -107,6 +131,40 @@ pub const Access = packed struct {
 
     pub fn asBits(self: Access) u32 {
         return @bitCast(self);
+    }
+};
+
+pub const MemoryProperties = packed struct {
+    device_local: bool = false,
+    host_visible: bool = false,
+    host_coherent: bool = false,
+    host_cached: bool = false,
+    lazily_allocated: bool = false,
+    protected: bool = false,
+    device_coherent: bool = false,
+    device_uncached: bool = false,
+    device_protected: bool = false,
+
+    _unused: u23 = 0,
+
+    comptime {
+        std.debug.assert(@sizeOf(MemoryProperties) == @sizeOf(u32));
+    }
+
+    pub fn asBits(self: MemoryProperties) u32 {
+        return @bitCast(self);
+    }
+};
+
+pub const IndexType = enum {
+    u16,
+    u32,
+
+    pub fn asVk(self: IndexType) api.VkIndexType {
+        return switch (self) {
+            IndexType.u16 => api.VK_INDEX_TYPE_UINT16,
+            IndexType.u32 => api.VK_INDEX_TYPE_UINT32,
+        };
     }
 };
 

@@ -4,7 +4,7 @@ const Window = @import("../engine/Window.zig");
 
 const Swapchain = @This();
 
-fn pickSurfaceFormat(formats: []vk.api.VkSurfaceFormatKHR) vk.api.VkSurfaceFormatKHR {
+pub fn pickSurfaceFormat(formats: []vk.api.VkSurfaceFormatKHR) vk.api.VkSurfaceFormatKHR {
     for (formats) |format| {
         if (format.format == vk.api.VK_FORMAT_B8G8R8A8_SRGB) {
             return format;
@@ -14,7 +14,7 @@ fn pickSurfaceFormat(formats: []vk.api.VkSurfaceFormatKHR) vk.api.VkSurfaceForma
     return formats[0];
 }
 
-fn pickPresentMode(present_modes: []vk.api.VkPresentModeKHR) vk.api.VkPresentModeKHR {
+pub fn pickPresentMode(present_modes: []vk.api.VkPresentModeKHR) vk.api.VkPresentModeKHR {
     for (present_modes) |mode| {
         if (mode == vk.api.VK_PRESENT_MODE_FIFO_KHR) {
             return mode;
@@ -57,7 +57,7 @@ fn createFramebuffers(
     }
 }
 
-const SwapchainInfo = struct {
+const SwapchainDescriptor = struct {
     image_count: u32,
     present_mode: vk.api.VkPresentModeKHR,
     format: vk.api.VkFormat,
@@ -65,7 +65,7 @@ const SwapchainInfo = struct {
     extent: vk.api.VkExtent2D,
     pre_transform: vk.api.VkSurfaceTransformFlagBitsKHR,
 
-    fn query(support: vk.Device.SwapchainSupport) SwapchainInfo {
+    fn query(support: vk.Device.SwapchainSupport) SwapchainDescriptor {
         const format = pickSurfaceFormat(support.formats);
         const present_mode = pickPresentMode(support.present_modes);
         const extent = support.capabilities.currentExtent;
@@ -88,9 +88,9 @@ const SwapchainInfo = struct {
 
 fn createSwapchain(
     device: vk.Device,
-    info: SwapchainInfo,
+    info: SwapchainDescriptor,
     surface: vk.api.VkSurfaceKHR,
-    old_swapchain: ?vk.api.VkSwapchainKHR,
+    old_swapchain: vk.api.VkSwapchainKHR,
 ) !vk.api.VkSwapchainKHR {
     // create the actual swapchain
     var swapchain_info = vk.api.VkSwapchainCreateInfoKHR{
@@ -114,7 +114,7 @@ fn createSwapchain(
         .compositeAlpha = vk.api.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = info.present_mode,
         .clipped = vk.api.VK_FALSE,
-        .oldSwapchain = if (old_swapchain) |swapchain| swapchain else null,
+        .oldSwapchain = old_swapchain,
     };
 
     // use exlusive mode if possible, as it's faster
@@ -155,59 +155,43 @@ framebuffers: []vk.Framebuffer,
 pub fn init(
     device: vk.Device,
     window: Window,
+    render_pass: vk.RenderPass,
 ) !Swapchain {
+    // query swapchain support support for the surface
     const support = try vk.Device.SwapchainSupport.query(device.allocator, device.physical, window.surface);
     defer support.deinit();
 
-    const info = SwapchainInfo.query(support);
+    // query swapchain descriptor, choosing the best format, present mode, etc
+    const descriptor = SwapchainDescriptor.query(support);
 
-    const swapchain = try createSwapchain(device, info, window.surface, null);
+    // create the swapchain
+    const swapchain = try createSwapchain(device, descriptor, window.surface, null);
     errdefer vk.api.vkDestroySwapchainKHR(device.vk, swapchain, null);
 
-    // get the image count from the swapchain
+    // get the image count
     var images_count: u32 = 0;
     try vk.check(vk.api.vkGetSwapchainImagesKHR(device.vk, swapchain, &images_count, null));
 
+    // allocate memory for the images
     var images = try device.allocator.alloc(vk.api.VkImage, images_count);
     errdefer device.allocator.free(images);
-
-    const render_pass = try vk.RenderPass.init(
-        device,
-        .{
-            .attachments = &.{.{
-                .format = info.format,
-                .samples = 1,
-                .load_op = .Clear,
-                .store_op = .Store,
-                .final_layout = .PresentSrc,
-            }},
-            .subpasses = &.{.{
-                .color_attachments = &.{.{
-                    .attachment = 0,
-                    .layout = .ColorAttachmentOptimal,
-                }},
-            }},
-            .dependencies = &.{.{
-                .src_subpass = vk.SUBPASS_EXTERNAL,
-                .dst_subpass = 0,
-                .src_stage_mask = .{ .color_attachment_output = true },
-                .dst_stage_mask = .{ .color_attachment_output = true },
-                .dst_access_mask = .{ .color_attachment_write = true },
-            }},
-        },
-    );
-    errdefer render_pass.deinit();
 
     // get the actual images
     try vk.check(vk.api.vkGetSwapchainImagesKHR(device.vk, swapchain, &images_count, images.ptr));
 
+    // allocate memory for the image views and framebuffers
     var views = try device.allocator.alloc(vk.ImageView, images_count);
     errdefer device.allocator.free(views);
+
+    // create the image views
+    try createImageViews(device.vk, descriptor.format, images, views);
+
+    // allocate memory for the framebuffers
     var framebuffers = try device.allocator.alloc(vk.Framebuffer, images_count);
     errdefer device.allocator.free(framebuffers);
 
-    try createImageViews(device.vk, info.format, images, views);
-    try createFramebuffers(device, render_pass, info.extent, views, framebuffers);
+    // create the framebuffers
+    try createFramebuffers(device, render_pass, descriptor.extent, views, framebuffers);
 
     return .{
         .vk = swapchain,
@@ -216,7 +200,7 @@ pub fn init(
         .device = device,
         .render_pass = render_pass,
 
-        .extent = info.extent,
+        .extent = descriptor.extent,
 
         .images = images,
         .views = views,
@@ -229,16 +213,11 @@ pub fn deinit(self: Swapchain) void {
         framebuffer.deinit();
     }
 
-    // deinit views
     for (self.views) |view| {
         view.deinit();
     }
 
-    // deinit swapchain
     vk.api.vkDestroySwapchainKHR(self.device.vk, self.vk, null);
-
-    // deinit render pass
-    self.render_pass.deinit();
 
     // free memory
     self.device.allocator.free(self.images);
@@ -249,43 +228,61 @@ pub fn deinit(self: Swapchain) void {
 pub fn recreate(self: *Swapchain) !void {
     try self.device.waitIdle();
 
-    for (self.framebuffers) |framebuffer| {
-        framebuffer.deinit();
-    }
-
-    for (self.views) |view| {
-        view.deinit();
-    }
-
+    // re-query swapchain support support for the surface
     const support = try vk.Device.SwapchainSupport.query(self.device.allocator, self.device.physical, self.surface);
     defer support.deinit();
 
-    const info = SwapchainInfo.query(support);
+    // re-query swapchain descriptor
+    const desc = SwapchainDescriptor.query(support);
 
-    const swapchain = try createSwapchain(self.device, info, self.surface, self.vk);
-    errdefer vk.api.vkDestroySwapchainKHR(self.device.vk, swapchain, null);
+    // create the new swapchain
+    const old_swapchain = self.vk;
+    self.vk = try createSwapchain(self.device, desc, self.surface, old_swapchain);
 
-    vk.api.vkDestroySwapchainKHR(self.device.vk, self.vk, null);
+    // destroy the old swapchain
+    vk.api.vkDestroySwapchainKHR(self.device.vk, old_swapchain, null);
 
-    self.vk = swapchain;
-
+    // query the image count
     var images_count: u32 = 0;
-    try vk.check(vk.api.vkGetSwapchainImagesKHR(self.device.vk, swapchain, &images_count, null));
+    try vk.check(vk.api.vkGetSwapchainImagesKHR(self.device.vk, self.vk, &images_count, null));
 
+    // re-allocate memory for the images
     var images = try self.device.allocator.realloc(self.images, images_count);
     errdefer self.device.allocator.free(images);
 
-    try vk.check(vk.api.vkGetSwapchainImagesKHR(self.device.vk, swapchain, &images_count, images.ptr));
+    // get the actual images
+    try vk.check(vk.api.vkGetSwapchainImagesKHR(self.device.vk, self.vk, &images_count, images.ptr));
 
+    // NOTE: there are some interesting questions to be answered here:
+    //  * what happens if realloc fails? would that cause double free?
+    //      what is the proper way to handle this?
+    //  * in general it feels like a lot of double free could happen
+    //      in error cases.
+
+    // destroy the old image views, and create new ones
+
+    for (self.views) |*view| {
+        view.deinit();
+    }
+
+    // re-allocate memory for the views and framebuffers
     var views = try self.device.allocator.realloc(self.views, images_count);
     errdefer self.device.allocator.free(views);
+
+    try createImageViews(self.device.vk, desc.format, images, views);
+
+    // destroy the old framebuffers, and create new ones
+
+    for (self.framebuffers) |*framebuffer| {
+        framebuffer.deinit();
+    }
+
     var framebuffers = try self.device.allocator.realloc(self.framebuffers, images_count);
     errdefer self.device.allocator.free(framebuffers);
 
-    try createImageViews(self.device.vk, info.format, images, views);
-    try createFramebuffers(self.device, self.render_pass, info.extent, views, framebuffers);
+    try createFramebuffers(self.device, self.render_pass, desc.extent, views, framebuffers);
 
-    self.extent = info.extent;
+    self.extent = desc.extent;
 }
 
 pub fn aquireNextImage(

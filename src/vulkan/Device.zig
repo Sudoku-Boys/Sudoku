@@ -323,7 +323,6 @@ fn getQueue(
 
 vk: vk.api.VkDevice,
 physical: vk.api.VkPhysicalDevice,
-instance: vk.Instance,
 queues: Queues,
 graphics: vk.Queue,
 present: vk.Queue,
@@ -349,7 +348,6 @@ pub fn init(
     return Device{
         .vk = device,
         .physical = physical,
-        .instance = instance,
         .queues = queues,
         .graphics = graphics,
         .present = present,
@@ -371,7 +369,11 @@ pub fn querySwapchainSupport(self: Device, window: Window) !SwapchainSupport {
 
 pub fn queryWindowFormat(self: Device, window: Window) !vk.api.VkFormat {
     const support = try self.querySwapchainSupport(window);
-    return support.formats[0].format;
+    return vk.Swapchain.pickSurfaceFormat(support.formats).format;
+}
+
+pub fn createBuffer(self: Device, desc: vk.Buffer.Descriptor) !vk.Buffer {
+    return vk.Buffer.init(self, desc);
 }
 
 pub fn createFence(self: Device, signalled: bool) !vk.Fence {
@@ -380,6 +382,62 @@ pub fn createFence(self: Device, signalled: bool) !vk.Fence {
 
 pub fn createSemaphore(self: Device) !vk.Semaphore {
     return vk.Semaphore.init(self);
+}
+
+pub const BindingResource = union(enum) {
+    buffer: vk.Buffer,
+    image: vk.Image,
+
+    fn asVk(self: BindingResource) vk.api.VkDescriptorType {
+        switch (self) {
+            .buffer => return vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .image => return vk.api.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        }
+    }
+};
+
+pub const BindGroupWrite = struct {
+    dst: vk.BindGroup,
+    binding: u32,
+    array_element: u32 = 0,
+    resource: BindingResource,
+};
+
+pub const UpdateBindGroupsDescriptor = struct {
+    writes: []const BindGroupWrite,
+};
+
+pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) !void {
+    const writes = try self.allocator.alloc(vk.api.VkWriteDescriptorSet, desc.writes.len);
+    defer self.allocator.free(writes);
+
+    for (desc.writes, 0..) |write, i| {
+        writes[i] = vk.api.VkWriteDescriptorSet{
+            .sType = vk.api.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = null,
+            .dstSet = write.dst.vk,
+            .dstBinding = write.binding,
+            .dstArrayElement = write.array_element,
+            .descriptorCount = 1,
+            .descriptorType = write.resource.asVk(),
+            .pImageInfo = null,
+            .pBufferInfo = null,
+            .pTexelBufferView = null,
+        };
+
+        switch (write.resource) {
+            .buffer => {
+                writes[i].pBufferInfo = &vk.api.VkDescriptorBufferInfo{
+                    .buffer = write.resource.buffer.vk,
+                    .offset = 0,
+                    .range = write.resource.buffer.size,
+                };
+            },
+            .image => {},
+        }
+    }
+
+    vk.api.vkUpdateDescriptorSets(self.vk, @intCast(writes.len), writes.ptr, 0, null);
 }
 
 fn getVkFences(self: Device, fences: []const vk.Fence) ![]vk.api.VkFence {
