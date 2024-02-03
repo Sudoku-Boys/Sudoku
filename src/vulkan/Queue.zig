@@ -6,6 +6,10 @@ const Queue = @This();
 vk: vk.api.VkQueue,
 allocator: std.mem.Allocator,
 
+pub fn waitIdle(self: Queue) !void {
+    try vk.check(vk.api.vkQueueWaitIdle(self.vk));
+}
+
 pub const WaitSemaphore = struct {
     semaphore: vk.Semaphore,
     stage: vk.PipelineStages,

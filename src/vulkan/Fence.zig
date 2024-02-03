@@ -27,10 +27,10 @@ pub fn deinit(self: Fence) void {
     vk.api.vkDestroyFence(self.device, self.vk, null);
 }
 
+/// Blocks the calling thread until the fence is signalled.
 pub fn wait(
     self: Fence,
     desc: struct {
-        wait_all: bool = true,
         timeout: u64 = std.math.maxInt(u64),
     },
 ) !void {
@@ -38,7 +38,7 @@ pub fn wait(
         self.device,
         1,
         &self.vk,
-        vk.vkBool(desc.wait_all),
+        vk.api.VK_TRUE,
         desc.timeout,
     ));
 }

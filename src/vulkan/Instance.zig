@@ -20,16 +20,16 @@ fn debugCallback(
     // print the message to the console
     switch (messageSeverity) {
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT => {
-            std.log.info("vulkan: {s}", .{message});
+            std.log.info("vulkan: {s}\n", .{message});
         },
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT => {
-            std.log.info("vulkan: {s}", .{message});
+            std.log.info("vulkan: {s}\n", .{message});
         },
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT => {
-            std.log.warn("vulkan: {s}", .{message});
+            std.log.warn("vulkan: {s}\n", .{message});
         },
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT => {
-            std.log.err("vulkan: {s}", .{message});
+            std.log.err("vulkan: {s}\n", .{message});
         },
         else => unreachable,
     }
@@ -98,9 +98,7 @@ fn requiredExtensions() []const [*c]const u8 {
             vk.api.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
         };
     } else {
-        return &[_][*c]const u8{
-            vk.api.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
-        };
+        return &[_][*c]const u8{};
     }
 }
 
@@ -125,67 +123,82 @@ fn appendStrings(
 
 // the descriptor for the instance
 pub const Descriptor = struct {
+    allocator: std.mem.Allocator,
     application_name: []const u8 = "Sudoku",
     application_version: u32 = vk.api.VK_MAKE_VERSION(1, 0, 0),
     layer_names: []const [*c]const u8 = &[_][*c]const u8{},
     extensions: []const [*c]const u8 = &[_][*c]const u8{},
+
+    fn applicationInfo(self: Descriptor) vk.api.VkApplicationInfo {
+        return vk.api.VkApplicationInfo{
+            .sType = vk.api.VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pNext = null,
+            .pApplicationName = self.application_name.ptr,
+            .applicationVersion = self.application_version,
+            .pEngineName = "Sudoku engine",
+            .engineVersion = vk.api.VK_MAKE_VERSION(1, 0, 0),
+            .apiVersion = vk.api.VK_API_VERSION_1_0,
+        };
+    }
 };
 
-vk: vk.api.VkInstance,
-debug_messenger: ?vk.api.VkDebugUtilsMessengerEXT,
-allocator: std.mem.Allocator,
-
-// initialize the instance
-//
-// this creates the instance and the debug messenger
-pub fn init(allocator: std.mem.Allocator, desc: Descriptor) !Instance {
-    const application_info = vk.api.VkApplicationInfo{
-        .sType = vk.api.VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pNext = null,
-        .pApplicationName = desc.application_name.ptr,
-        .applicationVersion = desc.application_version,
-        .pEngineName = "Sudoku engine",
-        .engineVersion = vk.api.VK_MAKE_VERSION(1, 0, 0),
-        .apiVersion = vk.api.VK_API_VERSION_1_0,
-    };
-
-    var layers = try appendStrings(allocator, desc.layer_names, requiredLayers());
-    var extensions = try appendStrings(allocator, desc.extensions, requiredExtensions());
-    defer allocator.free(layers);
-    defer allocator.free(extensions);
-
-    const instance_info = vk.api.VkInstanceCreateInfo{
+fn instanceInfo(
+    appInfo: *const vk.api.VkApplicationInfo,
+    layers: []const [*c]const u8,
+    extensions: []const [*c]const u8,
+) vk.api.VkInstanceCreateInfo {
+    return vk.api.VkInstanceCreateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = null,
-        .flags = vk.api.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
-        .pApplicationInfo = &application_info,
+        .flags = 0,
+        .pApplicationInfo = appInfo,
         .enabledLayerCount = @intCast(layers.len),
         .ppEnabledLayerNames = layers.ptr,
         .enabledExtensionCount = @intCast(extensions.len),
         .ppEnabledExtensionNames = extensions.ptr,
     };
+}
+
+fn maybeCreateDebugUtilsMessenger(instance: vk.api.VkInstance) !?vk.api.VkDebugUtilsMessengerEXT {
+    if (builtin.mode == .Debug) {
+        return try createDebugUtilsMessenger(instance);
+    }
+
+    return null;
+}
+
+vk: vk.api.VkInstance,
+debug_messenger: ?vk.api.VkDebugUtilsMessengerEXT,
+allocator: std.mem.Allocator,
+
+/// Initialize a new Vulkan instance.
+///
+/// # Parameters
+/// - `allocator` is the allocator to use for all objects created by the instance.
+///     this should be a general purpose allocator, and is used for temporary allocations.
+pub fn init(desc: Descriptor) !Instance {
+    var layers = try appendStrings(desc.allocator, desc.layer_names, requiredLayers());
+    defer desc.allocator.free(layers);
+
+    var extensions = try appendStrings(desc.allocator, desc.extensions, requiredExtensions());
+    defer desc.allocator.free(extensions);
+
+    const application_info = desc.applicationInfo();
+    const instance_info = instanceInfo(&application_info, layers, extensions);
 
     var instance: vk.api.VkInstance = undefined;
-    const result = vk.api.vkCreateInstance(&instance_info, null, &instance);
-    try vk.check(result);
+    try vk.check(vk.api.vkCreateInstance(&instance_info, null, &instance));
 
-    var debug_messenger: ?vk.api.VkDebugUtilsMessengerEXT = null;
-
-    if (builtin.mode == .Debug) {
-        debug_messenger = try createDebugUtilsMessenger(instance);
-    }
+    const debug_messenger = try maybeCreateDebugUtilsMessenger(instance);
 
     return .{
         .vk = instance,
         .debug_messenger = debug_messenger,
-        .allocator = allocator,
+        .allocator = desc.allocator,
     };
 }
 
 pub fn deinit(self: Instance) void {
-    if (self.debug_messenger) |m| {
-        destroyDebugUtilsMessenger(self.vk, m);
-    }
-
+    if (self.debug_messenger) |m| destroyDebugUtilsMessenger(self.vk, m);
     vk.api.vkDestroyInstance(self.vk, null);
 }

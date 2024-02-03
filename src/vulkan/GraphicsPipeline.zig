@@ -18,9 +18,67 @@ fn createShaderModule(device: vk.api.VkDevice, spv: []const u32) !vk.api.VkShade
     return shader_module;
 }
 
+pub const InputRate = enum {
+    Vertex,
+    Instance,
+
+    fn asVk(self: InputRate) vk.api.VkVertexInputRate {
+        return switch (self) {
+            .Vertex => vk.api.VK_VERTEX_INPUT_RATE_VERTEX,
+            .Instance => vk.api.VK_VERTEX_INPUT_RATE_INSTANCE,
+        };
+    }
+};
+
+pub const VertexFormat = enum {
+    f32x1,
+    f32x2,
+    f32x3,
+    f32x4,
+    i32x1,
+    i32x2,
+    i32x3,
+    i32x4,
+    u32x1,
+    u32x2,
+    u32x3,
+    u32x4,
+
+    fn asVk(self: VertexFormat) vk.api.VkFormat {
+        return switch (self) {
+            .f32x1 => vk.api.VK_FORMAT_R32_SFLOAT,
+            .f32x2 => vk.api.VK_FORMAT_R32G32_SFLOAT,
+            .f32x3 => vk.api.VK_FORMAT_R32G32B32_SFLOAT,
+            .f32x4 => vk.api.VK_FORMAT_R32G32B32A32_SFLOAT,
+            .i32x1 => vk.api.VK_FORMAT_R32_SINT,
+            .i32x2 => vk.api.VK_FORMAT_R32G32_SINT,
+            .i32x3 => vk.api.VK_FORMAT_R32G32B32_SINT,
+            .i32x4 => vk.api.VK_FORMAT_R32G32B32A32_SINT,
+            .u32x1 => vk.api.VK_FORMAT_R32_UINT,
+            .u32x2 => vk.api.VK_FORMAT_R32G32_UINT,
+            .u32x3 => vk.api.VK_FORMAT_R32G32B32_UINT,
+            .u32x4 => vk.api.VK_FORMAT_R32G32B32A32_UINT,
+        };
+    }
+};
+
+pub const VertexAttribute = struct {
+    location: u32,
+    format: VertexFormat,
+    offset: u32,
+};
+
+pub const VertexBinding = struct {
+    binding: u32,
+    stride: u32,
+    input_rate: InputRate = .Vertex,
+    attributes: []const VertexAttribute = &.{},
+};
+
 pub const VertexStage = struct {
     shader: vk.Spv,
     entry_point: [*c]const u8 = "main",
+    bindings: []const VertexBinding = &.{},
 };
 
 pub const FragmentStage = struct {
@@ -35,7 +93,7 @@ pub const Topology = enum {
     LineStrip,
     PointList,
 
-    fn toVk(self: Topology) vk.api.VkPrimitiveTopology {
+    fn asVk(self: Topology) vk.api.VkPrimitiveTopology {
         return switch (self) {
             .TriangleList => vk.api.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
             .TriangleStrip => vk.api.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
@@ -55,7 +113,7 @@ pub const InputAssembly = struct {
             .sType = vk.api.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             .pNext = null,
             .flags = 0,
-            .topology = self.topology.toVk(),
+            .topology = self.topology.asVk(),
             .primitiveRestartEnable = vk.vkBool(self.primitive_restart_enable),
         };
     }
@@ -113,7 +171,7 @@ pub const Rasterizer = struct {
     depth_clamp_enable: bool = false,
     rasterizer_discard_enable: bool = false,
     polygon_mode: PolygonMode = .Fill,
-    cull_mode: CullMode = .None,
+    cull_mode: CullMode = .Back,
     front_face: FrontFace = .Clockwise,
     depth_bias: ?DepthBias = null,
     line_width: f32 = 1.0,
@@ -464,7 +522,8 @@ pub const Descriptor = struct {
     depth_stencil: ?DepthStencil = .{},
     color_blend: ColorBlend = .{},
     render_pass: vk.RenderPass,
-    subpass: u32 = 0,
+    bind_groups: []const vk.BindGroupLayout = &.{},
+    subpass: u32,
 };
 
 fn createVertexStage(
@@ -524,14 +583,46 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
         .pDynamicStates = dynamic_states.ptr,
     };
 
+    var attribute_count: usize = 0;
+
+    for (desc.vertex.bindings) |binding| {
+        attribute_count += binding.attributes.len;
+    }
+
+    const vertex_input_bindings = try device.allocator.alloc(vk.api.VkVertexInputBindingDescription, desc.vertex.bindings.len);
+    defer device.allocator.free(vertex_input_bindings);
+    const vertex_input_attributes = try device.allocator.alloc(vk.api.VkVertexInputAttributeDescription, attribute_count);
+    defer device.allocator.free(vertex_input_attributes);
+
+    var attribute_index: u32 = 0;
+
+    for (desc.vertex.bindings, 0..) |binding, i| {
+        vertex_input_bindings[i] = .{
+            .binding = binding.binding,
+            .stride = binding.stride,
+            .inputRate = binding.input_rate.asVk(),
+        };
+
+        for (binding.attributes) |attribute| {
+            vertex_input_attributes[attribute_index] = .{
+                .location = attribute.location,
+                .binding = binding.binding,
+                .format = attribute.format.asVk(),
+                .offset = attribute.offset,
+            };
+
+            attribute_index += 1;
+        }
+    }
+
     const vertex_input = vk.api.VkPipelineVertexInputStateCreateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = null,
         .flags = 0,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = null,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = null,
+        .vertexBindingDescriptionCount = @intCast(vertex_input_bindings.len),
+        .pVertexBindingDescriptions = vertex_input_bindings.ptr,
+        .vertexAttributeDescriptionCount = @intCast(vertex_input_attributes.len),
+        .pVertexAttributeDescriptions = vertex_input_attributes.ptr,
     };
 
     const viewport_state = vk.api.VkPipelineViewportStateCreateInfo{
@@ -559,12 +650,19 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
         device.allocator.free(alloc[0..color_blend.attachmentCount]);
     };
 
+    const bind_groups = try device.allocator.alloc(vk.api.VkDescriptorSetLayout, desc.bind_groups.len);
+    defer device.allocator.free(bind_groups);
+
+    for (desc.bind_groups, 0..) |group, i| {
+        bind_groups[i] = group.vk;
+    }
+
     const pipeline_layout = vk.api.VkPipelineLayoutCreateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = null,
         .flags = 0,
-        .setLayoutCount = 0,
-        .pSetLayouts = null,
+        .setLayoutCount = @intCast(bind_groups.len),
+        .pSetLayouts = bind_groups.ptr,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = null,
     };
