@@ -80,6 +80,7 @@ bind_pool: vk.BindGroupPool,
 bind_group_layout: vk.BindGroupLayout,
 bind_group: vk.BindGroup,
 
+staging_buffer: vk.StagingBuffer,
 uniform_buffer: vk.Buffer,
 
 vertex_buffer: vk.Buffer,
@@ -88,6 +89,8 @@ index_buffer: vk.Buffer,
 image_available_semaphore: vk.Semaphore,
 render_finished_semaphore: vk.Semaphore,
 in_flight_fence: vk.Fence,
+
+time: f32,
 
 pub fn init(allocator: std.mem.Allocator) !Renderer {
     const instance = try vk.Instance.init(.{
@@ -116,7 +119,7 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
         },
         .max_groups = 1,
     });
-    defer bind_group_pool.deinit();
+    errdefer bind_group_pool.deinit();
 
     const bind_group_layout = try vk.BindGroupLayout.init(device, .{
         .bindings = &.{
@@ -127,7 +130,7 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
             },
         },
     });
-    defer bind_group_layout.deinit();
+    errdefer bind_group_layout.deinit();
 
     const bind_group = try bind_group_pool.alloc(bind_group_layout);
 
@@ -137,6 +140,16 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
         .memory = .{ .device_local = true },
     });
     errdefer uniform_buffer.deinit();
+
+    try device.updateBindGroups(.{
+        .writes = &.{
+            .{
+                .dst = bind_group,
+                .binding = 0,
+                .resource = .{ .buffer = uniform_buffer },
+            },
+        },
+    });
 
     const vertices: []const [3]f32 = &.{
         .{ 1.0, 0.0, 0.0 },
@@ -161,26 +174,13 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
     errdefer index_buffer.deinit();
 
     var staging_buffer = try vk.StagingBuffer.init(device, graphics_pool);
-    defer staging_buffer.deinit();
+    errdefer staging_buffer.deinit();
 
     try staging_buffer.write(vertices);
     try staging_buffer.copy(.{ .dst = vertex_buffer, .size = 512 });
 
     try staging_buffer.write(indices);
     try staging_buffer.copy(.{ .dst = index_buffer, .size = 512 });
-
-    try staging_buffer.write(&@as(f32, 5.0));
-    try staging_buffer.copy(.{ .dst = uniform_buffer, .size = 4 });
-
-    try device.updateBindGroups(.{
-        .writes = &.{
-            .{
-                .dst = bind_group,
-                .binding = 0,
-                .resource = .{ .buffer = uniform_buffer },
-            },
-        },
-    });
 
     const format = try device.queryWindowFormat(window);
     const render_pass = try createRenderPass(device, format);
@@ -216,6 +216,7 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
         .bind_group_layout = bind_group_layout,
         .bind_group = bind_group,
 
+        .staging_buffer = staging_buffer,
         .uniform_buffer = uniform_buffer,
 
         .vertex_buffer = vertex_buffer,
@@ -224,6 +225,8 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
         .image_available_semaphore = image_available_semaphore,
         .render_finished_semaphore = render_finished_semaphore,
         .in_flight_fence = in_flight_fence,
+
+        .time = 0.0,
     };
 }
 
@@ -290,6 +293,10 @@ pub fn tryDrawFrame(self: *Renderer) !void {
     const image = try self.swapchain.aquireNextImage(.{
         .semaphore = self.image_available_semaphore,
     });
+
+    self.time += 0.01;
+    try self.staging_buffer.write(&@as(f32, self.time));
+    try self.staging_buffer.copy(.{ .dst = self.uniform_buffer, .size = 4 });
 
     try self.recordCommandBuffer(image);
 

@@ -20,16 +20,16 @@ fn debugCallback(
     // print the message to the console
     switch (messageSeverity) {
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT => {
-            std.log.info("vulkan: {s}\n", .{message});
+            std.log.info("vulkan: {s}", .{message});
         },
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT => {
-            std.log.info("vulkan: {s}\n", .{message});
+            std.log.info("vulkan: {s}", .{message});
         },
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT => {
-            std.log.warn("vulkan: {s}\n", .{message});
+            std.log.warn("vulkan: {s}", .{message});
         },
         vk.api.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT => {
-            std.log.err("vulkan: {s}\n", .{message});
+            std.log.err("vulkan: {s}", .{message});
         },
         else => unreachable,
     }
