@@ -2,7 +2,13 @@ const std = @import("std");
 
 /// Use glslc to compile a shader file to SPIR-V
 fn compileShader(b: *std.Build, steps: []const *std.Build.Step.Compile, path: []const u8) void {
-    const glsl_run = b.addSystemCommand(&.{"glslc"});
+    var glsl_run: *std.Build.Step.Run = undefined;
+    if (b.host.target.os.tag == .windows) {
+        glsl_run = b.addSystemCommand(&.{"bin/win/glslc"});
+    } else if (b.host.target.os.tag == .linux) {
+        glsl_run = b.addSystemCommand(&.{"bin/linux/glslc"});
+    }
+    
     glsl_run.addFileArg(.{ .path = path });
     glsl_run.addArgs(&.{ "-o", "-" });
 
