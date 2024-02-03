@@ -1,22 +1,16 @@
 const std = @import("std");
-const Window = @import("engine/window.zig");
-const Instance = @import("engine/vulkan/Instance.zig");
+const Window = @import("engine/Window.zig");
+const Renderer = @import("engine/Renderer.zig");
 
 pub fn main() !void {
     try Window.initGlfw();
     defer Window.deinitGlfw();
 
-    const instance = try Instance.init(.{
-        .extensions = Window.queryVkExtensions(),
-    });
-    defer instance.deinit();
+    var renderer = try Renderer.init(std.heap.c_allocator);
+    defer renderer.deinit();
 
-    const window = try Window.init(.{
-        .instance = instance,
-    });
-    defer window.deinit();
-
-    while (!window.shouldClose()) {
+    while (!renderer.window.shouldClose()) {
         Window.pollEvents();
+        try renderer.drawFrame();
     }
 }

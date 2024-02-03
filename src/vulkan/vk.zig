@@ -3,7 +3,112 @@ pub const api = @cImport({
     @cInclude("vulkan/vulkan.h");
 });
 
+pub const CommandBuffer = @import("CommandBuffer.zig");
+pub const CommandPool = @import("CommandPool.zig");
+pub const Device = @import("Device.zig");
+pub const Fence = @import("Fence.zig");
+pub const Framebuffer = @import("Framebuffer.zig");
+pub const GraphicsPipeline = @import("GraphicsPipeline.zig");
+pub const Image = @import("Image.zig");
+pub const ImageView = @import("ImageView.zig");
 pub const Instance = @import("Instance.zig");
+pub const Queue = @import("Queue.zig");
+pub const RenderPass = @import("RenderPass.zig");
+pub const Semaphore = @import("Semaphore.zig");
+pub const Swapchain = @import("Swapchain.zig");
+
+pub const Attachment = RenderPass.Attachment;
+pub const Subpass = RenderPass.Subpass;
+pub const AttachmentReference = RenderPass.AttachmentReference;
+
+pub const Spv = []const u32;
+
+const std = @import("std");
+
+/// Embed a SPIR-V file as a `[]const u32`.
+pub fn embedSpv(comptime path: []const u8) Spv {
+    // we need to do this whole rigmarole to ensure correct alignment
+    // I do not like it, but it is what it is
+
+    const data = @embedFile(path);
+    const len = data.len / @sizeOf(u32);
+
+    if (data.len % @sizeOf(u32) != 0) {
+        @compileError("SPIR-V file size is not a multiple of 4");
+    }
+
+    // this is beyond stupid, but it's the only way to do it
+    comptime var spv: [len]u32 = undefined;
+    @memcpy(@as([*]u8, @ptrCast(&spv)), data);
+
+    return &spv;
+}
+
+pub fn vkBool(b: bool) api.VkBool32 {
+    return if (b) api.VK_TRUE else api.VK_FALSE;
+}
+
+pub const SUBPASS_EXTERNAL: u32 = api.VK_SUBPASS_EXTERNAL;
+
+pub const PipelineStages = packed struct {
+    top_of_pipe: bool = false,
+    draw_indirect: bool = false,
+    vertex_input: bool = false,
+    vertex_shader: bool = false,
+    tessellation_control_shader: bool = false,
+    tessellation_evaluation_shader: bool = false,
+    geometry_shader: bool = false,
+    fragment_shader: bool = false,
+    early_fragment_tests: bool = false,
+    late_fragment_tests: bool = false,
+    color_attachment_output: bool = false,
+    compute_shader: bool = false,
+    transfer: bool = false,
+    bottom_of_pipe: bool = false,
+    host: bool = false,
+    all_graphics: bool = false,
+    all_commands: bool = false,
+
+    _unused: u15 = 0,
+
+    comptime {
+        std.debug.assert(@sizeOf(PipelineStages) == @sizeOf(u32));
+    }
+
+    pub fn asBits(self: PipelineStages) u32 {
+        return @bitCast(self);
+    }
+};
+
+pub const Access = packed struct {
+    indirect_command_read: bool = false,
+    index_read: bool = false,
+    vertex_attribute_read: bool = false,
+    uniform_read: bool = false,
+    input_attachment_read: bool = false,
+    shader_read: bool = false,
+    shader_write: bool = false,
+    color_attachment_read: bool = false,
+    color_attachment_write: bool = false,
+    depth_stencil_attachment_read: bool = false,
+    depth_stencil_attachment_write: bool = false,
+    transfer_read: bool = false,
+    transfer_write: bool = false,
+    host_read: bool = false,
+    host_write: bool = false,
+    memory_read: bool = false,
+    memory_write: bool = false,
+
+    _unused: u15 = 0,
+
+    comptime {
+        std.debug.assert(@sizeOf(Access) == @sizeOf(u32));
+    }
+
+    pub fn asBits(self: Access) u32 {
+        return @bitCast(self);
+    }
+};
 
 /// A Vulkan error, derived from `VkResult`.
 pub const Error = error{
@@ -101,7 +206,7 @@ pub const Error = error{
 };
 
 /// Check if a `VkResult` is a success, and if not, return the corresponding error.
-pub fn checkResult(result: api.VkResult) !void {
+pub fn check(result: api.VkResult) !void {
     if (result == api.VK_SUCCESS) return;
 
     return switch (result) {

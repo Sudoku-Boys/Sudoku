@@ -1,5 +1,5 @@
 const builtin = @import("builtin");
-pub const vk = @import("vulkan/vk.zig");
+pub const vk = @import("../vulkan/vk.zig");
 
 pub const glfw = @cImport({
     @cInclude("vulkan/vulkan.h");
@@ -72,7 +72,7 @@ fn createVkSurface(window: *glfw.GLFWwindow, instance: vk.api.VkInstance) !vk.ap
         @ptrCast(&surface),
     );
 
-    try vk.checkResult(result);
+    try vk.check(result);
 
     return surface;
 }
@@ -105,11 +105,15 @@ instance: vk.Instance,
 pub fn init(desc: Descriptor) !Self {
     try assertGlfwInitialized();
 
+    // check if Vulkan is supported, if not what even is the point
     if (glfw.glfwVulkanSupported() != glfw.GLFW_TRUE) {
         return Error.GlfwVulkanUnsupported;
     }
 
+    // we don't need OpenGL, so we can disable it
     glfw.glfwWindowHint(glfw.GLFW_CLIENT_API, glfw.GLFW_NO_API);
+
+    // create the window
     const window = glfw.glfwCreateWindow(
         @intCast(desc.width),
         @intCast(desc.height),
@@ -118,6 +122,7 @@ pub fn init(desc: Descriptor) !Self {
         null,
     ) orelse return Error.GlfwCreateWindow;
 
+    // create the vulkan surface
     const surface = try createVkSurface(window, desc.instance.vk);
 
     return Self{
@@ -132,6 +137,7 @@ pub fn shouldClose(self: *const Self) bool {
 }
 
 pub fn deinit(self: *const Self) void {
+    // destroy the surface first
     destroyVkSurface(self.surface, self.instance.vk);
     glfw.glfwDestroyWindow(self.window);
 }

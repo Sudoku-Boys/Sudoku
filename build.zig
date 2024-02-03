@@ -1,6 +1,46 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+/// Use glslc to compile a shader file to SPIR-V
+fn compileShader(b: *std.Build, steps: []const *std.Build.Step.Compile, path: []const u8) void {
+    const glsl_run = b.addSystemCommand(&.{"glslc"});
+    glsl_run.addFileArg(.{ .path = path });
+    glsl_run.addArgs(&.{ "-o", "-" });
+
+    const output = glsl_run.captureStdOut();
+
+    const file = b.addInstallFile(output, path);
+    b.getInstallStep().dependOn(&file.step);
+
+    for (steps) |step| {
+        step.addAnonymousModule(path, .{
+            .source_file = output,
+        });
+    }
+}
+
+fn isShaderFile(name: []const u8) bool {
+    const ext = std.fs.path.extension(name);
+
+    const is_vert = std.mem.eql(u8, ext, ".vert");
+    const is_frag = std.mem.eql(u8, ext, ".frag");
+
+    return is_vert or is_frag;
+}
+
+fn compileShaders(b: *std.Build, steps: []const *std.Build.Step.Compile) !void {
+    const dir = std.fs.cwd();
+    const shader = try dir.openIterableDir("shader", .{});
+
+    var it = shader.iterate();
+    while (try it.next()) |entry| {
+        if (isShaderFile(entry.name)) {
+            const path = try std.mem.join(b.allocator, "/", &.{ "shader", entry.name });
+            compileShader(b, steps, path);
+        }
+    }
+}
+
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -14,6 +54,8 @@ pub fn build(b: *std.Build) void {
     exe.linkSystemLibrary("glfw");
     exe.linkSystemLibrary("vulkan");
     exe.linkLibC();
+
+    try compileShaders(b, &.{exe});
 
     b.installArtifact(exe);
 
