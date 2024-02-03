@@ -141,11 +141,10 @@ fn findPhysicalDevice(
 
     // select the physical device with the highest score
     var best_device: ?vk.api.VkPhysicalDevice = null;
-    var best_score: i32 = 0;
+    var best_score: i32 = -80085;
 
     for (devices[0..]) |device| {
         var score = try ratePhysicalDevice(allocator, device, surface) orelse continue;
-
         if (score > best_score) {
             best_device = device;
             best_score = score;

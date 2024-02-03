@@ -254,10 +254,10 @@ pub const Mat4f = extern union {
 		const t3 = movehl(tr23b, tr01b);
 
 		// permute column vector into rows
-		const p0 = permute(v, .{0, 0, 0, 0});
-		const p1 = permute(v, .{1, 1, 1, 1});
-		const p2 = permute(v, .{2, 2, 2, 2});
-		const p3 = permute(v, .{3, 3, 3, 3});
+		const p0 = permute(b, .{0, 0, 0, 0});
+		const p1 = permute(b, .{1, 1, 1, 1});
+		const p2 = permute(b, .{2, 2, 2, 2});
+		const p3 = permute(b, .{3, 3, 3, 3});
 
 		// mathimus maximus
 		o.* = (p0 * t0) + (p1 * t1) + (p2 * t2) + (p3 * t3);
