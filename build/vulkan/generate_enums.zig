@@ -89,6 +89,7 @@ fn vkEnum(
     comptime var fields: [1024]VkEnumField = undefined;
     const count = comptime vkEnumFields(&fields, prefix);
 
+    try writer.print("// Enum for {s}\n", .{prefix});
     try writer.print("pub const {s} = enum({s}) {{\n", .{ name, @typeName(tag) });
 
     for (fields[0..count]) |field| {

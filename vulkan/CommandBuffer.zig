@@ -31,12 +31,6 @@ pub const Scissor = struct {
     height: u32 = 0,
 };
 
-pub const BeginRenderPass = struct {
-    render_pass: vk.RenderPass,
-    framebuffer: vk.Framebuffer,
-    render_area: RenderArea = .{},
-};
-
 vk: vk.api.VkCommandBuffer,
 pool: vk.api.VkCommandPool,
 device: vk.api.VkDevice,
@@ -240,6 +234,12 @@ pub fn pipelineBarrier(
         imageBarriers.ptr,
     );
 }
+
+pub const BeginRenderPass = struct {
+    render_pass: vk.RenderPass,
+    framebuffer: vk.Framebuffer,
+    render_area: RenderArea = .{},
+};
 
 pub fn beginRenderPass(self: CommandBuffer, desc: BeginRenderPass) void {
     const clear: vk.api.VkClearValue = .{

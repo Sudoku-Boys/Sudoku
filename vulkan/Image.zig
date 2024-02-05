@@ -5,15 +5,8 @@ const Image = @This();
 
 pub const Error = error{
     ImageMemoryTypeNotFound,
-    FormatSizeNotFound,
+    ImageInvalidFormat,
 };
-
-fn formatSize(format: vk.ImageFormat) !u32 {
-    switch (format) {
-        .R8G8B8A8Unorm => return 4,
-        else => return error.FormatSizeNotFound,
-    }
-}
 
 pub const Descriptor = struct {
     format: vk.ImageFormat,
@@ -70,13 +63,6 @@ pub fn init(device: vk.Device, desc: Descriptor) !Image {
         mem_reqs.memoryTypeBits,
         desc.memory,
     ) orelse return error.BufferMemoryTypeNotFound;
-
-    const pixel_size = try formatSize(desc.format);
-    const row_size = pixel_size * desc.extent.width;
-    const image_size = row_size * desc.extent.height;
-    const data_size = image_size * desc.extent.depth * desc.array_layers;
-
-    std.debug.assert(data_size > 0);
 
     const alloc_info = vk.api.VkMemoryAllocateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
