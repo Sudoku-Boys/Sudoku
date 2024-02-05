@@ -35,7 +35,14 @@ fn compileShaderTool(
         .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
     });
 
-    tool.linkSystemLibrary("shaderc_shared");
+    if (b.host.target.os.tag == .windows) {
+        tool.addIncludePath(.{ .path = "include/win" });
+        tool.addLibraryPath(.{ .path = "lib/win" });
+        tool.linkSystemLibrary("shaderc_shared");
+    } else {
+        tool.linkSystemLibrary("shaderc_shared");
+    }
+
     tool.linkLibC();
 
     return tool;
@@ -50,6 +57,10 @@ fn compileShader(
     const tool_step = b.addRunArtifact(tool);
     tool_step.addFileArg(.{ .path = path });
     tool_step.addArg(stage.argName());
+
+    if (b.host.target.os.tag == .windows) {
+        tool_step.addPathDir("lib/win");
+    }
 
     return tool_step.captureStdOut();
 }
@@ -88,7 +99,14 @@ fn generateVulkanEnums(b: *std.Build) !std.Build.LazyPath {
         .root_source_file = .{ .path = "build/vulkan/generate_enums.zig" },
     });
 
-    tool.linkSystemLibrary("vulkan");
+    if (b.host.target.os.tag == .windows) {
+        tool.addIncludePath(.{ .path = "include/win" });
+        tool.addLibraryPath(.{ .path = "lib/win" });
+        tool.linkSystemLibrary("vulkan-1");
+    } else {
+        tool.linkSystemLibrary("vulkan");
+    }
+
     tool.linkLibC();
 
     const tool_step = b.addRunArtifact(tool);
@@ -101,7 +119,14 @@ fn generateVulkanFlags(b: *std.Build) !std.Build.LazyPath {
         .root_source_file = .{ .path = "build/vulkan/generate_flags.zig" },
     });
 
-    tool.linkSystemLibrary("vulkan");
+    if (b.host.target.os.tag == .windows) {
+        tool.addIncludePath(.{ .path = "include/win" });
+        tool.addLibraryPath(.{ .path = "lib/win" });
+        tool.linkSystemLibrary("vulkan-1");
+    } else {
+        tool.linkSystemLibrary("vulkan");
+    }
+
     tool.linkLibC();
 
     const tool_step = b.addRunArtifact(tool);
@@ -150,10 +175,6 @@ pub fn build(b: *std.Build) !void {
 
     if (b.host.target.os.tag == .windows) {
         run_cmd.addPathDir("lib/win");
-    } else if (b.host.target.os.tag == .linux) {
-        run_cmd.addPathDir("lib/linux");
-    } else {
-        std.debug.panic("Unsupported OS\n", .{});
     }
 
     if (b.args) |args| {
