@@ -35,7 +35,14 @@ fn compileShaderTool(
         .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
     });
 
-    tool.linkSystemLibrary("shaderc_shared");
+    if (b.host.target.os.tag == .windows) {
+        tool.addIncludePath(.{ .path = "include/win" });
+        tool.addLibraryPath(.{ .path = "lib/win" });
+        tool.linkSystemLibrary("shaderc_shared");
+    } else {
+        tool.linkSystemLibrary("shaderc_shared");
+    }
+
     tool.linkLibC();
 
     return tool;
@@ -50,6 +57,10 @@ fn compileShader(
     const tool_step = b.addRunArtifact(tool);
     tool_step.addFileArg(.{ .path = path });
     tool_step.addArg(stage.argName());
+
+    if (b.host.target.os.tag == .windows) {
+        tool_step.addPathDir("lib/win");
+    } else {}
 
     return tool_step.captureStdOut();
 }
@@ -147,7 +158,7 @@ pub fn build(b: *std.Build) !void {
 
     if (b.host.target.os.tag == .windows) {
         exe.addIncludePath(.{ .path = "include/win/" });
-        exe.addLibPath(.{ .path = "lib/win/" });
+        exe.addLibraryPath(.{ .path = "lib/win/" });
 
         exe.linkSystemLibrary("glfw3dll");
         exe.linkSystemLibrary("vulkan-1");
