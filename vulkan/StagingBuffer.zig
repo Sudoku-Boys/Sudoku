@@ -23,7 +23,7 @@ pub fn init(device: vk.Device, pool: vk.CommandPool) !StagingBuffer {
         .memory = .{ .host_visible = true, .host_coherent = true },
     });
 
-    const command = try pool.createCommandBuffer(.Primary);
+    const command = try pool.alloc(.Primary);
 
     return .{
         .buffer = buffer,

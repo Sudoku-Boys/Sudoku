@@ -66,7 +66,7 @@ pub fn submit(self: Queue, desc: SubmitDescriptor) !void {
 
 pub const PresentSwapchain = struct {
     swapchain: vk.Swapchain,
-    image: u32,
+    image_index: u32,
 };
 
 pub const PresentDescriptor = struct {
@@ -90,7 +90,7 @@ pub fn present(self: Queue, desc: PresentDescriptor) !void {
 
     for (desc.swapchains, 0..) |swapchain, i| {
         swapchains.ptr[i] = swapchain.swapchain.vk;
-        image_indices.ptr[i] = swapchain.image;
+        image_indices.ptr[i] = swapchain.image_index;
     }
 
     const presentInfo = vk.api.VkPresentInfoKHR{

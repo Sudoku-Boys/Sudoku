@@ -41,6 +41,6 @@ pub fn deinit(self: CommandPool) void {
     vk.api.vkDestroyCommandPool(self.device, self.vk, null);
 }
 
-pub fn createCommandBuffer(self: CommandPool, level: vk.CommandBuffer.Level) !vk.CommandBuffer {
+pub fn alloc(self: CommandPool, level: vk.CommandBuffer.Level) !vk.CommandBuffer {
     return try vk.CommandBuffer.init(self, level);
 }

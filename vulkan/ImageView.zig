@@ -4,7 +4,7 @@ const vk = @import("vk.zig");
 const ImageView = @This();
 
 pub const Descriptor = struct {
-    type: vk.ViewType,
+    type: vk.ViewType = .Image2D,
     format: vk.ImageFormat,
     aspect: vk.ImageAspects,
     base_mip_level: u32 = 0,

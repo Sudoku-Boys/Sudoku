@@ -21,6 +21,7 @@ pub const RenderPass = @import("RenderPass.zig");
 pub const Sampler = @import("Sampler.zig");
 pub const Semaphore = @import("Semaphore.zig");
 pub const StagingBuffer = @import("StagingBuffer.zig");
+pub const Surface = @import("Surface.zig");
 pub const Swapchain = @import("Swapchain.zig");
 
 pub const Attachment = RenderPass.Attachment;
@@ -32,11 +33,9 @@ pub const Spv = []const u32;
 const std = @import("std");
 
 /// Embed a SPIR-V file as a `[]const u32`.
-pub fn embedSpv(comptime path: []const u8) Spv {
+pub fn embedSpv(comptime data: []const u8) Spv {
     // we need to do this whole rigmarole to ensure correct alignment
     // I do not like it, but it is what it is
-
-    const data = @embedFile(path);
     const len = data.len / @sizeOf(u32);
 
     if (data.len % @sizeOf(u32) != 0) {
@@ -56,8 +55,8 @@ pub fn vkBool(b: bool) api.VkBool32 {
 
 pub const SUBPASS_EXTERNAL: u32 = api.VK_SUBPASS_EXTERNAL;
 
-pub usingnamespace @import("vulkan_enums");
-pub usingnamespace @import("vulkan_flags");
+pub usingnamespace @import("generated/enums.zig");
+pub usingnamespace @import("generated/flags.zig");
 
 pub const Extent2D = struct {
     width: u32,

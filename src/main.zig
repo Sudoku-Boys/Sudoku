@@ -1,15 +1,34 @@
 const std = @import("std");
 const Window = @import("engine/Window.zig");
-const Renderer = @import("engine/Renderer.zig");
+const Renderer = @import("engine/render/Renderer.zig");
+const vk = @import("vulkan");
 
 pub fn main() !void {
     try Window.initGlfw();
     defer Window.deinitGlfw();
 
-    var renderer = try Renderer.init(std.heap.c_allocator);
+    const instance = try vk.Instance.init(.{
+        .allocator = std.heap.c_allocator,
+        .required_extensions = Window.requiredVulkanExtensions(),
+    });
+    defer instance.deinit();
+
+    const window = try Window.init(.{
+        .instance = instance,
+    });
+    defer window.deinit();
+
+    const device = try vk.Device.init(instance, window.surface);
+    defer device.deinit();
+
+    var renderer = try Renderer.init(.{
+        .allocator = std.heap.c_allocator,
+        .device = device,
+        .surface = window.surface,
+    });
     defer renderer.deinit();
 
-    while (!renderer.window.shouldClose()) {
+    while (!window.shouldClose()) {
         Window.pollEvents();
         try renderer.drawFrame();
     }
