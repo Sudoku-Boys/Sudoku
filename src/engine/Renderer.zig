@@ -99,7 +99,7 @@ time: f32,
 pub fn init(allocator: std.mem.Allocator) !Renderer {
     const instance = try vk.Instance.init(.{
         .allocator = allocator,
-        .extensions = Window.queryVkExtensions(),
+        .required_extensions = Window.requiredVulkanExtensions(),
     });
     errdefer instance.deinit();
 

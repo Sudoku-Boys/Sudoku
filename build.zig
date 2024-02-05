@@ -124,17 +124,11 @@ pub fn build(b: *std.Build) !void {
     });
 
     if (b.host.target.os.tag == .windows) {
-        exe.addIncludePath(.{ .path = "include/win" });
-        exe.addLibraryPath(.{ .path = "lib/win" });
         exe.linkSystemLibrary("glfw3dll");
         exe.linkSystemLibrary("vulkan-1");
-    } else if (b.host.target.os.tag == .linux) {
-        exe.addIncludePath(.{ .path = "include/linux" });
-        exe.addLibraryPath(.{ .path = "lib/linux" });
+    } else {
         exe.linkSystemLibrary("glfw");
         exe.linkSystemLibrary("vulkan");
-    } else {
-        std.debug.panic("Unsupported OS\n", .{});
     }
 
     exe.addAnonymousModule("vulkan_enums", .{ .source_file = vulkan_enums });
