@@ -51,8 +51,6 @@ fn compileShader(
     tool_step.addFileArg(.{ .path = path });
     tool_step.addArg(stage.argName());
 
-    b.getInstallStep().dependOn(&tool_step.step);
-
     return tool_step.captureStdOut();
 }
 
@@ -117,9 +115,6 @@ pub fn build(b: *std.Build) !void {
     const vulkan_enums = try generateVulkanEnums(b);
     const vulkan_flags = try generateVulkanFlags(b);
     const shaders = try compileShaders(b);
-
-    const f = b.addInstallFile(vulkan_flags, "vulkan_flags.zig");
-    b.getInstallStep().dependOn(&f.step);
 
     const exe = b.addExecutable(.{
         .name = "Sudoku",
