@@ -50,12 +50,14 @@ fn createRenderPass(device: vk.Device, format: vk.api.VkFormat) !vk.RenderPass {
                 .store_op = .Store,
                 .final_layout = .PresentSrc,
             }},
-            .subpasses = &.{.{
-                .color_attachments = &.{.{
-                    .attachment = 0,
-                    .layout = .ColorAttachmentOptimal,
-                }},
-            }},
+            .subpasses = &.{
+                .{
+                    .color_attachments = &.{.{
+                        .attachment = 0,
+                        .layout = .ColorAttachmentOptimal,
+                    }},
+                },
+            },
             .dependencies = &.{.{
                 .src_subpass = vk.SUBPASS_EXTERNAL,
                 .dst_subpass = 0,
@@ -351,6 +353,7 @@ fn recordCommandBuffer(self: *Renderer, image: u32) !void {
     try self.graphics_buffer.reset();
     try self.graphics_buffer.begin(.{});
 
+    // render pass
     self.graphics_buffer.beginRenderPass(.{
         .render_pass = self.swapchain.render_pass,
         .framebuffer = self.swapchain.framebuffers[image],
@@ -362,10 +365,7 @@ fn recordCommandBuffer(self: *Renderer, image: u32) !void {
         },
     });
 
-    self.graphics_buffer.bindGraphicsPipeline(self.pbr_pipeline);
-
-    self.graphics_buffer.bindBindGroup(self.pbr_pipeline, 0, self.bind_group, &.{});
-
+    // render area (part of render pass)
     self.graphics_buffer.setViewport(.{
         .width = @floatFromInt(self.swapchain.extent.width),
         .height = @floatFromInt(self.swapchain.extent.height),
@@ -376,10 +376,24 @@ fn recordCommandBuffer(self: *Renderer, image: u32) !void {
         .height = self.swapchain.extent.height,
     });
 
-    self.graphics_buffer.bindVertexBuffer(0, self.vertex_buffer, 0);
-    self.graphics_buffer.bindIndexBuffer(self.index_buffer, 0, .u16);
+    {
+        // pipeline bind (shader pipeline)
+        self.graphics_buffer.bindGraphicsPipeline(self.pbr_pipeline);
+        {
+            // choose uniform buffer
+            self.graphics_buffer.bindBindGroup(self.pbr_pipeline, 0, self.bind_group, &.{});
+            {
+                // bind mesh
+                self.graphics_buffer.bindVertexBuffer(0, self.vertex_buffer, 0);
+                self.graphics_buffer.bindIndexBuffer(self.index_buffer, 0, .u16);
 
-    self.graphics_buffer.drawIndexed(.{ .index_count = 3 });
+                // also choose uniform buffer
+
+                // draw
+                self.graphics_buffer.drawIndexed(.{ .index_count = 3 });
+            }
+        }
+    }
 
     self.graphics_buffer.endRenderPass();
 
