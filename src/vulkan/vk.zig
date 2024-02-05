@@ -18,6 +18,7 @@ pub const ImageView = @import("ImageView.zig");
 pub const Instance = @import("Instance.zig");
 pub const Queue = @import("Queue.zig");
 pub const RenderPass = @import("RenderPass.zig");
+pub const Sampler = @import("Sampler.zig");
 pub const Semaphore = @import("Semaphore.zig");
 pub const StagingBuffer = @import("StagingBuffer.zig");
 pub const Swapchain = @import("Swapchain.zig");
@@ -55,117 +56,47 @@ pub fn vkBool(b: bool) api.VkBool32 {
 
 pub const SUBPASS_EXTERNAL: u32 = api.VK_SUBPASS_EXTERNAL;
 
-pub const ShaderStages = packed struct {
-    vertex: bool = false,
-    tessellation_control: bool = false,
-    tessellation_evaluation: bool = false,
-    geometry: bool = false,
-    fragment: bool = false,
-    compute: bool = false,
+pub usingnamespace @import("vulkan_enums");
+pub usingnamespace @import("vulkan_flags");
 
-    _unused: u2 = 0,
-
-    comptime {
-        std.debug.assert(@sizeOf(ShaderStages) == @sizeOf(u8));
-    }
-
-    pub fn asBits(self: ShaderStages) u8 {
-        return @bitCast(self);
-    }
+pub const Extent2D = struct {
+    width: u32,
+    height: u32,
 };
 
-pub const PipelineStages = packed struct {
-    top_of_pipe: bool = false,
-    draw_indirect: bool = false,
-    vertex_input: bool = false,
-    vertex_shader: bool = false,
-    tessellation_control_shader: bool = false,
-    tessellation_evaluation_shader: bool = false,
-    geometry_shader: bool = false,
-    fragment_shader: bool = false,
-    early_fragment_tests: bool = false,
-    late_fragment_tests: bool = false,
-    color_attachment_output: bool = false,
-    compute_shader: bool = false,
-    transfer: bool = false,
-    bottom_of_pipe: bool = false,
-    host: bool = false,
-    all_graphics: bool = false,
-    all_commands: bool = false,
-
-    _unused: u15 = 0,
-
-    comptime {
-        std.debug.assert(@sizeOf(PipelineStages) == @sizeOf(u32));
-    }
-
-    pub fn asBits(self: PipelineStages) u32 {
-        return @bitCast(self);
-    }
+pub const Extent3D = struct {
+    width: u32,
+    height: u32,
+    depth: u32,
 };
 
-pub const Access = packed struct {
-    indirect_command_read: bool = false,
-    index_read: bool = false,
-    vertex_attribute_read: bool = false,
-    uniform_read: bool = false,
-    input_attachment_read: bool = false,
-    shader_read: bool = false,
-    shader_write: bool = false,
-    color_attachment_read: bool = false,
-    color_attachment_write: bool = false,
-    depth_stencil_attachment_read: bool = false,
-    depth_stencil_attachment_write: bool = false,
-    transfer_read: bool = false,
-    transfer_write: bool = false,
-    host_read: bool = false,
-    host_write: bool = false,
-    memory_read: bool = false,
-    memory_write: bool = false,
-
-    _unused: u15 = 0,
-
-    comptime {
-        std.debug.assert(@sizeOf(Access) == @sizeOf(u32));
-    }
-
-    pub fn asBits(self: Access) u32 {
-        return @bitCast(self);
-    }
+pub const Offset2D = struct {
+    x: i32 = 0,
+    y: i32 = 0,
 };
 
-pub const MemoryProperties = packed struct {
-    device_local: bool = false,
-    host_visible: bool = false,
-    host_coherent: bool = false,
-    host_cached: bool = false,
-    lazily_allocated: bool = false,
-    protected: bool = false,
-    device_coherent: bool = false,
-    device_uncached: bool = false,
-    device_protected: bool = false,
-
-    _unused: u23 = 0,
-
-    comptime {
-        std.debug.assert(@sizeOf(MemoryProperties) == @sizeOf(u32));
-    }
-
-    pub fn asBits(self: MemoryProperties) u32 {
-        return @bitCast(self);
-    }
+pub const Offset3D = struct {
+    x: i32 = 0,
+    y: i32 = 0,
+    z: i32 = 0,
 };
 
-pub const IndexType = enum {
-    u16,
-    u32,
+pub const ImageType = enum(u8) {
+    Image1D = api.VK_IMAGE_TYPE_1D,
+    Image2D = api.VK_IMAGE_TYPE_2D,
+    Image3D = api.VK_IMAGE_TYPE_3D,
+};
 
-    pub fn asVk(self: IndexType) api.VkIndexType {
-        return switch (self) {
-            IndexType.u16 => api.VK_INDEX_TYPE_UINT16,
-            IndexType.u32 => api.VK_INDEX_TYPE_UINT32,
-        };
-    }
+pub const ViewType = enum(u32) {
+    Image2D = api.VK_IMAGE_VIEW_TYPE_2D,
+    Image3D = api.VK_IMAGE_VIEW_TYPE_3D,
+    ImageCube = api.VK_IMAGE_VIEW_TYPE_CUBE,
+    ImageArray = api.VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+};
+
+pub const IndexType = enum(u8) {
+    u16 = api.VK_INDEX_TYPE_UINT16,
+    u32 = api.VK_INDEX_TYPE_UINT32,
 };
 
 /// A Vulkan error, derived from `VkResult`.

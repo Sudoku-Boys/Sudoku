@@ -40,6 +40,7 @@ pub const BeginRenderPass = struct {
 vk: vk.api.VkCommandBuffer,
 pool: vk.api.VkCommandPool,
 device: vk.api.VkDevice,
+allocator: std.mem.Allocator,
 
 pub fn init(pool: vk.CommandPool, level: Level) !CommandBuffer {
     const vk_level = switch (level) {
@@ -62,6 +63,7 @@ pub fn init(pool: vk.CommandPool, level: Level) !CommandBuffer {
         .vk = buffer,
         .pool = pool.vk,
         .device = pool.device,
+        .allocator = pool.allocator,
     };
 }
 
@@ -120,6 +122,123 @@ pub fn copyBuffer(self: CommandBuffer, desc: CopyBufferDescriptor) void {
     };
 
     vk.api.vkCmdCopyBuffer(self.vk, desc.src.vk, desc.dst.vk, 1, &region);
+}
+
+pub const BufferImageCopy = struct {
+    buffer_offset: u64 = 0,
+    buffer_row_length: u32,
+    buffer_image_height: u32,
+    aspect: vk.ImageAspects,
+    mip_level: u32 = 0,
+    base_array_layer: u32 = 0,
+    layer_count: u32 = 1,
+    image_offset: vk.Offset3D = .{},
+    image_extent: vk.Extent3D,
+};
+
+pub const CopyBufferToImageDescriptor = struct {
+    src: vk.Buffer,
+    dst: vk.Image,
+    dst_layout: vk.ImageLayout,
+    region: BufferImageCopy,
+};
+
+pub fn copyBufferToImage(self: CommandBuffer, desc: CopyBufferToImageDescriptor) void {
+    vk.api.vkCmdCopyBufferToImage(
+        self.vk,
+        desc.src.vk,
+        desc.dst.vk,
+        @intFromEnum(desc.dst_layout),
+        1,
+        &vk.api.VkBufferImageCopy{
+            .bufferOffset = desc.region.buffer_offset,
+            .bufferRowLength = desc.region.buffer_row_length,
+            .bufferImageHeight = desc.region.buffer_image_height,
+            .imageSubresource = .{
+                .aspectMask = @bitCast(desc.region.aspect),
+                .mipLevel = desc.region.mip_level,
+                .baseArrayLayer = desc.region.base_array_layer,
+                .layerCount = desc.region.layer_count,
+            },
+            .imageOffset = .{
+                .x = desc.region.image_offset.x,
+                .y = desc.region.image_offset.y,
+                .z = desc.region.image_offset.z,
+            },
+            .imageExtent = .{
+                .width = desc.region.image_extent.width,
+                .height = desc.region.image_extent.height,
+                .depth = desc.region.image_extent.depth,
+            },
+        },
+    );
+}
+
+pub const ImageMemoryBarrier = struct {
+    src_access: vk.Access,
+    dst_access: vk.Access,
+    old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout,
+    src_queue_family: u32 = vk.api.VK_QUEUE_FAMILY_IGNORED,
+    dst_queue_family: u32 = vk.api.VK_QUEUE_FAMILY_IGNORED,
+    image: vk.Image,
+    aspect: vk.ImageAspects,
+    base_mip_level: u32 = 0,
+    level_count: u32 = 1,
+    base_array_layer: u32 = 0,
+    layer_count: u32 = 1,
+};
+
+pub const PipelineBarrierDescriptor = struct {
+    src_stage: vk.PipelineStages,
+    dst_stage: vk.PipelineStages,
+    dependency_flags: vk.Dependencies = .{ .by_region = true },
+    image_barriers: []const ImageMemoryBarrier,
+};
+
+pub fn pipelineBarrier(
+    self: CommandBuffer,
+    desc: PipelineBarrierDescriptor,
+) !void {
+    const imageBarriers: []vk.api.VkImageMemoryBarrier = try self.allocator.alloc(
+        vk.api.VkImageMemoryBarrier,
+        desc.image_barriers.len,
+    );
+    defer self.allocator.free(imageBarriers);
+
+    for (desc.image_barriers, 0..) |barrier, i| {
+        imageBarriers[i] = vk.api.VkImageMemoryBarrier{
+            .sType = vk.api.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = null,
+            .srcAccessMask = @bitCast(barrier.src_access),
+            .dstAccessMask = @bitCast(barrier.dst_access),
+            .oldLayout = @intFromEnum(barrier.old_layout),
+            .newLayout = @intFromEnum(barrier.new_layout),
+            .srcQueueFamilyIndex = barrier.src_queue_family,
+            .dstQueueFamilyIndex = barrier.dst_queue_family,
+            .image = barrier.image.vk,
+            .subresourceRange = vk.api.VkImageSubresourceRange{
+                .aspectMask = @bitCast(barrier.aspect),
+                .baseMipLevel = barrier.base_mip_level,
+                .levelCount = barrier.level_count,
+                .baseArrayLayer = barrier.base_array_layer,
+                .layerCount = barrier.layer_count,
+            },
+        };
+    }
+
+    vk.api.vkCmdPipelineBarrier(
+        self.vk,
+        @bitCast(desc.src_stage),
+        @bitCast(desc.dst_stage),
+        @bitCast(desc.dependency_flags),
+        0,
+        null,
+        0,
+        null,
+        @intCast(desc.image_barriers.len),
+        imageBarriers.ptr,
+    );
 }
 
 pub fn beginRenderPass(self: CommandBuffer, desc: BeginRenderPass) void {
@@ -194,7 +313,7 @@ pub fn bindIndexBuffer(
     offset: u64,
     index_type: vk.IndexType,
 ) void {
-    vk.api.vkCmdBindIndexBuffer(self.vk, buffer.vk, offset, index_type.asVk());
+    vk.api.vkCmdBindIndexBuffer(self.vk, buffer.vk, offset, @intFromEnum(index_type));
 }
 
 pub fn setViewport(self: CommandBuffer, viewport: Viewport) void {

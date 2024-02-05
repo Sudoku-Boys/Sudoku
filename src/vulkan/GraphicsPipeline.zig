@@ -18,48 +18,19 @@ fn createShaderModule(device: vk.api.VkDevice, spv: []const u32) !vk.api.VkShade
     return shader_module;
 }
 
-pub const InputRate = enum {
-    Vertex,
-    Instance,
-
-    fn asVk(self: InputRate) vk.api.VkVertexInputRate {
-        return switch (self) {
-            .Vertex => vk.api.VK_VERTEX_INPUT_RATE_VERTEX,
-            .Instance => vk.api.VK_VERTEX_INPUT_RATE_INSTANCE,
-        };
-    }
-};
-
-pub const VertexFormat = enum {
-    f32x1,
-    f32x2,
-    f32x3,
-    f32x4,
-    i32x1,
-    i32x2,
-    i32x3,
-    i32x4,
-    u32x1,
-    u32x2,
-    u32x3,
-    u32x4,
-
-    fn asVk(self: VertexFormat) vk.api.VkFormat {
-        return switch (self) {
-            .f32x1 => vk.api.VK_FORMAT_R32_SFLOAT,
-            .f32x2 => vk.api.VK_FORMAT_R32G32_SFLOAT,
-            .f32x3 => vk.api.VK_FORMAT_R32G32B32_SFLOAT,
-            .f32x4 => vk.api.VK_FORMAT_R32G32B32A32_SFLOAT,
-            .i32x1 => vk.api.VK_FORMAT_R32_SINT,
-            .i32x2 => vk.api.VK_FORMAT_R32G32_SINT,
-            .i32x3 => vk.api.VK_FORMAT_R32G32B32_SINT,
-            .i32x4 => vk.api.VK_FORMAT_R32G32B32A32_SINT,
-            .u32x1 => vk.api.VK_FORMAT_R32_UINT,
-            .u32x2 => vk.api.VK_FORMAT_R32G32_UINT,
-            .u32x3 => vk.api.VK_FORMAT_R32G32B32_UINT,
-            .u32x4 => vk.api.VK_FORMAT_R32G32B32A32_UINT,
-        };
-    }
+pub const VertexFormat = enum(u32) {
+    f32x1 = vk.api.VK_FORMAT_R32_SFLOAT,
+    f32x2 = vk.api.VK_FORMAT_R32G32_SFLOAT,
+    f32x3 = vk.api.VK_FORMAT_R32G32B32_SFLOAT,
+    f32x4 = vk.api.VK_FORMAT_R32G32B32A32_SFLOAT,
+    i32x1 = vk.api.VK_FORMAT_R32_SINT,
+    i32x2 = vk.api.VK_FORMAT_R32G32_SINT,
+    i32x3 = vk.api.VK_FORMAT_R32G32B32_SINT,
+    i32x4 = vk.api.VK_FORMAT_R32G32B32A32_SINT,
+    u32x1 = vk.api.VK_FORMAT_R32_UINT,
+    u32x2 = vk.api.VK_FORMAT_R32G32_UINT,
+    u32x3 = vk.api.VK_FORMAT_R32G32B32_UINT,
+    u32x4 = vk.api.VK_FORMAT_R32G32B32A32_UINT,
 };
 
 pub const VertexAttribute = struct {
@@ -71,7 +42,7 @@ pub const VertexAttribute = struct {
 pub const VertexBinding = struct {
     binding: u32,
     stride: u32,
-    input_rate: InputRate = .Vertex,
+    input_rate: vk.VertexInputRate = .Vertex,
     attributes: []const VertexAttribute = &.{},
 };
 
@@ -86,26 +57,8 @@ pub const FragmentStage = struct {
     entry_point: [*c]const u8 = "main",
 };
 
-pub const Topology = enum {
-    TriangleList,
-    TriangleStrip,
-    LineList,
-    LineStrip,
-    PointList,
-
-    fn asVk(self: Topology) vk.api.VkPrimitiveTopology {
-        return switch (self) {
-            .TriangleList => vk.api.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-            .TriangleStrip => vk.api.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-            .LineList => vk.api.VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-            .LineStrip => vk.api.VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-            .PointList => vk.api.VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-        };
-    }
-};
-
 pub const InputAssembly = struct {
-    topology: Topology = .TriangleList,
+    topology: vk.PrimitiveTopology = .TriangleList,
     primitive_restart_enable: bool = false,
 
     fn toVk(self: InputAssembly) vk.api.VkPipelineInputAssemblyStateCreateInfo {
@@ -113,50 +66,8 @@ pub const InputAssembly = struct {
             .sType = vk.api.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             .pNext = null,
             .flags = 0,
-            .topology = self.topology.asVk(),
+            .topology = @intFromEnum(self.topology),
             .primitiveRestartEnable = vk.vkBool(self.primitive_restart_enable),
-        };
-    }
-};
-
-pub const PolygonMode = enum {
-    Fill,
-    Line,
-    Point,
-
-    fn toVk(self: PolygonMode) vk.api.VkPolygonMode {
-        return switch (self) {
-            .Fill => vk.api.VK_POLYGON_MODE_FILL,
-            .Line => vk.api.VK_POLYGON_MODE_LINE,
-            .Point => vk.api.VK_POLYGON_MODE_POINT,
-        };
-    }
-};
-
-pub const CullMode = enum {
-    None,
-    Front,
-    Back,
-    Always,
-
-    fn toVk(self: CullMode) vk.api.VkCullModeFlagBits {
-        return switch (self) {
-            .None => vk.api.VK_CULL_MODE_NONE,
-            .Front => vk.api.VK_CULL_MODE_FRONT_BIT,
-            .Back => vk.api.VK_CULL_MODE_BACK_BIT,
-            .Always => vk.api.VK_CULL_MODE_FRONT_AND_BACK,
-        };
-    }
-};
-
-pub const FrontFace = enum {
-    Clockwise,
-    CounterClockwise,
-
-    fn toVk(self: FrontFace) vk.api.VkFrontFace {
-        return switch (self) {
-            .Clockwise => vk.api.VK_FRONT_FACE_CLOCKWISE,
-            .CounterClockwise => vk.api.VK_FRONT_FACE_COUNTER_CLOCKWISE,
         };
     }
 };
@@ -170,9 +81,9 @@ pub const DepthBias = struct {
 pub const Rasterizer = struct {
     depth_clamp_enable: bool = false,
     rasterizer_discard_enable: bool = false,
-    polygon_mode: PolygonMode = .Fill,
-    cull_mode: CullMode = .Back,
-    front_face: FrontFace = .Clockwise,
+    polygon_mode: vk.PolygonMode = .Fill,
+    cull_mode: vk.CullModes = .{ .back = true },
+    front_face: vk.FrontFace = .Clockwise,
     depth_bias: ?DepthBias = null,
     line_width: f32 = 1.0,
 
@@ -183,9 +94,9 @@ pub const Rasterizer = struct {
             .flags = 0,
             .depthClampEnable = vk.vkBool(self.depth_clamp_enable),
             .rasterizerDiscardEnable = vk.vkBool(self.rasterizer_discard_enable),
-            .polygonMode = self.polygon_mode.toVk(),
-            .cullMode = self.cull_mode.toVk(),
-            .frontFace = self.front_face.toVk(),
+            .polygonMode = @intFromEnum(self.polygon_mode),
+            .cullMode = @bitCast(self.cull_mode),
+            .frontFace = @intFromEnum(self.front_face),
             .depthBiasEnable = vk.api.VK_FALSE,
             .depthBiasConstantFactor = 0.0,
             .depthBiasClamp = 0.0,
@@ -226,69 +137,21 @@ pub const Multisample = struct {
     }
 };
 
-pub const CompareOp = enum {
-    Never,
-    Less,
-    Equal,
-    LessOrEqual,
-    Greater,
-    NotEqual,
-    GreaterOrEqual,
-    Always,
-
-    fn toVk(self: CompareOp) vk.api.VkCompareOp {
-        return switch (self) {
-            .Never => vk.api.VK_COMPARE_OP_NEVER,
-            .Less => vk.api.VK_COMPARE_OP_LESS,
-            .Equal => vk.api.VK_COMPARE_OP_EQUAL,
-            .LessOrEqual => vk.api.VK_COMPARE_OP_LESS_OR_EQUAL,
-            .Greater => vk.api.VK_COMPARE_OP_GREATER,
-            .NotEqual => vk.api.VK_COMPARE_OP_NOT_EQUAL,
-            .GreaterOrEqual => vk.api.VK_COMPARE_OP_GREATER_OR_EQUAL,
-            .Always => vk.api.VK_COMPARE_OP_ALWAYS,
-        };
-    }
-};
-
-pub const StencilOp = enum {
-    Keep,
-    Zero,
-    Replace,
-    IncrementAndClamp,
-    DecrementAndClamp,
-    Invert,
-    IncrementAndWrap,
-    DecrementAndWrap,
-
-    fn toVk(self: StencilOp) vk.api.VkStencilOp {
-        return switch (self) {
-            .Keep => vk.api.VK_STENCIL_OP_KEEP,
-            .Zero => vk.api.VK_STENCIL_OP_ZERO,
-            .Replace => vk.api.VK_STENCIL_OP_REPLACE,
-            .IncrementAndClamp => vk.api.VK_STENCIL_OP_INCREMENT_AND_CLAMP,
-            .DecrementAndClamp => vk.api.VK_STENCIL_OP_DECREMENT_AND_CLAMP,
-            .Invert => vk.api.VK_STENCIL_OP_INVERT,
-            .IncrementAndWrap => vk.api.VK_STENCIL_OP_INCREMENT_AND_WRAP,
-            .DecrementAndWrap => vk.api.VK_STENCIL_OP_DECREMENT_AND_WRAP,
-        };
-    }
-};
-
 pub const StencilOpState = struct {
-    fail_op: StencilOp = .Keep,
-    pass_op: StencilOp = .Keep,
-    depth_fail_op: StencilOp = .Keep,
-    compare_op: CompareOp = .Never,
+    fail_op: vk.StencilOp = .Keep,
+    pass_op: vk.StencilOp = .Keep,
+    depth_fail_op: vk.StencilOp = .Keep,
+    compare_op: vk.CompareOp = .Never,
     compare_mask: u32 = 0,
     write_mask: u32 = 0,
     reference: u32 = 0,
 
     fn toVk(self: StencilOpState) vk.api.VkStencilOpState {
         return vk.api.VkStencilOpState{
-            .failOp = self.fail_op.toVk(),
-            .passOp = self.pass_op.toVk(),
-            .depthFailOp = self.depth_fail_op.toVk(),
-            .compareOp = self.compare_op.toVk(),
+            .failOp = @intFromEnum(self.fail_op),
+            .passOp = @intFromEnum(self.pass_op),
+            .depthFailOp = @intFromEnum(self.depth_fail_op),
+            .compareOp = @intFromEnum(self.compare_op),
             .compareMask = self.compare_mask,
             .writeMask = self.write_mask,
             .reference = self.reference,
@@ -299,7 +162,7 @@ pub const StencilOpState = struct {
 pub const DepthStencil = struct {
     depth_test_enable: bool = false,
     depth_write_enable: bool = false,
-    depth_compare_op: CompareOp = .Less,
+    depth_compare_op: vk.CompareOp = .Less,
     depth_bounds_test_enable: bool = false,
     stencil_test_enable: bool = false,
     front: StencilOpState = .{},
@@ -314,7 +177,7 @@ pub const DepthStencil = struct {
             .flags = 0,
             .depthTestEnable = vk.vkBool(self.depth_test_enable),
             .depthWriteEnable = vk.vkBool(self.depth_write_enable),
-            .depthCompareOp = self.depth_compare_op.toVk(),
+            .depthCompareOp = @intFromEnum(self.depth_compare_op),
             .depthBoundsTestEnable = vk.vkBool(self.depth_bounds_test_enable),
             .stencilTestEnable = vk.vkBool(self.stencil_test_enable),
             .front = self.front.toVk(),
@@ -325,155 +188,32 @@ pub const DepthStencil = struct {
     }
 };
 
-pub const BlendFactor = enum {
-    Zero,
-    One,
-    SrcColor,
-    OneMinusSrcColor,
-    DstColor,
-    OneMinusDstColor,
-    SrcAlpha,
-    OneMinusSrcAlpha,
-    DstAlpha,
-    OneMinusDstAlpha,
-    ConstantColor,
-    OneMinusConstantColor,
-    ConstantAlpha,
-    OneMinusConstantAlpha,
-    SrcAlphaSaturate,
-    Src1Color,
-    OneMinusSrc1Color,
-    Src1Alpha,
-    OneMinusSrc1Alpha,
-
-    fn toVk(self: BlendFactor) vk.api.VkBlendFactor {
-        return switch (self) {
-            .Zero => vk.api.VK_BLEND_FACTOR_ZERO,
-            .One => vk.api.VK_BLEND_FACTOR_ONE,
-            .SrcColor => vk.api.VK_BLEND_FACTOR_SRC_COLOR,
-            .OneMinusSrcColor => vk.api.VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-            .DstColor => vk.api.VK_BLEND_FACTOR_DST_COLOR,
-            .OneMinusDstColor => vk.api.VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
-            .SrcAlpha => vk.api.VK_BLEND_FACTOR_SRC_ALPHA,
-            .OneMinusSrcAlpha => vk.api.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-            .DstAlpha => vk.api.VK_BLEND_FACTOR_DST_ALPHA,
-            .OneMinusDstAlpha => vk.api.VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
-            .ConstantColor => vk.api.VK_BLEND_FACTOR_CONSTANT_COLOR,
-            .OneMinusConstantColor => vk.api.VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
-            .ConstantAlpha => vk.api.VK_BLEND_FACTOR_CONSTANT_ALPHA,
-            .OneMinusConstantAlpha => vk.api.VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
-            .SrcAlphaSaturate => vk.api.VK_BLEND_FACTOR_SRC_ALPHA_SATURATE,
-            .Src1Color => vk.api.VK_BLEND_FACTOR_SRC1_COLOR,
-            .OneMinusSrc1Color => vk.api.VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR,
-            .Src1Alpha => vk.api.VK_BLEND_FACTOR_SRC1_ALPHA,
-            .OneMinusSrc1Alpha => vk.api.VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA,
-        };
-    }
-};
-
-pub const BlendOp = enum {
-    Add,
-    Subtract,
-    ReverseSubtract,
-    Min,
-    Max,
-
-    fn toVk(self: BlendOp) vk.api.VkBlendOp {
-        return switch (self) {
-            .Add => vk.api.VK_BLEND_OP_ADD,
-            .Subtract => vk.api.VK_BLEND_OP_SUBTRACT,
-            .ReverseSubtract => vk.api.VK_BLEND_OP_REVERSE_SUBTRACT,
-            .Min => vk.api.VK_BLEND_OP_MIN,
-            .Max => vk.api.VK_BLEND_OP_MAX,
-        };
-    }
-};
-
-pub const ColorComponent = packed struct {
-    r: bool = false,
-    g: bool = false,
-    b: bool = false,
-    a: bool = false,
-
-    _unused: i28 = 0,
-
-    pub const ALL: ColorComponent = .{ .r = true, .g = true, .b = true, .a = true };
-
-    comptime {
-        std.debug.assert(@sizeOf(ColorComponent) == @sizeOf(vk.api.VkColorComponentFlags));
-    }
-
-    fn toVk(self: ColorComponent) vk.api.VkColorComponentFlags {
-        return @bitCast(self);
-    }
-};
-
 pub const ColorBlendAttachment = struct {
     blend_enable: bool = false,
-    src_color_blend_factor: BlendFactor = .One,
-    dst_color_blend_factor: BlendFactor = .Zero,
-    color_blend_op: BlendOp = .Add,
-    src_alpha_blend_factor: BlendFactor = .One,
-    dst_alpha_blend_factor: BlendFactor = .Zero,
-    alpha_blend_op: BlendOp = .Add,
-    color_write_mask: ColorComponent = ColorComponent.ALL,
+    src_color_blend_factor: vk.BlendFactor = .One,
+    dst_color_blend_factor: vk.BlendFactor = .Zero,
+    color_blend_op: vk.BlendOp = .Add,
+    src_alpha_blend_factor: vk.BlendFactor = .One,
+    dst_alpha_blend_factor: vk.BlendFactor = .Zero,
+    alpha_blend_op: vk.BlendOp = .Add,
+    color_write_mask: vk.ColorComponents = .{ .r = true, .g = true, .b = true, .a = true },
 
     fn toVk(self: ColorBlendAttachment) vk.api.VkPipelineColorBlendAttachmentState {
         return vk.api.VkPipelineColorBlendAttachmentState{
             .blendEnable = vk.vkBool(self.blend_enable),
-            .srcColorBlendFactor = self.src_color_blend_factor.toVk(),
-            .dstColorBlendFactor = self.dst_color_blend_factor.toVk(),
-            .colorBlendOp = self.color_blend_op.toVk(),
-            .srcAlphaBlendFactor = self.src_alpha_blend_factor.toVk(),
-            .dstAlphaBlendFactor = self.dst_alpha_blend_factor.toVk(),
-            .alphaBlendOp = self.alpha_blend_op.toVk(),
-            .colorWriteMask = self.color_write_mask.toVk(),
-        };
-    }
-};
-
-pub const LogicOp = enum {
-    Clear,
-    And,
-    AndReverse,
-    Copy,
-    AndInverted,
-    NoOp,
-    Xor,
-    Or,
-    Nor,
-    Equivalent,
-    Invert,
-    OrReverse,
-    CopyInverted,
-    OrInverted,
-    Nand,
-    Set,
-
-    fn toVk(self: LogicOp) vk.api.VkLogicOp {
-        return switch (self) {
-            .Clear => vk.api.VK_LOGIC_OP_CLEAR,
-            .And => vk.api.VK_LOGIC_OP_AND,
-            .AndReverse => vk.api.VK_LOGIC_OP_AND_REVERSE,
-            .Copy => vk.api.VK_LOGIC_OP_COPY,
-            .AndInverted => vk.api.VK_LOGIC_OP_AND_INVERTED,
-            .NoOp => vk.api.VK_LOGIC_OP_NO_OP,
-            .Xor => vk.api.VK_LOGIC_OP_XOR,
-            .Or => vk.api.VK_LOGIC_OP_OR,
-            .Nor => vk.api.VK_LOGIC_OP_NOR,
-            .Equivalent => vk.api.VK_LOGIC_OP_EQUIVALENT,
-            .Invert => vk.api.VK_LOGIC_OP_INVERT,
-            .OrReverse => vk.api.VK_LOGIC_OP_OR_REVERSE,
-            .CopyInverted => vk.api.VK_LOGIC_OP_COPY_INVERTED,
-            .OrInverted => vk.api.VK_LOGIC_OP_OR_INVERTED,
-            .Nand => vk.api.VK_LOGIC_OP_NAND,
-            .Set => vk.api.VK_LOGIC_OP_SET,
+            .srcColorBlendFactor = @intFromEnum(self.src_color_blend_factor),
+            .dstColorBlendFactor = @intFromEnum(self.dst_color_blend_factor),
+            .colorBlendOp = @intFromEnum(self.color_blend_op),
+            .srcAlphaBlendFactor = @intFromEnum(self.src_alpha_blend_factor),
+            .dstAlphaBlendFactor = @intFromEnum(self.dst_alpha_blend_factor),
+            .alphaBlendOp = @intFromEnum(self.alpha_blend_op),
+            .colorWriteMask = @bitCast(self.color_write_mask),
         };
     }
 };
 
 pub const ColorBlend = struct {
-    logic_op: ?LogicOp = null,
+    logic_op: ?vk.LogicOp = null,
     attachments: []const ColorBlendAttachment = &.{},
     blend_constants: [4]f32 = .{ 0.0, 0.0, 0.0, 0.0 },
 
@@ -506,7 +246,7 @@ pub const ColorBlend = struct {
 
         if (self.logic_op) |op| {
             info.logicOpEnable = vk.api.VK_TRUE;
-            info.logicOp = op.toVk();
+            info.logicOp = @intFromEnum(op);
         }
 
         return info;
@@ -600,14 +340,14 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
         vertex_input_bindings[i] = .{
             .binding = binding.binding,
             .stride = binding.stride,
-            .inputRate = binding.input_rate.asVk(),
+            .inputRate = @intFromEnum(binding.input_rate),
         };
 
         for (binding.attributes) |attribute| {
             vertex_input_attributes[attribute_index] = .{
                 .location = attribute.location,
                 .binding = binding.binding,
-                .format = attribute.format.asVk(),
+                .format = @intFromEnum(attribute.format),
                 .offset = attribute.offset,
             };
 

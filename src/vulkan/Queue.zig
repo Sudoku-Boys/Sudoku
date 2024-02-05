@@ -37,7 +37,7 @@ pub fn submit(self: Queue, desc: SubmitDescriptor) !void {
 
     for (desc.wait_semaphores, 0..) |semaphore, i| {
         wait_semaphores.ptr[i] = semaphore.semaphore.vk;
-        wait_stages.ptr[i] = semaphore.stage.asBits();
+        wait_stages.ptr[i] = @bitCast(semaphore.stage);
     }
 
     for (desc.command_buffers, 0..) |command_buffer, i| {

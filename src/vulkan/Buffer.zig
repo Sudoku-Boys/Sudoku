@@ -7,55 +7,16 @@ pub const Error = error{
     BufferMemoryTypeNotFound,
 };
 
-pub const Usage = packed struct {
-    transfer_src: bool = false,
-    transfer_dst: bool = false,
-    uniform_texel_buffer: bool = false,
-    storage_texel_buffer: bool = false,
-    uniform_buffer: bool = false,
-    storage_buffer: bool = false,
-    index_buffer: bool = false,
-    vertex_buffer: bool = false,
-    indirect_buffer: bool = false,
-
-    _unused: u23 = 0,
-
-    comptime {
-        std.debug.assert(@sizeOf(Usage) == @sizeOf(u32));
-    }
-
-    pub fn asBits(self: Usage) u32 {
-        return @bitCast(self);
-    }
-};
-
 pub const Descriptor = struct {
     size: usize,
-    usage: Usage,
+    usage: vk.BufferUsages,
     memory: vk.MemoryProperties = .{},
 };
-
-fn findMemoryType(
-    mem_props: vk.api.VkPhysicalDeviceMemoryProperties,
-    type_filter: u32,
-    flags: vk.api.VkMemoryPropertyFlags,
-) ?u32 {
-    for (0..mem_props.memoryTypeCount) |i| {
-        const props = mem_props.memoryTypes[i].propertyFlags;
-        const mask = @as(u32, 1) << @intCast(i);
-
-        if (type_filter & (mask) != 0 and (props & flags) == flags) {
-            return @intCast(i);
-        }
-    }
-
-    return null;
-}
 
 vk: vk.api.VkBuffer,
 memory: vk.api.VkDeviceMemory,
 device: vk.api.VkDevice,
-usage: Usage,
+usage: vk.BufferUsages,
 size: usize,
 
 memory_properties: vk.MemoryProperties,
@@ -67,7 +28,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Buffer {
         .pNext = null,
         .flags = 0,
         .size = @intCast(desc.size),
-        .usage = desc.usage.asBits(),
+        .usage = @bitCast(desc.usage),
         .sharingMode = vk.api.VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = null,
@@ -80,19 +41,15 @@ pub fn init(device: vk.Device, desc: Descriptor) !Buffer {
     var mem_reqs: vk.api.VkMemoryRequirements = undefined;
     vk.api.vkGetBufferMemoryRequirements(device.vk, buffer, &mem_reqs);
 
-    var mem_props: vk.api.VkPhysicalDeviceMemoryProperties = undefined;
-    vk.api.vkGetPhysicalDeviceMemoryProperties(device.physical, &mem_props);
-
-    const type_index = findMemoryType(
-        mem_props,
+    const type_index = device.queryMemoryType(
         mem_reqs.memoryTypeBits,
-        desc.memory.asBits(),
+        desc.memory,
     ) orelse return error.BufferMemoryTypeNotFound;
 
     const alloc_info = vk.api.VkMemoryAllocateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = null,
-        .allocationSize = buffer_info.size,
+        .allocationSize = mem_reqs.size,
         .memoryTypeIndex = type_index,
     };
 

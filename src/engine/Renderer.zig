@@ -83,6 +83,10 @@ bind_group: vk.BindGroup,
 staging_buffer: vk.StagingBuffer,
 uniform_buffer: vk.Buffer,
 
+image: vk.Image,
+view: vk.ImageView,
+sampler: vk.Sampler,
+
 vertex_buffer: vk.Buffer,
 index_buffer: vk.Buffer,
 
@@ -116,6 +120,10 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
                 .type = .UniformBuffer,
                 .count = 1,
             },
+            .{
+                .type = .CombinedImageSampler,
+                .count = 1,
+            },
         },
         .max_groups = 1,
     });
@@ -127,6 +135,11 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
                 .binding = 0,
                 .type = .UniformBuffer,
                 .stages = .{ .vertex = true },
+            },
+            .{
+                .binding = 1,
+                .type = .CombinedImageSampler,
+                .stages = .{ .fragment = true },
             },
         },
     });
@@ -140,16 +153,6 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
         .memory = .{ .device_local = true },
     });
     errdefer uniform_buffer.deinit();
-
-    try device.updateBindGroups(.{
-        .writes = &.{
-            .{
-                .dst = bind_group,
-                .binding = 0,
-                .resource = .{ .buffer = uniform_buffer },
-            },
-        },
-    });
 
     const vertices: []const [3]f32 = &.{
         .{ 1.0, 0.0, 0.0 },
@@ -177,10 +180,88 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
     errdefer staging_buffer.deinit();
 
     try staging_buffer.write(vertices);
-    try staging_buffer.copy(.{ .dst = vertex_buffer, .size = 512 });
+    try staging_buffer.copyBuffer(.{ .dst = vertex_buffer, .size = 512 });
 
     try staging_buffer.write(indices);
-    try staging_buffer.copy(.{ .dst = index_buffer, .size = 512 });
+    try staging_buffer.copyBuffer(.{ .dst = index_buffer, .size = 512 });
+
+    const image = try vk.Image.init(device, .{
+        .format = .R8G8B8A8Unorm,
+        .extent = .{ .width = 2, .height = 2, .depth = 1 },
+        .usage = .{ .transfer_dst = true, .sampled = true },
+    });
+    errdefer image.deinit();
+
+    const view = try image.createView(.{
+        .type = .Image2D,
+        .format = .R8G8B8A8Unorm,
+        .aspect = .{ .color = true },
+    });
+    errdefer view.deinit();
+
+    const sampler = try vk.Sampler.init(device, .{});
+    errdefer sampler.deinit();
+
+    try staging_buffer.write(&[_]u8{ 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255 });
+    try staging_buffer.copyImage(.{
+        .dst = image,
+        .aspect = .{ .color = true },
+        .old_layout = .Undefined,
+        .extent = .{ .width = 2, .height = 2, .depth = 1 },
+    });
+
+    try device.updateBindGroups(.{
+        .writes = &.{
+            .{
+                .dst = bind_group,
+                .binding = 0,
+                .resource = .{
+                    .buffer = .{
+                        .buffer = uniform_buffer,
+                        .size = uniform_buffer.size,
+                    },
+                },
+            },
+            .{
+                .dst = bind_group,
+                .binding = 1,
+                .resource = .{
+                    .combined_image = .{
+                        .sampler = sampler,
+                        .view = view,
+                        .layout = .ShaderReadOnlyOptimal,
+                    },
+                },
+            },
+        },
+    });
+
+    try graphics_buffer.begin(.{ .one_time_submit = true });
+
+    try graphics_buffer.pipelineBarrier(.{
+        .src_stage = .{ .top_of_pipe = true },
+        .dst_stage = .{ .transfer = true },
+        .image_barriers = &.{
+            .{
+                .src_access = .{},
+                .dst_access = .{ .transfer_write = true },
+                .old_layout = .TransferDstOptimal,
+                .new_layout = .ShaderReadOnlyOptimal,
+                .image = image,
+                .aspect = .{ .color = true },
+            },
+        },
+    });
+
+    try graphics_buffer.end();
+
+    try device.graphics.submit(.{
+        .command_buffers = &.{
+            graphics_buffer,
+        },
+    });
+
+    try device.graphics.waitIdle();
 
     const format = try device.queryWindowFormat(window);
     const render_pass = try createRenderPass(device, format);
@@ -207,6 +288,7 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
         .device = device,
         .render_pass = render_pass,
         .swapchain = swapchain,
+
         .pbr_pipeline = pbr_pipeline,
 
         .graphics_pool = graphics_pool,
@@ -218,6 +300,10 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
 
         .staging_buffer = staging_buffer,
         .uniform_buffer = uniform_buffer,
+
+        .image = image,
+        .view = view,
+        .sampler = sampler,
 
         .vertex_buffer = vertex_buffer,
         .index_buffer = index_buffer,
@@ -236,10 +322,24 @@ pub fn deinit(self: Renderer) void {
     self.in_flight_fence.deinit();
     self.render_finished_semaphore.deinit();
     self.image_available_semaphore.deinit();
-    self.graphics_pool.deinit();
-    self.pbr_pipeline.deinit();
+
     self.vertex_buffer.deinit();
     self.index_buffer.deinit();
+
+    self.sampler.deinit();
+    self.view.deinit();
+    self.image.deinit();
+
+    self.uniform_buffer.deinit();
+    self.staging_buffer.deinit();
+
+    self.bind_group_layout.deinit();
+    self.bind_pool.deinit();
+
+    self.graphics_pool.deinit();
+
+    self.pbr_pipeline.deinit();
+
     self.swapchain.deinit();
     self.render_pass.deinit();
     self.device.deinit();
@@ -296,7 +396,7 @@ pub fn tryDrawFrame(self: *Renderer) !void {
 
     self.time += 0.01;
     try self.staging_buffer.write(&@as(f32, self.time));
-    try self.staging_buffer.copy(.{ .dst = self.uniform_buffer, .size = 4 });
+    try self.staging_buffer.copyBuffer(.{ .dst = self.uniform_buffer, .size = 4 });
 
     try self.recordCommandBuffer(image);
 

@@ -32,9 +32,10 @@ fn createImageViews(
 ) !void {
     for (images, 0..) |image, i| {
         // we just create all the views, this is a simple operation
-        views[i] = try vk.ImageView.fromVk(device, image, .{
-            .view_type = .Image2D,
-            .format = format,
+        views[i] = try vk.ImageView.fromVkImage(device, image, .{
+            .type = .Image2D,
+            .format = @enumFromInt(format),
+            .aspect = .{ .color = true },
         });
     }
 }

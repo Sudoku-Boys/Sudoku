@@ -3,51 +3,25 @@ const vk = @import("vk.zig");
 
 const RenderPass = @This();
 
-pub const LoadOp = enum {
-    Load,
-    Clear,
-    DontCare,
-
-    fn toVk(self: LoadOp) vk.api.VkAttachmentLoadOp {
-        return switch (self) {
-            .Load => vk.api.VK_ATTACHMENT_LOAD_OP_LOAD,
-            .Clear => vk.api.VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .DontCare => vk.api.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        };
-    }
-};
-
-pub const StoreOp = enum {
-    Store,
-    DontCare,
-
-    fn toVk(self: StoreOp) vk.api.VkAttachmentStoreOp {
-        return switch (self) {
-            .Store => vk.api.VK_ATTACHMENT_STORE_OP_STORE,
-            .DontCare => vk.api.VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        };
-    }
-};
-
 pub const Attachment = struct {
     format: vk.api.VkFormat = vk.api.VK_FORMAT_UNDEFINED,
     samples: u32 = 1,
-    load_op: LoadOp = .DontCare,
-    store_op: StoreOp = .DontCare,
-    stencil_load_op: LoadOp = .DontCare,
-    stencil_store_op: StoreOp = .DontCare,
-    initial_layout: vk.Image.Layout = .Undefined,
-    final_layout: vk.Image.Layout = .Undefined,
+    load_op: vk.LoadOp = .DontCare,
+    store_op: vk.StoreOp = .DontCare,
+    stencil_load_op: vk.LoadOp = .DontCare,
+    stencil_store_op: vk.StoreOp = .DontCare,
+    initial_layout: vk.ImageLayout = .Undefined,
+    final_layout: vk.ImageLayout = .Undefined,
 };
 
 pub const AttachmentReference = struct {
     attachment: u32 = 0,
-    layout: vk.Image.Layout = .Undefined,
+    layout: vk.ImageLayout = .Undefined,
 
     fn toVk(self: AttachmentReference) vk.api.VkAttachmentReference {
         return vk.api.VkAttachmentReference{
             .attachment = self.attachment,
-            .layout = self.layout.toVk(),
+            .layout = @intFromEnum(self.layout),
         };
     }
 };
@@ -93,12 +67,12 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
             .flags = 0,
             .format = attachment.format,
             .samples = attachment.samples,
-            .loadOp = attachment.load_op.toVk(),
-            .storeOp = attachment.store_op.toVk(),
-            .stencilLoadOp = attachment.stencil_load_op.toVk(),
-            .stencilStoreOp = attachment.stencil_store_op.toVk(),
-            .initialLayout = attachment.initial_layout.toVk(),
-            .finalLayout = attachment.final_layout.toVk(),
+            .loadOp = @intFromEnum(attachment.load_op),
+            .storeOp = @intFromEnum(attachment.store_op),
+            .stencilLoadOp = @intFromEnum(attachment.stencil_load_op),
+            .stencilStoreOp = @intFromEnum(attachment.stencil_store_op),
+            .initialLayout = @intFromEnum(attachment.initial_layout),
+            .finalLayout = @intFromEnum(attachment.final_layout),
         };
     }
 
@@ -160,10 +134,10 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
         vk_dependencies[i] = vk.api.VkSubpassDependency{
             .srcSubpass = dependency.src_subpass,
             .dstSubpass = dependency.dst_subpass,
-            .srcStageMask = dependency.src_stage_mask.asBits(),
-            .dstStageMask = dependency.dst_stage_mask.asBits(),
-            .srcAccessMask = dependency.src_access_mask.asBits(),
-            .dstAccessMask = dependency.dst_access_mask.asBits(),
+            .srcStageMask = @bitCast(dependency.src_stage_mask),
+            .dstStageMask = @bitCast(dependency.dst_stage_mask),
+            .srcAccessMask = @bitCast(dependency.src_access_mask),
+            .dstAccessMask = @bitCast(dependency.dst_access_mask),
             .dependencyFlags = 0,
         };
     }
