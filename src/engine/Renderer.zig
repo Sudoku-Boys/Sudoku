@@ -431,11 +431,9 @@ pub fn tryDrawFrame(self: *Renderer) !void {
 pub fn drawFrame(self: *Renderer) !void {
     self.tryDrawFrame() catch |err| switch (err) {
         error.VK_SUBOPTIMAL_KHR => {
-            std.debug.print("VK_SUBOPTIMAL_KHR\n", .{});
             return try self.swapchain.recreate();
         },
         error.VK_ERROR_OUT_OF_DATE_KHR => {
-            std.debug.print("VK_ERROR_OUT_OF_DATE_KHR\n", .{});
             return try self.swapchain.recreate();
         },
         else => return err,

@@ -229,8 +229,6 @@ pub fn deinit(self: Swapchain) void {
 pub fn recreate(self: *Swapchain) !void {
     try self.device.waitIdle();
 
-    std.debug.print("device not idle, starting recreate\n", .{});
-
     // re-query swapchain support support for the surface
     const support = try vk.Device.SwapchainSupport.query(self.device.allocator, self.device.physical, self.surface);
     defer support.deinit();
@@ -289,8 +287,6 @@ pub fn recreate(self: *Swapchain) !void {
     self.framebuffers = framebuffers;
 
     self.extent = desc.extent;
-
-    std.debug.print("finished recreating swapchain\n", .{});
 }
 
 pub fn aquireNextImage(
