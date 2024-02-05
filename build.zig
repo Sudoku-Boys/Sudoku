@@ -60,7 +60,7 @@ fn compileShader(
 
     if (b.host.target.os.tag == .windows) {
         tool_step.addPathDir("lib/win");
-    } else {}
+    }
 
     return tool_step.captureStdOut();
 }
@@ -103,12 +103,8 @@ fn generateVulkanEnums(b: *std.Build) !std.Build.LazyPath {
         tool.addIncludePath(.{ .path = "include/win" });
         tool.addLibraryPath(.{ .path = "lib/win" });
         tool.linkSystemLibrary("vulkan-1");
-    } else if (b.host.target.os.tag == .linux) {
-        tool.addIncludePath(.{ .path = "include/linux" });
-        tool.addLibraryPath(.{ .path = "lib/linux" });
-        tool.linkSystemLibrary("vulkan");
     } else {
-        std.debug.panic("Unsupported OS\n", .{});
+        tool.linkSystemLibrary("vulkan");
     }
 
     tool.linkLibC();
@@ -127,12 +123,8 @@ fn generateVulkanFlags(b: *std.Build) !std.Build.LazyPath {
         tool.addIncludePath(.{ .path = "include/win" });
         tool.addLibraryPath(.{ .path = "lib/win" });
         tool.linkSystemLibrary("vulkan-1");
-    } else if (b.host.target.os.tag == .linux) {
-        tool.addIncludePath(.{ .path = "include/linux" });
-        tool.addLibraryPath(.{ .path = "lib/linux" });
-        tool.linkSystemLibrary("vulkan");
     } else {
-        std.debug.panic("Unsupported OS\n", .{});
+        tool.linkSystemLibrary("vulkan");
     }
 
     tool.linkLibC();
@@ -183,10 +175,6 @@ pub fn build(b: *std.Build) !void {
 
     if (b.host.target.os.tag == .windows) {
         run_cmd.addPathDir("lib/win");
-    } else if (b.host.target.os.tag == .linux) {
-        run_cmd.addPathDir("lib/linux");
-    } else {
-        std.debug.panic("Unsupported OS\n", .{});
     }
 
     if (b.args) |args| {
