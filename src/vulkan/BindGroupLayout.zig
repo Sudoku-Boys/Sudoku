@@ -3,39 +3,9 @@ const vk = @import("vk.zig");
 
 const BindGroupLayout = @This();
 
-pub const BindingType = enum {
-    Sampler,
-    CombinedImageSampler,
-    SampledImage,
-    StorageImage,
-    UniformTexelBuffer,
-    StorageTexelBuffer,
-    UniformBuffer,
-    StorageBuffer,
-    UniformBufferDynamic,
-    StorageBufferDynamic,
-    InputAttachment,
-
-    pub fn asVk(self: BindingType) vk.api.VkDescriptorType {
-        return switch (self) {
-            .Sampler => vk.api.VK_DESCRIPTOR_TYPE_SAMPLER,
-            .CombinedImageSampler => vk.api.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .SampledImage => vk.api.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-            .StorageImage => vk.api.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .UniformTexelBuffer => vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-            .StorageTexelBuffer => vk.api.VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
-            .UniformBuffer => vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .StorageBuffer => vk.api.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .UniformBufferDynamic => vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-            .StorageBufferDynamic => vk.api.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-            .InputAttachment => vk.api.VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-        };
-    }
-};
-
 pub const Binding = struct {
     binding: u32,
-    type: BindingType,
+    type: vk.BindingType,
     stages: vk.ShaderStages = .{},
     count: u32 = 1,
 };
@@ -53,9 +23,9 @@ pub fn init(device: vk.Device, desc: Descriptor) !BindGroupLayout {
     for (desc.bindings, 0..) |binding, i| {
         bindings[i] = vk.api.VkDescriptorSetLayoutBinding{
             .binding = binding.binding,
-            .descriptorType = binding.type.asVk(),
+            .descriptorType = @intFromEnum(binding.type),
             .descriptorCount = binding.count,
-            .stageFlags = binding.stages.asBits(),
+            .stageFlags = @bitCast(binding.stages),
             .pImmutableSamplers = null,
         };
     }

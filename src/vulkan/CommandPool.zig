@@ -11,6 +11,7 @@ pub const Kind = enum {
 vk: vk.api.VkCommandPool,
 device: vk.api.VkDevice,
 kind: Kind,
+allocator: std.mem.Allocator,
 
 pub fn init(device: vk.Device, kind: Kind) !CommandPool {
     const queue = switch (kind) {
@@ -32,6 +33,7 @@ pub fn init(device: vk.Device, kind: Kind) !CommandPool {
         .vk = pool,
         .device = device.vk,
         .kind = kind,
+        .allocator = device.allocator,
     };
 }
 

@@ -372,6 +372,28 @@ pub fn queryWindowFormat(self: Device, window: Window) !vk.api.VkFormat {
     return vk.Swapchain.pickSurfaceFormat(support.formats).format;
 }
 
+pub fn queryMemoryType(
+    self: Device,
+    type_bits: u32,
+    properties: vk.MemoryProperties,
+) ?u32 {
+    var mem_props: vk.api.VkPhysicalDeviceMemoryProperties = undefined;
+    vk.api.vkGetPhysicalDeviceMemoryProperties(self.physical, &mem_props);
+
+    const flags: u32 = @bitCast(properties);
+
+    for (0..mem_props.memoryTypeCount) |i| {
+        const props = mem_props.memoryTypes[i].propertyFlags;
+        const mask = @as(u32, 1) << @intCast(i);
+
+        if (type_bits & (mask) != 0 and (props & flags) == flags) {
+            return @intCast(i);
+        }
+    }
+
+    return null;
+}
+
 pub fn createBuffer(self: Device, desc: vk.Buffer.Descriptor) !vk.Buffer {
     return vk.Buffer.init(self, desc);
 }
@@ -384,14 +406,39 @@ pub fn createSemaphore(self: Device) !vk.Semaphore {
     return vk.Semaphore.init(self);
 }
 
-pub const BindingResource = union(enum) {
+pub const BufferResource = struct {
     buffer: vk.Buffer,
-    image: vk.Image,
+    offset: u64 = 0,
+    size: u64,
+};
+
+pub const ImageResource = struct {
+    view: vk.ImageView,
+    layout: vk.ImageLayout,
+};
+
+pub const SamplerResource = struct {
+    sampler: vk.Sampler,
+};
+
+pub const CombinedImageResource = struct {
+    sampler: vk.Sampler,
+    view: vk.ImageView,
+    layout: vk.ImageLayout,
+};
+
+pub const BindingResource = union(enum) {
+    buffer: BufferResource,
+    image: ImageResource,
+    sampler: SamplerResource,
+    combined_image: CombinedImageResource,
 
     fn asVk(self: BindingResource) vk.api.VkDescriptorType {
         switch (self) {
             .buffer => return vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .image => return vk.api.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .image => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .sampler => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLER,
+            .combined_image => return vk.api.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         }
     }
 };
@@ -426,14 +473,34 @@ pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) !void {
         };
 
         switch (write.resource) {
-            .buffer => {
+            .buffer => |resource| {
                 writes[i].pBufferInfo = &vk.api.VkDescriptorBufferInfo{
-                    .buffer = write.resource.buffer.vk,
-                    .offset = 0,
-                    .range = write.resource.buffer.size,
+                    .buffer = resource.buffer.vk,
+                    .offset = resource.offset,
+                    .range = resource.size,
                 };
             },
-            .image => {},
+            .image => |resource| {
+                writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
+                    .sampler = null,
+                    .imageView = resource.view.vk,
+                    .imageLayout = @intFromEnum(resource.layout),
+                };
+            },
+            .sampler => |resource| {
+                writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
+                    .sampler = resource.sampler.vk,
+                    .imageView = null,
+                    .imageLayout = vk.api.VK_IMAGE_LAYOUT_UNDEFINED,
+                };
+            },
+            .combined_image => |resource| {
+                writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
+                    .sampler = resource.sampler.vk,
+                    .imageView = resource.view.vk,
+                    .imageLayout = @intFromEnum(resource.layout),
+                };
+            },
         }
     }
 

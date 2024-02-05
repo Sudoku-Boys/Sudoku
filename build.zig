@@ -6,9 +6,9 @@ fn compileShader(b: *std.Build, steps: []const *std.Build.Step.Compile, path: []
     if (b.host.target.os.tag == .windows) {
         glsl_run = b.addSystemCommand(&.{"bin/win/glslc"});
     } else if (b.host.target.os.tag == .linux) {
-        glsl_run = b.addSystemCommand(&.{"bin/linux/glslc"});
+        glsl_run = b.addSystemCommand(&.{"glslc"});
     }
-    
+
     glsl_run.addFileArg(.{ .path = path });
     glsl_run.addArgs(&.{ "-o", "-" });
 
@@ -46,9 +46,41 @@ fn compileShaders(b: *std.Build, steps: []const *std.Build.Step.Compile) !void {
     }
 }
 
+fn generateVulkanEnums(b: *std.Build) !std.Build.LazyPath {
+    const tool = b.addExecutable(.{
+        .name = "generate_vulkan_enums",
+        .root_source_file = .{ .path = "build/vulkan/generate_enums.zig" },
+    });
+
+    tool.linkSystemLibrary("vulkan");
+    tool.linkLibC();
+
+    const tool_step = b.addRunArtifact(tool);
+    return tool_step.captureStdOut();
+}
+
+fn generateVulkanFlags(b: *std.Build) !std.Build.LazyPath {
+    const tool = b.addExecutable(.{
+        .name = "generate_vulkan_flags",
+        .root_source_file = .{ .path = "build/vulkan/generate_flags.zig" },
+    });
+
+    tool.linkSystemLibrary("vulkan");
+    tool.linkLibC();
+
+    const tool_step = b.addRunArtifact(tool);
+    return tool_step.captureStdOut();
+}
+
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const vulkan_enums = try generateVulkanEnums(b);
+    const vulkan_flags = try generateVulkanFlags(b);
+
+    const f = b.addInstallFile(vulkan_flags, "vulkan_flags.zig");
+    b.getInstallStep().dependOn(&f.step);
 
     const exe = b.addExecutable(.{
         .name = "Sudoku",
@@ -58,18 +90,21 @@ pub fn build(b: *std.Build) !void {
     });
 
     if (b.host.target.os.tag == .windows) {
-        exe.addIncludePath(.{.path = "include/win"});
-        exe.addLibraryPath(.{.path = "lib/win"});
+        exe.addIncludePath(.{ .path = "include/win" });
+        exe.addLibraryPath(.{ .path = "lib/win" });
         exe.linkSystemLibrary("glfw3dll");
         exe.linkSystemLibrary("vulkan-1");
     } else if (b.host.target.os.tag == .linux) {
-        exe.addIncludePath(.{.path = "include/linux"});
-        exe.addLibraryPath(.{.path = "lib/linux"});
+        exe.addIncludePath(.{ .path = "include/linux" });
+        exe.addLibraryPath(.{ .path = "lib/linux" });
         exe.linkSystemLibrary("glfw");
         exe.linkSystemLibrary("vulkan");
     } else {
         std.debug.panic("Unsupported OS\n", .{});
     }
+
+    exe.addAnonymousModule("vulkan_enums", .{ .source_file = vulkan_enums });
+    exe.addAnonymousModule("vulkan_flags", .{ .source_file = vulkan_flags });
 
     exe.linkLibC();
 
@@ -79,7 +114,7 @@ pub fn build(b: *std.Build) !void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    
+
     if (b.host.target.os.tag == .windows) {
         run_cmd.addPathDir("lib/win");
     } else if (b.host.target.os.tag == .linux) {

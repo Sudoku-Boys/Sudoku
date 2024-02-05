@@ -4,7 +4,7 @@ const vk = @import("vk.zig");
 const BindGroupPool = @This();
 
 pub const PoolSize = struct {
-    type: vk.BindGroupLayout.BindingType,
+    type: vk.BindingType,
     count: u32,
 };
 
@@ -22,7 +22,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !BindGroupPool {
 
     for (desc.pool_sizes, 0..) |pool_size, i| {
         pool_sizes[i] = vk.api.VkDescriptorPoolSize{
-            .type = pool_size.type.asVk(),
+            .type = @intFromEnum(pool_size.type),
             .descriptorCount = pool_size.count,
         };
     }

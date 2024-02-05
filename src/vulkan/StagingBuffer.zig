@@ -5,6 +5,10 @@ const StagingBuffer = @This();
 
 const INITIAL_SIZE: usize = 4 * 1024 * 1024;
 
+pub const Error = error{
+    UnsupportedLayout,
+};
+
 buffer: vk.Buffer,
 command: vk.CommandBuffer,
 size: usize,
@@ -88,14 +92,14 @@ pub fn write(self: *StagingBuffer, data: anytype) !void {
     self.buffer.unmap();
 }
 
-pub const CopyDescriptor = struct {
+pub const CopyBufferDescriptor = struct {
     dst: vk.Buffer,
     src_offset: u64 = 0,
     dst_offset: u64 = 0,
     size: u64,
 };
 
-pub fn copy(self: StagingBuffer, desc: CopyDescriptor) !void {
+pub fn copyBuffer(self: StagingBuffer, desc: CopyBufferDescriptor) !void {
     std.debug.assert(desc.dst.usage.transfer_dst);
 
     try self.command.reset();
@@ -107,6 +111,96 @@ pub fn copy(self: StagingBuffer, desc: CopyDescriptor) !void {
         .src_offset = desc.src_offset,
         .dst_offset = desc.dst_offset,
         .size = desc.size,
+    });
+
+    try self.command.end();
+
+    try self.device.graphics.submit(.{
+        .command_buffers = &.{
+            self.command,
+        },
+    });
+
+    try self.device.graphics.waitIdle();
+}
+
+pub const CopyImageDescriptor = struct {
+    dst: vk.Image,
+    aspect: vk.ImageAspects,
+    mip_level: u32 = 0,
+    base_array_layer: u32 = 0,
+    layer_count: u32 = 1,
+    old_layout: vk.ImageLayout,
+    extent: vk.Extent3D,
+    offset: vk.Offset3D = .{},
+};
+
+// transsition the image to general
+fn recordTransitionImage(
+    self: StagingBuffer,
+    desc: CopyImageDescriptor,
+) !void {
+    var src_stage: vk.PipelineStages = .{};
+    var dst_stage: vk.PipelineStages = .{};
+    var src_access: vk.Access = .{};
+    var dst_access: vk.Access = .{};
+
+    switch (desc.old_layout) {
+        .Undefined => {
+            src_stage.top_of_pipe = true;
+            dst_stage.transfer = true;
+
+            dst_access.transfer_write = true;
+        },
+        .ShaderReadOnlyOptimal => {
+            src_stage.fragment_shader = true;
+            dst_stage.transfer = true;
+
+            src_access.shader_read = true;
+            dst_access.transfer_write = true;
+        },
+        .TransferDstOptimal => return,
+        else => return error.UnsupportedLayout,
+    }
+
+    try self.command.pipelineBarrier(.{
+        .src_stage = src_stage,
+        .dst_stage = dst_stage,
+        .image_barriers = &.{.{
+            .src_access = src_access,
+            .dst_access = dst_access,
+            .old_layout = desc.old_layout,
+            .new_layout = .TransferDstOptimal,
+            .image = desc.dst,
+            .aspect = desc.aspect,
+            .base_mip_level = desc.mip_level,
+            .level_count = 1,
+            .base_array_layer = desc.base_array_layer,
+            .layer_count = desc.layer_count,
+        }},
+    });
+}
+
+pub fn copyImage(self: StagingBuffer, desc: CopyImageDescriptor) !void {
+    try self.command.reset();
+    try self.command.begin(.{ .one_time_submit = true });
+
+    try self.recordTransitionImage(desc);
+
+    self.command.copyBufferToImage(.{
+        .src = self.buffer,
+        .dst = desc.dst,
+        .dst_layout = .TransferDstOptimal,
+        .region = .{
+            .buffer_row_length = 0,
+            .buffer_image_height = 0,
+            .aspect = desc.aspect,
+            .mip_level = desc.mip_level,
+            .base_array_layer = desc.base_array_layer,
+            .layer_count = desc.layer_count,
+            .image_extent = desc.extent,
+            .image_offset = desc.offset,
+        },
     });
 
     try self.command.end();
