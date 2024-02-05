@@ -125,7 +125,7 @@ pub fn build(b: *std.Build) !void {
 
     if (b.host.target.os.tag == .windows) {
         exe.addIncludePath(.{ .path = "include/win/" });
-        exe.addLibPath(.{ .path = "lib/win/" });
+        exe.addLibraryPath(.{ .path = "lib/win/" });
 
         exe.linkSystemLibrary("glfw3dll");
         exe.linkSystemLibrary("vulkan-1");
