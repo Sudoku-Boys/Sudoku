@@ -56,7 +56,7 @@ pub fn pollEvents() void {
 }
 
 /// Get the required Vulkan extensions for GLFW.
-pub fn queryVkExtensions() []const [*c]const u8 {
+pub fn requiredVulkanExtensions() []const [*c]const u8 {
     var count: u32 = 0;
     const extensions = glfw.glfwGetRequiredInstanceExtensions(&count);
     return @constCast(extensions[0..count]);

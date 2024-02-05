@@ -4,6 +4,11 @@ const vk = @import("vk.zig");
 
 const Instance = @This();
 
+pub const Error = error{
+    RequiredLayerNotAvailable,
+    RequiredExtensionNotAvailable,
+};
+
 // a callback function to handle debug messages from the validation layers
 fn debugCallback(
     messageSeverity: vk.api.VkDebugUtilsMessageSeverityFlagBitsEXT,
@@ -78,47 +83,168 @@ fn destroyDebugUtilsMessenger(instance: vk.api.VkInstance, debug_messenger: vk.a
     }
 }
 
+const DEBUG_LAYERS: []const [*c]const u8 = &.{
+    "VK_LAYER_KHRONOS_validation",
+};
+
+const DEBUG_EXTENSIONS: []const [*c]const u8 = &.{
+    vk.api.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+};
+
 // return the required validation layers
 // this is dependent on the build mode
 fn requiredLayers() []const [*c]const u8 {
-    if (builtin.mode == .Debug) {
-        return &[_][*c]const u8{
-            "VK_LAYER_KHRONOS_validation",
-        };
-    } else {
-        return &[_][*c]const u8{};
-    }
+    return &.{};
 }
 
 // return the required extensions
 // this is dependent on the build mode
 fn requiredExtensions() []const [*c]const u8 {
-    if (builtin.mode == .Debug) {
-        return &[_][*c]const u8{
-            vk.api.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-        };
-    } else {
-        return &[_][*c]const u8{};
-    }
+    return &.{};
 }
 
-// append two arrays of strings
-fn appendStrings(
-    allocator: std.mem.Allocator,
-    a: []const [*c]const u8,
-    b: []const [*c]const u8,
-) ![]const [*c]const u8 {
-    var strings = try allocator.alloc([*c]const u8, a.len + b.len);
-
-    for (a, 0..) |extension, i| {
-        strings[i] = extension;
+fn desiredLayers() []const [*c]const u8 {
+    if (builtin.mode == .Debug) {
+        return DEBUG_LAYERS;
     }
 
-    for (b, a.len..) |extension, i| {
-        strings[i] = extension;
+    return &.{};
+}
+
+fn desiredExtensions() []const [*c]const u8 {
+    if (builtin.mode == .Debug) {
+        return DEBUG_EXTENSIONS;
     }
 
-    return strings;
+    return &.{};
+}
+
+fn maybeCreateDebugUtilsMessenger(instance: vk.api.VkInstance) !?vk.api.VkDebugUtilsMessengerEXT {
+    if (builtin.mode == .Debug) {
+        return try createDebugUtilsMessenger(instance);
+    }
+
+    return null;
+}
+
+fn isNameEq(available: [256]u8, extension: [*c]const u8) bool {
+    const available_len = std.mem.len(@as([*c]const u8, &available));
+    const extension_len = std.mem.len(extension);
+
+    return std.mem.eql(u8, available[0..available_len], extension[0..extension_len]);
+}
+
+fn isLayerAvailable(available: []const vk.api.VkLayerProperties, name: [*c]const u8) bool {
+    for (available) |layer| {
+        if (isNameEq(layer.layerName, name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/// Check if `layers` are available on the system.
+pub fn areLayersAvailable(allocator: std.mem.Allocator, layers: []const [*c]const u8) !bool {
+    var count: u32 = 0;
+    try vk.check(vk.api.vkEnumerateInstanceLayerProperties(&count, null));
+
+    var available = try allocator.alloc(vk.api.VkLayerProperties, count);
+    defer allocator.free(available);
+
+    try vk.check(vk.api.vkEnumerateInstanceLayerProperties(&count, available.ptr));
+
+    for (layers) |layer| {
+        if (!isLayerAvailable(available, layer)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/// Get the list of layers to enable for the instance.
+///
+/// Ensuring that `required` and `requiredLayers` are available,
+/// and adding `desiredLayers` when available.
+fn getLayers(allocator: std.mem.Allocator, required: []const [*c]const u8) ![]const [*c]const u8 {
+    var layers = std.ArrayList([*c]const u8).init(allocator);
+    errdefer layers.deinit();
+
+    try layers.appendSlice(requiredExtensions());
+    try layers.appendSlice(required);
+
+    if (!try areExtensionsAvailable(allocator, layers.items)) {
+        std.log.err("Required layers not available:", .{});
+
+        for (layers.items) |layer| {
+            std.log.err("  {s}", .{layer});
+        }
+        return error.RequiredLayerNotAvailable;
+    }
+
+    if (try areExtensionsAvailable(allocator, desiredLayers())) {
+        try layers.appendSlice(desiredLayers());
+    }
+
+    return try layers.toOwnedSlice();
+}
+
+fn isExtensionAvailable(available: []const vk.api.VkExtensionProperties, name: [*c]const u8) bool {
+    for (available) |ext| {
+        if (isNameEq(ext.extensionName, name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/// Check if `extensions` are available on the system.
+pub fn areExtensionsAvailable(allocator: std.mem.Allocator, extensions: []const [*c]const u8) !bool {
+    var count: u32 = 0;
+    try vk.check(vk.api.vkEnumerateInstanceExtensionProperties(null, &count, null));
+
+    var available = try allocator.alloc(vk.api.VkExtensionProperties, count);
+    defer allocator.free(available);
+
+    try vk.check(vk.api.vkEnumerateInstanceExtensionProperties(null, &count, available.ptr));
+
+    for (extensions) |ext| {
+        if (!isExtensionAvailable(available, ext)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/// Get the list of extensions to enable for the instance.
+///
+/// Ensuring that `required` and `requiredExtensions` are available,
+/// and adding `desiredExtensions` when available.
+fn getExtensions(allocator: std.mem.Allocator, required: []const [*c]const u8) ![]const [*c]const u8 {
+    var extensions = std.ArrayList([*c]const u8).init(allocator);
+    errdefer extensions.deinit();
+
+    try extensions.appendSlice(requiredExtensions());
+    try extensions.appendSlice(required);
+
+    if (!try areExtensionsAvailable(allocator, extensions.items)) {
+        std.log.err("Required extensions not available:", .{});
+
+        for (extensions.items) |extension| {
+            std.log.err("  {s}", .{extension});
+        }
+
+        return error.RequiredExtensionNotAvailable;
+    }
+
+    if (try areExtensionsAvailable(allocator, desiredExtensions())) {
+        try extensions.appendSlice(desiredExtensions());
+    }
+
+    return try extensions.toOwnedSlice();
 }
 
 // the descriptor for the instance
@@ -126,8 +252,8 @@ pub const Descriptor = struct {
     allocator: std.mem.Allocator,
     application_name: []const u8 = "Sudoku",
     application_version: u32 = vk.api.VK_MAKE_VERSION(1, 0, 0),
-    layer_names: []const [*c]const u8 = &[_][*c]const u8{},
-    extensions: []const [*c]const u8 = &[_][*c]const u8{},
+    required_layers: []const [*c]const u8 = &[_][*c]const u8{},
+    required_extensions: []const [*c]const u8 = &[_][*c]const u8{},
 
     fn applicationInfo(self: Descriptor) vk.api.VkApplicationInfo {
         return vk.api.VkApplicationInfo{
@@ -159,14 +285,6 @@ fn instanceInfo(
     };
 }
 
-fn maybeCreateDebugUtilsMessenger(instance: vk.api.VkInstance) !?vk.api.VkDebugUtilsMessengerEXT {
-    if (builtin.mode == .Debug) {
-        return try createDebugUtilsMessenger(instance);
-    }
-
-    return null;
-}
-
 vk: vk.api.VkInstance,
 debug_messenger: ?vk.api.VkDebugUtilsMessengerEXT,
 allocator: std.mem.Allocator,
@@ -177,10 +295,10 @@ allocator: std.mem.Allocator,
 /// - `allocator` is the allocator to use for all objects created by the instance.
 ///     this should be a general purpose allocator, and is used for temporary allocations.
 pub fn init(desc: Descriptor) !Instance {
-    var layers = try appendStrings(desc.allocator, desc.layer_names, requiredLayers());
+    const layers = try getLayers(desc.allocator, desc.required_layers);
     defer desc.allocator.free(layers);
 
-    var extensions = try appendStrings(desc.allocator, desc.extensions, requiredExtensions());
+    const extensions = try getExtensions(desc.allocator, desc.required_extensions);
     defer desc.allocator.free(extensions);
 
     const application_info = desc.applicationInfo();
