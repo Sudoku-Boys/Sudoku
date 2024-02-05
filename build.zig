@@ -1,49 +1,87 @@
 const std = @import("std");
 
-/// Use glslc to compile a shader file to SPIR-V
-fn compileShader(b: *std.Build, steps: []const *std.Build.Step.Compile, path: []const u8) void {
-    var glsl_run: *std.Build.Step.Run = undefined;
-    if (b.host.target.os.tag == .windows) {
-        glsl_run = b.addSystemCommand(&.{"bin/win/glslc"});
-    } else if (b.host.target.os.tag == .linux) {
-        glsl_run = b.addSystemCommand(&.{"glslc"});
+const ShaderStage = enum {
+    Vertex,
+    Fragment,
+
+    fn fromPath(name: []const u8) ?ShaderStage {
+        const ext = std.fs.path.extension(name);
+
+        if (std.mem.eql(u8, ext, ".vert")) return .Vertex;
+        if (std.mem.eql(u8, ext, ".frag")) return .Fragment;
+
+        return null;
     }
 
-    glsl_run.addFileArg(.{ .path = path });
-    glsl_run.addArgs(&.{ "-o", "-" });
-
-    const output = glsl_run.captureStdOut();
-
-    const file = b.addInstallFile(output, path);
-    b.getInstallStep().dependOn(&file.step);
-
-    for (steps) |step| {
-        step.addAnonymousModule(path, .{
-            .source_file = output,
-        });
+    fn argName(self: ShaderStage) []const u8 {
+        switch (self) {
+            .Vertex => return "vertex",
+            .Fragment => return "fragment",
+        }
     }
+};
+
+const CompiledShader = struct {
+    name: []const u8,
+    stage: ShaderStage,
+    data: std.build.LazyPath,
+};
+
+fn compileShaderTool(
+    b: *std.Build,
+) *std.Build.Step.Compile {
+    const tool = b.addExecutable(.{
+        .name = "compile_shader",
+        .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
+    });
+
+    tool.linkSystemLibrary("shaderc_shared");
+    tool.linkLibC();
+
+    return tool;
 }
 
-fn isShaderFile(name: []const u8) bool {
-    const ext = std.fs.path.extension(name);
+fn compileShader(
+    b: *std.Build,
+    tool: *std.Build.Step.Compile,
+    path: []const u8,
+    stage: ShaderStage,
+) std.Build.LazyPath {
+    const tool_step = b.addRunArtifact(tool);
+    tool_step.addFileArg(.{ .path = path });
+    tool_step.addArg(stage.argName());
 
-    const is_vert = std.mem.eql(u8, ext, ".vert");
-    const is_frag = std.mem.eql(u8, ext, ".frag");
+    b.getInstallStep().dependOn(&tool_step.step);
 
-    return is_vert or is_frag;
+    return tool_step.captureStdOut();
 }
 
-fn compileShaders(b: *std.Build, steps: []const *std.Build.Step.Compile) !void {
+fn compileShaders(
+    b: *std.Build,
+) !std.ArrayList(CompiledShader) {
+    const tool = compileShaderTool(b);
+
     const dir = std.fs.cwd();
-    const shader = try dir.openIterableDir("shader", .{});
+    var shader = try dir.openIterableDir("shader", .{});
+    defer shader.close();
+
+    var shaders = std.ArrayList(CompiledShader).init(b.allocator);
 
     var it = shader.iterate();
     while (try it.next()) |entry| {
-        if (isShaderFile(entry.name)) {
+        if (ShaderStage.fromPath(entry.name)) |stage| {
             const path = try std.mem.join(b.allocator, "/", &.{ "shader", entry.name });
-            compileShader(b, steps, path);
+            const data = compileShader(b, tool, path, stage);
+
+            try shaders.append(CompiledShader{
+                .name = path,
+                .stage = stage,
+                .data = data,
+            });
         }
     }
+
+    return shaders;
 }
 
 fn generateVulkanEnums(b: *std.Build) !std.Build.LazyPath {
@@ -78,6 +116,7 @@ pub fn build(b: *std.Build) !void {
 
     const vulkan_enums = try generateVulkanEnums(b);
     const vulkan_flags = try generateVulkanFlags(b);
+    const shaders = try compileShaders(b);
 
     const f = b.addInstallFile(vulkan_flags, "vulkan_flags.zig");
     b.getInstallStep().dependOn(&f.step);
@@ -106,9 +145,11 @@ pub fn build(b: *std.Build) !void {
     exe.addAnonymousModule("vulkan_enums", .{ .source_file = vulkan_enums });
     exe.addAnonymousModule("vulkan_flags", .{ .source_file = vulkan_flags });
 
-    exe.linkLibC();
+    for (shaders.items) |shader| {
+        exe.addAnonymousModule(shader.name, .{ .source_file = shader.data });
+    }
 
-    try compileShaders(b, &.{exe});
+    exe.linkLibC();
 
     b.installArtifact(exe);
 

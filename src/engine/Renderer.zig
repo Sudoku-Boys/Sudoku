@@ -11,7 +11,7 @@ fn createPbrPipeline(
 ) !vk.GraphicsPipeline {
     return try vk.GraphicsPipeline.init(device, .{
         .vertex = .{
-            .shader = vk.embedSpv("shader/pbr.vert"),
+            .shader = vk.embedSpv("shader/StandardMaterial.vert"),
             .entry_point = "main",
             .bindings = &.{.{
                 .binding = 0,
@@ -25,7 +25,7 @@ fn createPbrPipeline(
             }},
         },
         .fragment = .{
-            .shader = vk.embedSpv("shader/pbr.frag"),
+            .shader = vk.embedSpv("shader/StandardMaterial.frag"),
             .entry_point = "main",
         },
         .color_blend = .{
