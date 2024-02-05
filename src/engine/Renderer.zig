@@ -388,11 +388,10 @@ fn recordCommandBuffer(self: *Renderer, image: u32) !void {
 
 pub fn tryDrawFrame(self: *Renderer) !void {
     try self.in_flight_fence.wait(.{});
-    try self.in_flight_fence.reset();
-
     const image = try self.swapchain.aquireNextImage(.{
         .semaphore = self.image_available_semaphore,
     });
+    try self.in_flight_fence.reset();
 
     self.time += 0.01;
     try self.staging_buffer.write(&@as(f32, self.time));
@@ -431,8 +430,14 @@ pub fn tryDrawFrame(self: *Renderer) !void {
 
 pub fn drawFrame(self: *Renderer) !void {
     self.tryDrawFrame() catch |err| switch (err) {
-        error.VK_SUBOPTIMAL_KHR => return try self.swapchain.recreate(),
-        error.VK_ERROR_OUT_OF_DATE_KHR => return try self.swapchain.recreate(),
+        error.VK_SUBOPTIMAL_KHR => {
+            std.debug.print("VK_SUBOPTIMAL_KHR\n", .{});
+            return try self.swapchain.recreate();
+        },
+        error.VK_ERROR_OUT_OF_DATE_KHR => {
+            std.debug.print("VK_ERROR_OUT_OF_DATE_KHR\n", .{});
+            return try self.swapchain.recreate();
+        },
         else => return err,
     };
 }

@@ -229,6 +229,8 @@ pub fn deinit(self: Swapchain) void {
 pub fn recreate(self: *Swapchain) !void {
     try self.device.waitIdle();
 
+    std.debug.print("device not idle, starting recreate\n", .{});
+
     // re-query swapchain support support for the surface
     const support = try vk.Device.SwapchainSupport.query(self.device.allocator, self.device.physical, self.surface);
     defer support.deinit();
@@ -253,6 +255,7 @@ pub fn recreate(self: *Swapchain) !void {
 
     // get the actual images
     try vk.check(vk.api.vkGetSwapchainImagesKHR(self.device.vk, self.vk, &images_count, images.ptr));
+    self.images = images;
 
     // NOTE: there are some interesting questions to be answered here:
     //  * what happens if realloc fails? would that cause double free?
@@ -271,6 +274,7 @@ pub fn recreate(self: *Swapchain) !void {
     errdefer self.device.allocator.free(views);
 
     try createImageViews(self.device.vk, desc.format, images, views);
+    self.views = views;
 
     // destroy the old framebuffers, and create new ones
 
@@ -282,8 +286,11 @@ pub fn recreate(self: *Swapchain) !void {
     errdefer self.device.allocator.free(framebuffers);
 
     try createFramebuffers(self.device, self.render_pass, desc.extent, views, framebuffers);
+    self.framebuffers = framebuffers;
 
     self.extent = desc.extent;
+
+    std.debug.print("finished recreating swapchain\n", .{});
 }
 
 pub fn aquireNextImage(
