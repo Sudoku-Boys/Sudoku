@@ -9,8 +9,7 @@ device: vk.api.VkDevice,
 pub const Descriptor = struct {
     render_pass: vk.RenderPass,
     attachments: []const vk.ImageView,
-    width: u32 = 1,
-    height: u32 = 1,
+    extent: vk.Extent2D,
     layers: u32 = 1,
 };
 
@@ -29,8 +28,8 @@ pub fn init(device: vk.Device, desc: Descriptor) !Framebuffer {
         .renderPass = desc.render_pass.vk,
         .attachmentCount = @intCast(desc.attachments.len),
         .pAttachments = attachments.ptr,
-        .width = desc.width,
-        .height = desc.height,
+        .width = desc.extent.width,
+        .height = desc.extent.height,
         .layers = desc.layers,
     };
 

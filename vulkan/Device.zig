@@ -1,6 +1,5 @@
 const std = @import("std");
 const vk = @import("vk.zig");
-const Window = @import("../engine/Window.zig");
 
 const Device = @This();
 
@@ -68,7 +67,7 @@ fn isRequiredExtensionsSupported(
 fn isDeviceValid(
     allocator: std.mem.Allocator,
     device: vk.api.VkPhysicalDevice,
-    surface: ?vk.api.VkSurfaceKHR,
+    surface: ?vk.Surface,
 ) !bool {
     if (try Queues.find(allocator, device, surface) == null) {
         return false;
@@ -80,6 +79,8 @@ fn isDeviceValid(
 
     if (surface) |_surface| {
         var swapChainSupport = try SwapchainSupport.query(allocator, device, _surface);
+        defer swapChainSupport.deinit();
+
         if (!swapChainSupport.isAdequate()) {
             return false;
         }
@@ -92,7 +93,7 @@ fn isDeviceValid(
 fn ratePhysicalDevice(
     allocator: std.mem.Allocator,
     device: vk.api.VkPhysicalDevice,
-    surface: ?vk.api.VkSurfaceKHR,
+    surface: ?vk.Surface,
 ) !?i32 {
     if (!try isDeviceValid(allocator, device, surface)) {
         return null;
@@ -131,7 +132,7 @@ fn getPhysicalDevices(
 fn findPhysicalDevice(
     allocator: std.mem.Allocator,
     instance: vk.api.VkInstance,
-    surface: ?vk.api.VkSurfaceKHR,
+    surface: ?vk.Surface,
 ) !?vk.api.VkPhysicalDevice {
     const devices = try getPhysicalDevices(allocator, instance);
     defer allocator.free(devices);
@@ -166,20 +167,44 @@ pub const SwapchainSupport = struct {
     pub fn query(
         allocator: std.mem.Allocator,
         device: vk.api.VkPhysicalDevice,
-        surface: vk.api.VkSurfaceKHR,
+        surface: vk.Surface,
     ) !SwapchainSupport {
         var capabilities: vk.api.VkSurfaceCapabilitiesKHR = undefined;
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &capabilities));
+        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+            device,
+            surface.vk,
+            &capabilities,
+        ));
 
         var format_count: u32 = 0;
         var present_mode_count: u32 = 0;
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, null));
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, null));
+        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(
+            device,
+            surface.vk,
+            &format_count,
+            null,
+        ));
+        try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(
+            device,
+            surface.vk,
+            &present_mode_count,
+            null,
+        ));
 
         var formats = try allocator.alloc(vk.api.VkSurfaceFormatKHR, format_count);
         var present_modes = try allocator.alloc(vk.api.VkPresentModeKHR, present_mode_count);
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, formats.ptr));
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, present_modes.ptr));
+        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(
+            device,
+            surface.vk,
+            &format_count,
+            formats.ptr,
+        ));
+        try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(
+            device,
+            surface.vk,
+            &present_mode_count,
+            present_modes.ptr,
+        ));
 
         return .{
             .capabilities = capabilities,
@@ -205,13 +230,17 @@ pub const Queues = struct {
 
     pub const COUNT = 2;
 
-    fn isPresentSupported(device: vk.api.VkPhysicalDevice, queue_index: u32, surface: ?vk.api.VkSurfaceKHR) !bool {
+    fn isPresentSupported(
+        device: vk.api.VkPhysicalDevice,
+        queue_index: u32,
+        surface: ?vk.Surface,
+    ) !bool {
         if (surface) |_surface| {
             var presentSupported: vk.api.VkBool32 = vk.api.VK_FALSE;
             const result = vk.api.vkGetPhysicalDeviceSurfaceSupportKHR(
                 device,
                 queue_index,
-                _surface,
+                _surface.vk,
                 &presentSupported,
             );
             try vk.check(result);
@@ -240,7 +269,7 @@ pub const Queues = struct {
     fn find(
         allocator: std.mem.Allocator,
         device: vk.api.VkPhysicalDevice,
-        surface: ?vk.api.VkSurfaceKHR,
+        surface: ?vk.Surface,
     ) !?Queues {
         var graphics: ?u32 = null;
         var present: ?u32 = null;
@@ -330,10 +359,8 @@ allocator: std.mem.Allocator,
 
 pub fn init(
     instance: vk.Instance,
-    window: ?Window,
+    surface: ?vk.Surface,
 ) !Device {
-    const surface = if (window) |w| w.surface else null;
-
     const physical = try findPhysicalDevice(instance.allocator, instance.vk, surface) orelse
         return Error.NoPhysicalDevice;
 
@@ -363,13 +390,13 @@ pub fn waitIdle(self: Device) !void {
     try vk.check(vk.api.vkDeviceWaitIdle(self.vk));
 }
 
-pub fn querySwapchainSupport(self: Device, window: Window) !SwapchainSupport {
-    return SwapchainSupport.query(self.allocator, self.physical, window.surface);
+pub fn querySwapchainSupport(self: Device, surface: vk.Surface) !SwapchainSupport {
+    return SwapchainSupport.query(self.allocator, self.physical, surface);
 }
 
-pub fn queryWindowFormat(self: Device, window: Window) !vk.api.VkFormat {
-    const support = try self.querySwapchainSupport(window);
-    return vk.Swapchain.pickSurfaceFormat(support.formats).format;
+pub fn querySurfaceFormat(self: Device, surface: vk.Surface) !vk.ImageFormat {
+    const support = try self.querySwapchainSupport(surface);
+    return @enumFromInt(vk.Swapchain.pickSurfaceFormat(support.formats).format);
 }
 
 pub fn queryMemoryType(
@@ -381,12 +408,13 @@ pub fn queryMemoryType(
     vk.api.vkGetPhysicalDeviceMemoryProperties(self.physical, &mem_props);
 
     const flags: u32 = @bitCast(properties);
+    const mem_types = mem_props.memoryTypes[0..mem_props.memoryTypeCount];
 
-    for (0..mem_props.memoryTypeCount) |i| {
-        const props = mem_props.memoryTypes[i].propertyFlags;
+    for (mem_types, 0..) |mem_type, i| {
+        const props = mem_type.propertyFlags;
         const mask = @as(u32, 1) << @intCast(i);
 
-        if (type_bits & (mask) != 0 and (props & flags) == flags) {
+        if (type_bits & mask != 0 and (props & flags) == flags) {
             return @intCast(i);
         }
     }
