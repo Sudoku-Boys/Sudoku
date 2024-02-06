@@ -422,16 +422,74 @@ pub fn queryMemoryType(
     return null;
 }
 
+pub fn createBindGroupPool(
+    self: Device,
+    desc: vk.BindGroupPool.Descriptor,
+) !vk.BindGroupPool {
+    return vk.BindGroupPool.init(self, desc);
+}
+
+pub fn createBindGroupLayout(
+    self: Device,
+    desc: vk.BindGroupLayout.Descriptor,
+) !vk.BindGroupLayout {
+    return vk.BindGroupLayout.init(self, desc);
+}
+
 pub fn createBuffer(self: Device, desc: vk.Buffer.Descriptor) !vk.Buffer {
     return vk.Buffer.init(self, desc);
+}
+
+pub fn createCommandPool(
+    self: Device,
+    kind: vk.CommandPool.Kind,
+) !vk.CommandPool {
+    return vk.CommandPool.init(self, kind);
 }
 
 pub fn createFence(self: Device, signalled: bool) !vk.Fence {
     return vk.Fence.init(self, signalled);
 }
 
+pub fn createFramebuffer(
+    self: Device,
+    desc: vk.Framebuffer.Descriptor,
+) !vk.Framebuffer {
+    return vk.Framebuffer.init(self, desc);
+}
+
+pub fn createGraphicsPipeline(
+    self: Device,
+    desc: vk.GraphicsPipeline.Descriptor,
+) !vk.GraphicsPipeline {
+    return vk.GraphicsPipeline.init(self, desc);
+}
+
+pub fn createImage(self: Device, desc: vk.Image.Descriptor) !vk.Image {
+    return vk.Image.init(self, desc);
+}
+
+pub fn createRenderPass(
+    self: Device,
+    desc: vk.RenderPass.Descriptor,
+) !vk.RenderPass {
+    return vk.RenderPass.init(self, desc);
+}
+
+pub fn createSampler(self: Device, desc: vk.Sampler.Descriptor) !vk.Sampler {
+    return vk.Sampler.init(self, desc);
+}
+
 pub fn createSemaphore(self: Device) !vk.Semaphore {
     return vk.Semaphore.init(self);
+}
+
+pub fn createSwapchain(
+    self: Device,
+    surface: vk.Surface,
+    render_pass: vk.RenderPass,
+) !vk.Swapchain {
+    return vk.Swapchain.init(self, surface, render_pass);
 }
 
 pub const BufferResource = struct {

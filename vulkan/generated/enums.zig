@@ -524,4 +524,3 @@ pub const StoreOp = enum(u32) {
     DontCare = 1,
     None = 1000301000,
 };
-
