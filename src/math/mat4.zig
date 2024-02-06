@@ -63,10 +63,10 @@ pub const Mat4 = extern union {
 		const c = trig.fcos(rot);
 		const s = trig.fsin(rot);
 
-		mat.m11 = c;
-		mat.m12 = -s;
-		mat.m21 = s;
-		mat.m22 = c;
+		mat._.m11 = c;
+		mat._.m12 = s;
+		mat._.m21 = -s;
+		mat._.m22 = cc;
 
 		return mat;
 	}
@@ -77,10 +77,10 @@ pub const Mat4 = extern union {
 		const c = trig.fcos(rot);
 		const s = trig.fsin(rot);
 
-		mat.m00 = c;
-		mat.m02 = s;
-		mat.m20 = -s;
-		mat.m22 = c;
+		mat._.m00 = c;
+		mat._.m02 = -s;
+		mat._.m20 = s;
+		mat._.m22 = c;
 
 		return mat;
 	}
@@ -91,10 +91,10 @@ pub const Mat4 = extern union {
 		const c = trig.fcos(rot);
 		const s = trig.fsin(rot);
 
-		mat.m00 = c;
-		mat.m01 = -s;
-		mat.m10 = s;
-		mat.m11 = c;
+		mat._.m00 = c;
+		mat._.m01 = s;
+		mat._.m10 = -s;
+		mat._.m11 = c;
 
 		return mat;
 	}
@@ -107,15 +107,15 @@ pub const Mat4 = extern union {
 		const ic = 1 - c;
 
 		mat._.m00 = axis._.x * axis._.x * ic + c;
-		mat._.m01 = axis._.x * axis._.y * ic - axis._.z * s;
-		mat._.m02 = axis._.x * axis._.z * ic + axis._.y * s;
+		mat._.m01 = axis._.x * axis._.y * ic + axis._.z * s;
+		mat._.m02 = axis._.x * axis._.z * ic - axis._.y * s;
 
-		mat._.m10 = axis._.y * axis._.x * ic + axis._.z * s;
+		mat._.m10 = axis._.y * axis._.x * ic - axis._.z * s;
 		mat._.m11 = axis._.y * axis._.y * ic + c;
-		mat._.m12 = axis._.y * axis._.z * ic - axis._.z * s;
+		mat._.m12 = axis._.y * axis._.z * ic + axis._.x * s;
 
-		mat._.m20 = axis._.z * axis._.x * ic - axis._.y * s;
-		mat._.m21 = axis._.z * axis._.y * ic + axis._.x * s;
+		mat._.m20 = axis._.z * axis._.x * ic + axis._.y * s;
+		mat._.m21 = axis._.z * axis._.y * ic - axis._.x * s;
 		mat._.m22 = axis._.z * axis._.z * ic + c;
 
 		return mat;
