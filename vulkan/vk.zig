@@ -61,6 +61,13 @@ pub usingnamespace @import("generated/flags.zig");
 pub const Extent2D = struct {
     width: u32,
     height: u32,
+
+    pub fn aspect(self: Extent2D) f32 {
+        const w: f32 = @floatFromInt(self.width);
+        const h: f32 = @floatFromInt(self.height);
+
+        return w / h;
+    }
 };
 
 pub const Extent3D = struct {

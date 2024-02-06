@@ -8,29 +8,6 @@ pub const Level = enum {
     Secondary,
 };
 
-pub const RenderArea = struct {
-    x: i32 = 0,
-    y: i32 = 0,
-    width: u32 = 1,
-    height: u32 = 1,
-};
-
-pub const Viewport = struct {
-    x: f32 = 0.0,
-    y: f32 = 0.0,
-    width: f32 = 0.0,
-    height: f32 = 0.0,
-    min_depth: f32 = 0.0,
-    max_depth: f32 = 1.0,
-};
-
-pub const Scissor = struct {
-    x: i32 = 0,
-    y: i32 = 0,
-    width: u32 = 0,
-    height: u32 = 0,
-};
-
 vk: vk.api.VkCommandBuffer,
 pool: vk.api.VkCommandPool,
 device: vk.api.VkDevice,
@@ -235,16 +212,29 @@ pub fn pipelineBarrier(
     );
 }
 
+pub const RenderArea = struct {
+    offset: vk.Offset2D = .{},
+    extent: vk.Extent2D,
+};
+
 pub const BeginRenderPass = struct {
     render_pass: vk.RenderPass,
     framebuffer: vk.Framebuffer,
-    render_area: RenderArea = .{},
+    render_area: RenderArea,
 };
 
 pub fn beginRenderPass(self: CommandBuffer, desc: BeginRenderPass) void {
-    const clear: vk.api.VkClearValue = .{
-        .color = .{
-            .float32 = .{ 0.0, 0.0, 0.0, 0.0 },
+    const clear_values: []const vk.api.VkClearValue = &.{
+        .{
+            .color = .{
+                .float32 = .{ 0.0, 0.0, 0.0, 0.0 },
+            },
+        },
+        .{
+            .depthStencil = .{
+                .depth = 1.0,
+                .stencil = 0,
+            },
         },
     };
 
@@ -255,16 +245,16 @@ pub fn beginRenderPass(self: CommandBuffer, desc: BeginRenderPass) void {
         .framebuffer = desc.framebuffer.vk,
         .renderArea = vk.api.VkRect2D{
             .offset = vk.api.VkOffset2D{
-                .x = desc.render_area.x,
-                .y = desc.render_area.y,
+                .x = desc.render_area.offset.x,
+                .y = desc.render_area.offset.y,
             },
             .extent = vk.api.VkExtent2D{
-                .width = desc.render_area.width,
-                .height = desc.render_area.height,
+                .width = desc.render_area.extent.width,
+                .height = desc.render_area.extent.height,
             },
         },
-        .clearValueCount = 1,
-        .pClearValues = &clear,
+        .clearValueCount = @intCast(clear_values.len),
+        .pClearValues = clear_values.ptr,
     };
 
     vk.api.vkCmdBeginRenderPass(self.vk, &renderPassBeginInfo, vk.api.VK_SUBPASS_CONTENTS_INLINE);
@@ -316,6 +306,15 @@ pub fn bindIndexBuffer(
     vk.api.vkCmdBindIndexBuffer(self.vk, buffer.vk, offset, @intFromEnum(index_type));
 }
 
+pub const Viewport = struct {
+    x: f32 = 0.0,
+    y: f32 = 0.0,
+    width: f32,
+    height: f32,
+    min_depth: f32 = 0.0,
+    max_depth: f32 = 1.0,
+};
+
 pub fn setViewport(self: CommandBuffer, viewport: Viewport) void {
     const vk_viewport = vk.api.VkViewport{
         .x = viewport.x,
@@ -328,6 +327,13 @@ pub fn setViewport(self: CommandBuffer, viewport: Viewport) void {
 
     vk.api.vkCmdSetViewport(self.vk, 0, 1, &vk_viewport);
 }
+
+pub const Scissor = struct {
+    x: i32 = 0,
+    y: i32 = 0,
+    width: u32 = 0,
+    height: u32 = 0,
+};
 
 pub fn setScissor(self: CommandBuffer, scissor: Scissor) void {
     const vk_scissor = vk.api.VkRect2D{
