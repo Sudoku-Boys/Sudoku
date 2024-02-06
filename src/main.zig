@@ -3,6 +3,7 @@ const ecs = @import("engine/ecs.zig");
 const Window = @import("engine/Window.zig");
 const Renderer = @import("engine/render/Renderer.zig");
 const vk = @import("vulkan");
+const vkm = @import("math/math.zig");
 
 fn testSystem(
     res: ecs.Res(*u32),
@@ -65,4 +66,7 @@ pub fn main() !void {
         Window.pollEvents();
         try renderer.drawFrame();
     }
+    
+    var v0: vkm.Vec3 = vkm.Vec3.init(1, 2, 3);
+    std.debug.print("{}\n", .{v0.v});
 }
