@@ -4,7 +4,7 @@ const vk = @import("vk.zig");
 const RenderPass = @This();
 
 pub const Attachment = struct {
-    format: vk.api.VkFormat = vk.api.VK_FORMAT_UNDEFINED,
+    format: vk.ImageFormat = vk.ImageFormat.Undefined,
     samples: u32 = 1,
     load_op: vk.LoadOp = .DontCare,
     store_op: vk.StoreOp = .DontCare,
@@ -35,8 +35,8 @@ pub const Subpass = struct {
 };
 
 pub const SubpassDependency = struct {
-    src_subpass: u32 = 0,
-    dst_subpass: u32 = 0,
+    src_subpass: u32 = vk.SUBPASS_EXTERNAL,
+    dst_subpass: u32 = vk.SUBPASS_EXTERNAL,
     src_stage_mask: vk.PipelineStages = .{},
     dst_stage_mask: vk.PipelineStages = .{},
     src_access_mask: vk.Access = .{},
@@ -65,7 +65,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
     for (desc.attachments, 0..) |attachment, i| {
         vk_attachments[i] = vk.api.VkAttachmentDescription{
             .flags = 0,
-            .format = attachment.format,
+            .format = @intFromEnum(attachment.format),
             .samples = attachment.samples,
             .loadOp = @intFromEnum(attachment.load_op),
             .storeOp = @intFromEnum(attachment.store_op),

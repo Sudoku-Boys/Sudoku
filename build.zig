@@ -133,12 +133,28 @@ fn generateVulkanFlags(b: *std.Build) !std.Build.LazyPath {
     return tool_step.captureStdOut();
 }
 
+fn createVulkanModule(b: *std.Build) !*std.Build.Module {
+    const vulkan_enums = try generateVulkanEnums(b);
+    const vulkan_flags = try generateVulkanFlags(b);
+
+    const vulkan = b.createModule(.{
+        .source_file = .{ .path = "vulkan/vk.zig" },
+    });
+
+    const write = vulkan.builder.addWriteFiles();
+    write.addCopyFileToSource(vulkan_enums, "vulkan/generated/enums.zig");
+    write.addCopyFileToSource(vulkan_flags, "vulkan/generated/flags.zig");
+
+    b.step("generate-vulkan-types", "Generate Vulkan bindings").dependOn(&write.step);
+
+    return vulkan;
+}
+
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const vulkan_enums = try generateVulkanEnums(b);
-    const vulkan_flags = try generateVulkanFlags(b);
+    const vulkan = try createVulkanModule(b);
     const shaders = try compileShaders(b);
 
     const exe = b.addExecutable(.{
@@ -159,13 +175,11 @@ pub fn build(b: *std.Build) !void {
         exe.linkSystemLibrary("vulkan");
     }
 
-    exe.addAnonymousModule("vulkan_enums", .{ .source_file = vulkan_enums });
-    exe.addAnonymousModule("vulkan_flags", .{ .source_file = vulkan_flags });
-
     for (shaders.items) |shader| {
         exe.addAnonymousModule(shader.name, .{ .source_file = shader.data });
     }
 
+    exe.addModule("vulkan", vulkan);
     exe.linkLibC();
 
     b.installArtifact(exe);

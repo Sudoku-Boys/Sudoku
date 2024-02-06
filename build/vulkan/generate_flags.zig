@@ -86,6 +86,7 @@ fn vkFlags(
     comptime var fields: [@bitSizeOf(tag)]?VkFlagsField = .{null} ** @bitSizeOf(tag);
     const count = comptime vkFlagsFields(&fields, prefix);
 
+    try writer.print("// Bitmask for {s}\n", .{prefix});
     try writer.print("pub const {s} = packed struct({s}) {{\n", .{ name, @typeName(tag) });
 
     for (fields[0..count], 0..) |field, i| {
@@ -118,7 +119,7 @@ fn vkFlags(
 
     try writer.print("    }};\n", .{});
 
-    try writer.print("}};\n", .{});
+    try writer.print("}};\n\n", .{});
 }
 
 pub fn main() !void {

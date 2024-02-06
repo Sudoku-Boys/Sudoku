@@ -1,6 +1,5 @@
 const std = @import("std");
 const vk = @import("vk.zig");
-const Window = @import("../engine/Window.zig");
 
 const Swapchain = @This();
 
@@ -16,7 +15,7 @@ pub fn pickSurfaceFormat(formats: []vk.api.VkSurfaceFormatKHR) vk.api.VkSurfaceF
 
 pub fn pickPresentMode(present_modes: []vk.api.VkPresentModeKHR) vk.api.VkPresentModeKHR {
     for (present_modes) |mode| {
-        if (mode == vk.api.VK_PRESENT_MODE_FIFO_KHR) {
+        if (mode == vk.api.VK_PRESENT_MODE_IMMEDIATE_KHR) {
             return mode;
         }
     }
@@ -51,8 +50,10 @@ fn createFramebuffers(
         framebuffers[i] = try vk.Framebuffer.init(device, .{
             .render_pass = render_pass,
             .attachments = &.{view},
-            .width = extent.width,
-            .height = extent.height,
+            .extent = .{
+                .width = extent.width,
+                .height = extent.height,
+            },
             .layers = 1,
         });
     }
@@ -142,12 +143,13 @@ fn createSwapchain(
 }
 
 vk: vk.api.VkSwapchainKHR,
-surface: vk.api.VkSurfaceKHR,
+surface: vk.Surface,
 
 render_pass: vk.RenderPass,
 device: vk.Device,
 
-extent: vk.api.VkExtent2D,
+extent: vk.Extent2D,
+format: vk.ImageFormat,
 
 images: []vk.api.VkImage,
 views: []vk.ImageView,
@@ -155,18 +157,18 @@ framebuffers: []vk.Framebuffer,
 
 pub fn init(
     device: vk.Device,
-    window: Window,
+    surface: vk.Surface,
     render_pass: vk.RenderPass,
 ) !Swapchain {
     // query swapchain support support for the surface
-    const support = try vk.Device.SwapchainSupport.query(device.allocator, device.physical, window.surface);
+    const support = try vk.Device.SwapchainSupport.query(device.allocator, device.physical, surface);
     defer support.deinit();
 
     // query swapchain descriptor, choosing the best format, present mode, etc
     const descriptor = SwapchainDescriptor.query(support);
 
     // create the swapchain
-    const swapchain = try createSwapchain(device, descriptor, window.surface, null);
+    const swapchain = try createSwapchain(device, descriptor, surface.vk, null);
     errdefer vk.api.vkDestroySwapchainKHR(device.vk, swapchain, null);
 
     // get the image count
@@ -196,12 +198,16 @@ pub fn init(
 
     return .{
         .vk = swapchain,
-        .surface = window.surface,
+        .surface = surface,
 
         .device = device,
         .render_pass = render_pass,
 
-        .extent = descriptor.extent,
+        .format = @enumFromInt(descriptor.format),
+        .extent = .{
+            .width = descriptor.extent.width,
+            .height = descriptor.extent.height,
+        },
 
         .images = images,
         .views = views,
@@ -238,7 +244,7 @@ pub fn recreate(self: *Swapchain) !void {
 
     // create the new swapchain
     const old_swapchain = self.vk;
-    self.vk = try createSwapchain(self.device, desc, self.surface, old_swapchain);
+    self.vk = try createSwapchain(self.device, desc, self.surface.vk, old_swapchain);
 
     // destroy the old swapchain
     vk.api.vkDestroySwapchainKHR(self.device.vk, old_swapchain, null);
@@ -286,10 +292,11 @@ pub fn recreate(self: *Swapchain) !void {
     try createFramebuffers(self.device, self.render_pass, desc.extent, views, framebuffers);
     self.framebuffers = framebuffers;
 
-    self.extent = desc.extent;
+    self.extent.width = desc.extent.width;
+    self.extent.height = desc.extent.height;
 }
 
-pub fn aquireNextImage(
+pub fn acquireNextImage(
     self: Swapchain,
     desc: struct {
         semaphore: ?vk.Semaphore = null,

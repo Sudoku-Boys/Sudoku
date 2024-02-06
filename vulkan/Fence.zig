@@ -27,6 +27,11 @@ pub fn deinit(self: Fence) void {
     vk.api.vkDestroyFence(self.device, self.vk, null);
 }
 
+pub fn isSignalled(self: Fence) !bool {
+    const result = vk.api.vkGetFenceStatus(self.device, self.vk);
+    return result == vk.api.VK_SUCCESS;
+}
+
 /// Blocks the calling thread until the fence is signalled.
 pub fn wait(
     self: Fence,

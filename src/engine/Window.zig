@@ -1,5 +1,5 @@
 const builtin = @import("builtin");
-pub const vk = @import("../vulkan/vk.zig");
+pub const vk = @import("vulkan");
 
 pub const glfw = @cImport({
     @cInclude("vulkan/vulkan.h");
@@ -98,7 +98,7 @@ pub const Descriptor = struct {
 };
 
 window: *glfw.GLFWwindow,
-surface: vk.api.VkSurfaceKHR,
+surface: vk.Surface,
 instance: vk.Instance,
 
 /// Create a new window, with the given descriptor.
@@ -127,7 +127,7 @@ pub fn init(desc: Descriptor) !Self {
 
     return Self{
         .window = window,
-        .surface = surface,
+        .surface = .{ .vk = surface, .instance = desc.instance.vk },
         .instance = desc.instance,
     };
 }
@@ -138,6 +138,6 @@ pub fn shouldClose(self: *const Self) bool {
 
 pub fn deinit(self: *const Self) void {
     // destroy the surface first
-    destroyVkSurface(self.surface, self.instance.vk);
+    self.surface.deinit();
     glfw.glfwDestroyWindow(self.window);
 }
