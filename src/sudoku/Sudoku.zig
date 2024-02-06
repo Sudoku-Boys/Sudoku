@@ -3,18 +3,6 @@ const pow = std.math.pow;
 const assert = std.debug.assert;
 const expect = std.testing.expect;
 
-// Infer size of type to fit valid sudoku.
-// From description.
-fn SudokuBitFieldType(comptime k: u16, comptime n: u16) type {
-    // assert sudoku is of valid size
-    // n ** 2 has be equal to the length of the diagonal.
-    if (pow(u64, n, 2) < k * n) {
-        @compileError(std.fmt.comptimePrint("N of value {d} is too small since it provides only {d} numbers but requires {d}\n", .{ n, pow(u64, n, 2), k * n }));
-    }
-
-    return std.meta.Int(.unsigned, k * n);
-}
-
 pub const SudokuContraint = enum { ROW, COLUMN, GRID };
 pub const SudokuStorage = enum { BITFIELD, MATRIX };
 pub const SudokuMemory = enum { STACK, HEAP };
@@ -28,7 +16,7 @@ pub const SudokuCoordinate = struct {
     }
 };
 
-pub fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
+fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
     switch (C) {
         .COLUMN => {
             return struct {
@@ -126,6 +114,18 @@ pub fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) ty
     }
 }
 
+// Infer size of type to fit valid sudoku.
+// From description.
+fn SudokuBitFieldType(comptime k: u16, comptime n: u16) type {
+    // assert sudoku is of valid size
+    // n ** 2 has be equal to the length of the diagonal.
+    if (pow(u64, n, 2) < k * n) {
+        @compileError(std.fmt.comptimePrint("N of value {d} is too small since it provides only {d} numbers but requires {d}\n", .{ n, pow(u64, n, 2), k * n }));
+    }
+
+    return std.meta.Int(.unsigned, k * n);
+}
+
 // Internal representation of Sudoku.
 // A storage type which contains size bits.
 // We store a single value as a bitfield where its index is its value.
@@ -156,9 +156,9 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
             return Self{
                 .board = switch (M) {
                     .STACK => undefined,
-                    .HEAP => if (alloc != null) alloc.?.alloc(StorageImplType, size * size) catch |err| {
+                    .HEAP => alloc.?.alloc(StorageImplType, size * size) catch |err| {
                         @panic(@errorName(err));
-                    } else @panic("No allocator provided"),
+                    },
                 },
                 .size = size,
                 .grid_size = N,
@@ -223,11 +223,12 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
                 .MATRIX => self.set_matrix(coordinate, value),
             }
         }
+
+        pub fn iterator(self: *Self, comptime C: SudokuContraint, coordinate: SudokuCoordinate) SudokuContraintIterator(Self, C) {
+            return SudokuContraintIterator(Self, C).init(self, coordinate);
+        }
     };
 }
-
-// A Sudoku of any size, used for generic functions.
-pub const AnySudoku = Sudoku(0, 0, .BITFIELD, .STACK);
 
 test "Validate certain sudoku board sizes" {
     _ = Sudoku(2, 2, .BITFIELD, .STACK);
@@ -235,13 +236,12 @@ test "Validate certain sudoku board sizes" {
 }
 
 test "Test 4x4 Sudoku" {
-    const S = Sudoku(2, 2, .BITFIELD, .STACK);
+    // Also test memory leaks.
+    const S = Sudoku(2, 2, .BITFIELD, .HEAP);
 
-    var s = S.init(null);
-
-    // Get typeinfo of s.get returntype.
-    // const a = @typeInfo(@TypeOf(s));
-    // @compileLog(a.Struct.fields);
+    var allocator = std.testing.allocator;
+    var s = S.init(&allocator);
+    defer s.deinit();
 
     s.set(.{ .i = 0, .j = 0 }, 1);
     s.set(.{ .i = 0, .j = 1 }, 2);
@@ -253,7 +253,7 @@ test "Test 4x4 Sudoku" {
     try expect(s.get(.{ .i = 1, .j = 0 }) == 3);
     try expect(s.get(.{ .i = 1, .j = 1 }) == 0);
 
-    var it_row = SudokuContraintIterator(S, .ROW).init(&s, .{ .i = 0, .j = 0 });
+    var it_row = s.iterator(.ROW, .{ .i = 0, .j = 0 });
 
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 0 }));
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 1 }));
@@ -261,7 +261,7 @@ test "Test 4x4 Sudoku" {
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 3 }));
     try expect(it_row.next() == null);
 
-    var it_col = SudokuContraintIterator(S, .COLUMN).init(&s, .{ .i = 0, .j = 0 });
+    var it_col = s.iterator(.COLUMN, .{ .i = 0, .j = 0 });
 
     try expect(it_col.next().?.equals(.{ .i = 0, .j = 0 }));
     try expect(it_col.next().?.equals(.{ .i = 1, .j = 0 }));
@@ -269,7 +269,7 @@ test "Test 4x4 Sudoku" {
     try expect(it_col.next().?.equals(.{ .i = 3, .j = 0 }));
     try expect(it_col.next() == null);
 
-    var it_grid = SudokuContraintIterator(S, .GRID).init(&s, .{ .i = 0, .j = 0 });
+    var it_grid = s.iterator(.GRID, .{ .i = 0, .j = 0 });
 
     try expect(it_grid.next().?.equals(.{ .i = 0, .j = 0 }));
     try expect(it_grid.next().?.equals(.{ .i = 0, .j = 1 }));
@@ -303,7 +303,7 @@ test "Test 9x9 Sudoku" {
     try expect(s.get(.{ .i = 0, .j = 7 }) == 7);
     try expect(s.get(.{ .i = 0, .j = 8 }) == 8);
 
-    var it_row = SudokuContraintIterator(S, .ROW).init(&s, .{ .i = 0, .j = 0 });
+    var it_row = s.iterator(.ROW, .{ .i = 0, .j = 0 });
 
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 0 }));
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 1 }));
@@ -316,7 +316,7 @@ test "Test 9x9 Sudoku" {
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 8 }));
     try expect(it_row.next() == null);
 
-    var it_col = SudokuContraintIterator(S, .COLUMN).init(&s, .{ .i = 0, .j = 0 });
+    var it_col = s.iterator(.COLUMN, .{ .i = 0, .j = 0 });
 
     try expect(it_col.next().?.equals(.{ .i = 0, .j = 0 }));
     try expect(it_col.next().?.equals(.{ .i = 1, .j = 0 }));
@@ -329,7 +329,7 @@ test "Test 9x9 Sudoku" {
     try expect(it_col.next().?.equals(.{ .i = 8, .j = 0 }));
     try expect(it_col.next() == null);
 
-    var it_grid = SudokuContraintIterator(S, .GRID).init(&s, .{ .i = 0, .j = 0 });
+    var it_grid = s.iterator(.GRID, .{ .i = 0, .j = 0 });
 
     try expect(it_grid.next().?.equals(.{ .i = 0, .j = 0 }));
     try expect(it_grid.next().?.equals(.{ .i = 0, .j = 1 }));
