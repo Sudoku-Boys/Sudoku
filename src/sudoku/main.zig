@@ -1,17 +1,20 @@
 const std = @import("std");
-const Sudoku = @import("Sudoku.zig");
+const Sudoku = @import("sudoku.zig");
 
 pub fn main() !void {
-    const S = Sudoku.Sudoku(10, 1000, .MATRIX, .HEAP);
-
     var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 
-    var s = S.init(&optionalAllocator);
+    var s = Sudoku.from_stencil(".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....", 3, 3, .MATRIX, &optionalAllocator);
     defer s.deinit();
 
-    std.debug.print("Size of board {}\n", .{s.size});
+    s.set(.{ .i = 1, .j = 1 }, 8);
+    const writer = std.io.getStdOut().writer();
 
-    _ = s.set(.{ .i = 99, .j = 99 }, 99);
+    s.set(.{ .i = 3, .j = 3 }, 9);
+
+    _ = try s.display(writer);
+
+    std.debug.print("As stencil {s}\n", .{Sudoku.to_stencil(s, &optionalAllocator)});
 }
 
 test "Some test" {

@@ -126,20 +126,24 @@ fn SudokuBitFieldType(comptime k: u16, comptime n: u16) type {
     return std.meta.Int(.unsigned, k * n);
 }
 
+fn SudokuValueRangeType(comptime k: u16, comptime n: u16) type {
+    return std.meta.Int(.unsigned, 64 - @clz(@as(u64, @max(@bitSizeOf(SudokuBitFieldType(k, n)) - 1, 0))));
+}
+
 // Internal representation of Sudoku.
 // A storage type which contains size bits.
 // We store a single value as a bitfield where its index is its value.
 // We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
-pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, comptime M: SudokuMemory) type {
-    const BitFieldType = SudokuBitFieldType(K, N);
+pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStorage, comptime memoryType: SudokuMemory) type {
+    const BitFieldType = SudokuBitFieldType(k, n);
 
     const size = comptime @bitSizeOf(BitFieldType);
 
-    const ValueRangeType = comptime std.meta.Int(.unsigned, 64 - @clz(@as(u64, @max(size - 1, 0))));
+    const ValueRangeType = SudokuValueRangeType(k, n);
 
-    const StorageImplType = if (S == .BITFIELD) BitFieldType else ValueRangeType;
+    const StorageImplType = if (storageType == .BITFIELD) BitFieldType else ValueRangeType;
 
-    const BoardType = switch (M) {
+    const BoardType = switch (memoryType) {
         .STACK => [size * size]StorageImplType,
         .HEAP => []StorageImplType,
     };
@@ -153,21 +157,27 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
         alloc: ?*std.mem.Allocator,
 
         pub fn init(alloc: ?*std.mem.Allocator) Self {
-            return Self{
-                .board = switch (M) {
-                    .STACK => undefined,
+            const s = Self{
+                .board = switch (memoryType) {
+                    .STACK => [_]StorageImplType{0} ** (size * size),
                     .HEAP => alloc.?.alloc(StorageImplType, size * size) catch |err| {
                         @panic(@errorName(err));
                     },
                 },
                 .size = size,
-                .grid_size = N,
+                .grid_size = n,
                 .alloc = alloc,
             };
+
+            if (memoryType == .HEAP) {
+                @memset(s.board, 0);
+            }
+
+            return s;
         }
 
         pub fn deinit(self: *Self) void {
-            if (M == .HEAP) {
+            if (memoryType == .HEAP) {
                 if (self.alloc != null) {
                     self.alloc.?.free(self.board);
                 } else {
@@ -181,6 +191,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
         }
 
         fn set_matrix(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
+            assert(value <= self.size);
             self.board[coordinate.i * self.size + coordinate.j] = value;
         }
 
@@ -188,21 +199,21 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
             const field = self.board[coordinate.i * self.size + coordinate.j];
 
             // Find index of the first set bit.
-            var k: ValueRangeType = 0;
+            var i: ValueRangeType = 0;
 
-            while (k < self.size) {
-                if (field & (@shlExact(@as(BitFieldType, 1), k)) != 0) {
-                    return k;
+            while (i < self.size) {
+                if (field & (@shlExact(@as(BitFieldType, 1), i)) != 0) {
+                    return i;
                 }
 
-                k += 1;
+                i += 1;
             }
 
             return 0;
         }
 
         fn set_bitfield(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
-            assert(value < self.size);
+            assert(value <= self.size);
             // Ignore the previous value as we are setting a new value.
             // Access field as mutable.
             self.board[coordinate.i * self.size + coordinate.j] = 0 | @shlExact(@as(BitFieldType, 1), value);
@@ -210,7 +221,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
 
         // Get the value of the field at i, j.
         pub fn get(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
-            switch (S) {
+            switch (storageType) {
                 .BITFIELD => return self.get_bitfield(coordinate),
                 .MATRIX => return self.get_matrix(coordinate),
             }
@@ -218,7 +229,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
 
         // Set the value of the field at i, j to value.
         pub fn set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
-            switch (S) {
+            switch (storageType) {
                 .BITFIELD => self.set_bitfield(coordinate, value),
                 .MATRIX => self.set_matrix(coordinate, value),
             }
@@ -227,7 +238,78 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
         pub fn iterator(self: *Self, comptime C: SudokuContraint, coordinate: SudokuCoordinate) SudokuContraintIterator(Self, C) {
             return SudokuContraintIterator(Self, C).init(self, coordinate);
         }
+
+        pub fn display(self: *const Self, writer: anytype) !void {
+            // Format in correct grid squares.
+            // Border with | and -.
+            for (0..self.size) |i| {
+                for (0..self.size) |j| {
+                    const value = self.get(.{ .i = i, .j = j });
+
+                    if (j == 0) {
+                        _ = try writer.write("| ");
+                    }
+
+                    if (value == 0) {
+                        _ = try writer.write("? ");
+                    } else {
+                        _ = try writer.print("{d} ", .{value});
+                    }
+
+                    if ((j + 1) % self.grid_size == 0) {
+                        _ = try writer.write("| ");
+                    }
+                }
+
+                _ = try writer.write("\n");
+            }
+
+            _ = try writer.write("\n");
+        }
     };
+}
+
+pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, alloc: *std.mem.Allocator) Sudoku(
+    k,
+    n,
+    S,
+    .HEAP,
+) {
+    const SudokuT = Sudoku(k, n, .MATRIX, .HEAP);
+    const ValueRangeType = SudokuValueRangeType(k, n);
+
+    var s = SudokuT.init(alloc);
+
+    for (0..stencil.len) |i| {
+        const value = stencil[i];
+
+        switch (value) {
+            '.' => s.set(.{ .i = i / s.size, .j = i % s.size }, 0),
+            else => {
+                // value is u8, make into ValueRangeType by casting
+                const val: ValueRangeType = @as(ValueRangeType, @intCast(value - '0'));
+
+                s.set(.{ .i = i / s.size, .j = i % s.size }, val);
+            },
+        }
+    }
+
+    return s;
+}
+
+pub fn to_stencil(s: anytype, alloc: *std.mem.Allocator) []u8 {
+    const size = s.size;
+    const stencil = alloc.alloc(u8, size * size) catch |err| {
+        @panic(@errorName(err));
+    };
+
+    for (0..size * size) |i| {
+        const value = s.get(.{ .i = i / size, .j = i % size });
+
+        stencil[i] = if (value == 0) '.' else '0' + @as(u8, value);
+    }
+
+    return stencil;
 }
 
 test "Validate certain sudoku board sizes" {
