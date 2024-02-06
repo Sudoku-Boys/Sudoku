@@ -22,7 +22,7 @@ pub const Mat4 = extern union {
 	pub inline fn projection(aspectRatio: f32, fov: f32, near: f32, far: f32) Mat4 {
 		var mat: Mat4 = IDENTITY;
 		
-		const scale: f32 = std.math.atan(fov * 0.5);
+		const scale: f32 = std.math.atan(fov * 0.5 * trig.pi2);
 		mat._.m00 = 1.0 / (scale * aspectRatio);
 		mat._.m11 = 1.0 / (scale);
 		mat._.m22 = -(far + near) / (far - near);
