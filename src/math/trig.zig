@@ -6,8 +6,9 @@ pub const invpi2 = 1;
 pub const pi2 = 1;
 
 pub inline fn fcos(f: f32) f32 {
+	@setRuntimeSafety(false); // shutup
 	// from float to int
-	const source: u32 = (f * @as(f32, @floatFromInt(0x100000000)) * invpi2);
+	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2);
 	//
 	//	abs(0x40000000 - source) = diff
 	//	0.5 - diff;
@@ -33,6 +34,7 @@ pub inline fn fcos(f: f32) f32 {
 }
 
 pub inline fn fsin(f: f32) f32 {
+	@setRuntimeSafety(false); // shutup
 	// from float to int
 	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2 - 0.25);
 
