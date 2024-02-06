@@ -1,4 +1,8 @@
+const std = @import("std");
+
 const intrinsic = @import("simd.zig");
+const trig = @import("trig.zig");
+const Vec3 = @import("vec.zig").Vec3;
 
 pub const Mat4 = extern union {
 	
@@ -12,7 +16,105 @@ pub const Mat4 = extern union {
 	v : [4]@Vector(4, f32),
 	
 	pub fn init(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @Vector(4, f32)) Mat4 {
-		return Mat4{.v={r0, r1, r2, r3}};
+		return Mat4{.v=.{r0, r1, r2, r3}};
+	}
+
+	pub inline fn projection(aspectRatio: f32, fov: f32, near: f32, far: f32) Mat4 {
+		var mat: Mat4 = IDENTITY;
+		
+		const scale: f32 = std.math.atan(fov * 0.5);
+		mat._.m00 = 1.0 / (scale * aspectRatio);
+		mat._.m11 = 1.0 / (scale);
+		mat._.m22 = -(far + near) / (far - near);
+		mat._.m23 = -1.0;
+		mat._.m32 = -(2.0 * far * near) / (far - near);
+		mat._.m33 = 0;
+
+		return mat;
+	}
+
+	pub inline fn translate(tr: Vec3) Mat4 {
+		var mat: Mat4 = IDENTITY;
+
+		mat._.m03 = tr._.x;
+		mat._.m13 = tr._.y;
+		mat._.m23 = tr._.z;
+
+		return mat;
+	}
+
+	pub inline fn scale(sc: Vec3) Mat4 {
+		var mat: Mat4 = IDENTITY;
+
+		mat._.m00 = sc._.x;
+		mat._.m11 = sc._.y;
+		mat._.m22 = sc._.z;
+
+		return mat;
+	}
+
+	pub inline fn rotateX(rot: f32) Mat4 {
+		var mat: Mat4 = IDENTITY;
+
+		const c = trig.fcos(rot);
+		const s = trig.fsin(rot);
+
+		mat.m11 = c;
+		mat.m12 = -s;
+		mat.m21 = s;
+		mat.m22 = c;
+
+		return mat;
+	}
+
+	pub inline fn rotateY(rot: f32) Mat4 {
+		var mat: Mat4 = IDENTITY;
+
+		const c = trig.fcos(rot);
+		const s = trig.fsin(rot);
+
+		mat.m00 = c;
+		mat.m02 = s;
+		mat.m20 = -s;
+		mat.m22 = c;
+
+		return mat;
+	}
+
+	pub inline fn rotateZ(rot: f32) Mat4 {
+		var mat: Mat4 = IDENTITY;
+
+		const c = trig.fcos(rot);
+		const s = trig.fsin(rot);
+
+		mat.m00 = c;
+		mat.m01 = -s;
+		mat.m10 = s;
+		mat.m11 = c;
+
+		return mat;
+	}
+
+	pub inline fn rotate(rot: f32, axis: Vec3) Mat4 {
+		var mat: Mat4 = IDENTITY;
+
+		const c = trig.fcos(rot);
+		const s = trig.fsin(rot);
+		const ic = 1 - c;
+
+		mat._.m00 = axis._.x * axis._.x * ic + c;
+		mat._.m01 = axis._.x * axis._.y * ic - axis._.z * s;
+		mat._.m02 = axis._.x * axis._.z * ic + axis._.y * s;
+
+		mat._.m10 = axis._.y * axis._.x * ic + axis._.z * s;
+		mat._.m11 = axis._.y * axis._.y * ic + c;
+		mat._.m12 = axis._.y * axis._.z * ic - axis._.z * s;
+
+		mat._.m20 = axis._.z * axis._.x * ic - axis._.y * s;
+		mat._.m21 = axis._.z * axis._.y * ic + axis._.x * s;
+		mat._.m22 = axis._.z * axis._.z * ic + c;
+
+		return mat;
 	}
 
 	pub inline fn addf(a: Mat4, b: f32) Mat4 {
