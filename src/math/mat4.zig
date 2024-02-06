@@ -4,6 +4,10 @@ const intrinsic = @import("simd.zig");
 const trig = @import("trig.zig");
 const Vec3 = @import("vec.zig").Vec3;
 
+pub fn mat4(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @Vector(4, f32)) Mat4 {
+	return Mat4.init(r0, r1, r2, r3);
+}
+
 pub const Mat4 = extern union {
 	
 	_ : extern struct {
