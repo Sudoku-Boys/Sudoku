@@ -1,4 +1,5 @@
 # Dependencies
- * Glfw
- * Vulkan SDK
- * Shaderc
+
+* Glfw
+* Vulkan SDK
+* Shaderc
