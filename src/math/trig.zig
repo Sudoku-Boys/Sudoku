@@ -2,7 +2,7 @@ const std = @import("std");
 
 const inv2pi = 0.159154943091895335768883763372;
 
-pub inline fn fcosf(f: f32) f32 {
+pub inline fn fcos(f: f32) f32 {
 	// from float to int
 	const source: u32 = (f * @as(f32, @floatFromInt(0x100000000)) * inv2pi);
 	//
@@ -24,12 +24,12 @@ pub inline fn fcosf(f: f32) f32 {
 
 	const x2: i64 = (x * x) >> 29;
 	const x4: i64 = x2 * x2 >> 31;
-	const cos: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
+	const c: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
 		
-	return @as(f32, @floatFromInt(cos)) / @as(f32, @floatFromInt(0x80000000));
+	return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
 }
 
-pub inline fn fsinf(f: f32) f32 {
+pub inline fn fsin(f: f32) f32 {
 	// from float to int
 	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * inv2pi - 0.25);
 
@@ -40,12 +40,12 @@ pub inline fn fsinf(f: f32) f32 {
 
 	const x2: i64 = (x * x) >> 29;
 	const x4: i64 = x2 * x2 >> 31;
-	const cos: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
+	const c: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
 		
-	return @as(f32, @floatFromInt(cos)) / @as(f32, @floatFromInt(0x80000000));
+	return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
 }
 
-pub inline fn cosf(f: f32) f32 {
+pub inline fn cos(f: f32) f32 {
 	// get abs cos(-x) = cos(x)
 	// divide by 2PI, cos(1/2) = 0
 	// add 1/2
@@ -62,7 +62,7 @@ pub inline fn cosf(f: f32) f32 {
 	return x2 * (x2 * (-64.0 * x + 80.0 ) - 20.0) + 1.0; 
 }
 
-pub inline fn sinf(f: f32) f32 {
+pub inline fn sin(f: f32) f32 {
 	const s0: f32 = @fabs(f * inv2pi - 0.25) + 0.5;
 	const s1: f32 = s0 - @trunc(s0) - 0.5;
 	const x: f32 = @fabs(s1);
@@ -88,7 +88,7 @@ const v8_20c0: @Vector(8, f32) = .{20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.
 const v8_m64c0: @Vector(8, f32) = .{-64.0, -64.0, -64.0, -64.0, -64.0, -64.0, -64.0, -64.0};
 const v8_80c0: @Vector(8, f32) = .{80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0};
 
-pub inline fn cosfv(f: []f32) []f32 {
+pub inline fn cosv(f: []f32) []f32 {
 	var i: u32 = 0;
 
 	var out: [f.len]f32 = undefined;
@@ -121,7 +121,7 @@ pub inline fn cosfv(f: []f32) []f32 {
 	return out;
 }
 
-pub inline fn sinfv(f: []f32) []f32 {
+pub inline fn sinv(f: []f32) []f32 {
 	var i: u32 = 0;
 
 	var out: [f.len]f32 = undefined;
