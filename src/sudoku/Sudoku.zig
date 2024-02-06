@@ -150,6 +150,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
         size: usize,
         grid_size: usize,
         board: BoardType,
+        alloc: ?*std.mem.Allocator,
 
         pub fn init(alloc: ?*std.mem.Allocator) Self {
             return Self{
@@ -161,7 +162,18 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime S: SudokuStorage, compt
                 },
                 .size = size,
                 .grid_size = N,
+                .alloc = alloc,
             };
+        }
+
+        pub fn deinit(self: *Self) void {
+            if (M == .HEAP) {
+                if (self.alloc != null) {
+                    self.alloc.?.free(self.board);
+                } else {
+                    @panic("No allocator provided");
+                }
+            }
         }
 
         fn get_matrix(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {

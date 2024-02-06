@@ -13,6 +13,7 @@ pub fn main() !void {
     //    std.debug.print("Sudoku: {}\n", .{@typeInfo(S)});
 
     var s = S.init(null);
+    defer s.deinit();
 
     std.debug.print("Size of board {}\n", .{s.size});
 
