@@ -11,6 +11,10 @@ pub const Mat4 = extern union {
 	f : [16]f32,
 	v : [4]@Vector(4, f32),
 	
+	pub fn init(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @Vector(4, f32)) Mat4 {
+		return Mat4{.v={r0, r1, r2, r3}};
+	}
+
 	pub inline fn addf(a: Mat4, b: f32) Mat4 {
 		const broad = @Vector(4, f32){b, b, b, b};
 	
