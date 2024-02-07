@@ -6,6 +6,7 @@ const expect = std.testing.expect;
 pub const SudokuContraint = enum { ROW, COLUMN, GRID };
 pub const SudokuStorage = enum { BITFIELD, MATRIX };
 pub const SudokuMemory = enum { STACK, HEAP };
+pub const SudokuEmptySentinel = 0;
 
 pub const SudokuCoordinate = struct {
     i: usize,
@@ -158,7 +159,7 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
         pub fn init(alloc: ?*std.mem.Allocator) Self {
             const s = Self{
                 .board = switch (memoryType) {
-                    .STACK => [_]StorageImplType{0} ** (size * size),
+                    .STACK => [_]StorageImplType{SudokuEmptySentinel} ** (size * size),
                     .HEAP => alloc.?.alloc(StorageImplType, size * size) catch |err| {
                         @panic(@errorName(err));
                     },
@@ -169,7 +170,7 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
             };
 
             if (memoryType == .HEAP) {
-                @memset(s.board, 0);
+                @memset(s.board, SudokuEmptySentinel);
             }
 
             return s;
@@ -197,25 +198,36 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
         fn get_bitfield(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
             const field = self.board[coordinate.i * self.size + coordinate.j];
 
+            if (field == SudokuEmptySentinel) {
+                return SudokuEmptySentinel;
+            }
+
             // Find index of the first set bit.
             var i: ValueRangeType = 0;
 
             while (i < self.size) {
                 if (field & (@shlExact(@as(BitFieldType, 1), i)) != 0) {
-                    return i;
+                    // We return i + 1 as the bit field is 0 indexed.
+                    return i + 1;
                 }
 
                 i += 1;
             }
 
-            return 0;
+            unreachable;
         }
 
         fn set_bitfield(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
             assert(value <= self.size);
             // Ignore the previous value as we are setting a new value.
-            // Access field as mutable.
-            self.board[coordinate.i * self.size + coordinate.j] = 0 | @shlExact(@as(BitFieldType, 1), value);
+            // We set value - 1 as the bit field is 0 indexed.
+            // The index 0 (first bit) is the first value.
+            if (value == SudokuEmptySentinel) {
+                self.board[coordinate.i * self.size + coordinate.j] = SudokuEmptySentinel;
+                return;
+            }
+
+            self.board[coordinate.i * self.size + coordinate.j] = 0 | @shlExact(@as(BitFieldType, 1), value - 1);
         }
 
         // Get the value of the field at i, j.
@@ -249,7 +261,7 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
                         _ = try writer.write("| ");
                     }
 
-                    if (value == 0) {
+                    if (value == SudokuEmptySentinel) {
                         _ = try writer.write("? ");
                     } else {
                         _ = try writer.print("{d} ", .{value});
@@ -266,49 +278,6 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
             _ = try writer.write("\n");
         }
     };
-}
-
-pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, alloc: *std.mem.Allocator) Sudoku(
-    k,
-    n,
-    S,
-    .HEAP,
-) {
-    const SudokuT = Sudoku(k, n, .MATRIX, .HEAP);
-    const ValueRangeType = SudokuValueRangeType(k, n);
-
-    var s = SudokuT.init(alloc);
-
-    for (0..stencil.len) |i| {
-        const value = stencil[i];
-
-        switch (value) {
-            '.' => s.set(.{ .i = i / s.size, .j = i % s.size }, 0),
-            else => {
-                // value is u8, make into ValueRangeType by casting
-                const val: ValueRangeType = @as(ValueRangeType, @intCast(value - '0'));
-
-                s.set(.{ .i = i / s.size, .j = i % s.size }, val);
-            },
-        }
-    }
-
-    return s;
-}
-
-pub fn to_stencil(s: anytype, alloc: *std.mem.Allocator) []u8 {
-    const size = s.size;
-    const stencil = alloc.alloc(u8, size * size) catch |err| {
-        @panic(@errorName(err));
-    };
-
-    for (0..size * size) |i| {
-        const value = s.get(.{ .i = i / size, .j = i % size });
-
-        stencil[i] = if (value == 0) '.' else '0' + @as(u8, value);
-    }
-
-    return stencil;
 }
 
 test "Validate certain sudoku board sizes" {
@@ -432,4 +401,58 @@ test "Very large using matrix backend, does it compile?" {
     s.set(.{ .i = 999, .j = 999 }, 999);
 
     try expect(s.get(.{ .i = 999, .j = 999 }) == 999);
+}
+
+pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, alloc: *std.mem.Allocator) Sudoku(
+    k,
+    n,
+    S,
+    .HEAP,
+) {
+    const SudokuT = Sudoku(k, n, S, .HEAP);
+    const ValueRangeType = SudokuValueRangeType(k, n);
+
+    var s = SudokuT.init(alloc);
+
+    for (0..stencil.len) |i| {
+        const value = stencil[i];
+
+        switch (value) {
+            '.' => s.set(.{ .i = i / s.size, .j = i % s.size }, 0),
+            else => {
+                // value is u8, make into ValueRangeType by casting
+                const val: ValueRangeType = @as(ValueRangeType, @intCast(value - '0'));
+
+                s.set(.{ .i = i / s.size, .j = i % s.size }, val);
+            },
+        }
+    }
+
+    return s;
+}
+
+pub fn to_stencil(s: anytype, alloc: *std.mem.Allocator) []u8 {
+    const size = s.size;
+    const stencil = alloc.alloc(u8, size * size) catch |err| {
+        @panic(@errorName(err));
+    };
+
+    for (0..size * size) |i| {
+        const value = s.get(.{ .i = i / size, .j = i % size });
+
+        stencil[i] = if (value == 0) '.' else '0' + @as(u8, value);
+    }
+
+    return stencil;
+}
+
+test "9x9 Stencil" {
+    const stencil = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
+    var alloc = std.testing.allocator;
+    var sudoku = from_stencil(stencil, 3, 3, .BITFIELD, &alloc);
+    defer sudoku.deinit();
+
+    const stencil_res = to_stencil(sudoku, &alloc);
+    try expect(std.mem.eql(u8, stencil_res, stencil));
+    alloc.free(stencil_res);
 }
