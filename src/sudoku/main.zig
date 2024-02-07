@@ -1,6 +1,25 @@
 const std = @import("std");
 const Sudoku = @import("sudoku.zig");
 
+
+const MyType = struct {
+    const Self = @This();
+
+    x: u8,
+    y: u8,
+
+    pub fn init() {
+        return Self{ .x = 0, .y = 0 };
+    }
+
+    pub fn add(self: Self) u8 {
+        return self.x + self.y;
+    }
+
+
+}
+
+
 pub fn main() !void {
     var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 

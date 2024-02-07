@@ -155,7 +155,6 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
         grid_size: usize,
         board: BoardType,
         alloc: ?*std.mem.Allocator,
-
         pub fn init(alloc: ?*std.mem.Allocator) Self {
             const s = Self{
                 .board = switch (memoryType) {
