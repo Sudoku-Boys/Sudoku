@@ -57,7 +57,7 @@ fn compileShader(
     tool_step.addArg(stage.argName());
 
     if (b.host.target.os.tag == .windows) {
-        tool_step.addPathDir("ext/win");
+        tool_step.addPathDir("ext/win/lib");
     }
 
     return tool_step.captureStdOut();

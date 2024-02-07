@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) !void {
     run_cmd.step.dependOn(b.getInstallStep());
 
     if (b.host.target.os.tag == .windows) {
-        run_cmd.addPathDir("ext/lib/win");
+        run_cmd.addPathDir("ext/win/lib");
     }
 
     if (b.args) |args| {
