@@ -19,12 +19,12 @@ const Hdr = struct {
     const COLOR_FORMAT = vk.ImageFormat.R16G16B16A16Sfloat;
     const DEPTH_FORMAT = vk.ImageFormat.D32Sfloat;
 
-    fn init(device: vk.Device, extent: vk.Extent2D) !Hdr {
+    fn init(device: vk.Device, extent: vk.Extent3D) !Hdr {
         const color_image = try createColorImage(device, extent);
         errdefer color_image.deinit();
 
         const color_view = try color_image.createView(.{
-            .format = Hdr.COLOR_FORMAT,
+            .format = COLOR_FORMAT,
             .aspect = .{ .color = true },
         });
         errdefer color_view.deinit();
@@ -33,7 +33,7 @@ const Hdr = struct {
         errdefer depth_image.deinit();
 
         const depth_view = try depth_image.createView(.{
-            .format = Hdr.DEPTH_FORMAT,
+            .format = DEPTH_FORMAT,
             .aspect = .{ .depth = true },
         });
         errdefer depth_view.deinit();
@@ -60,33 +60,25 @@ const Hdr = struct {
         };
     }
 
-    fn createColorImage(device: vk.Device, extent: vk.Extent2D) !vk.Image {
+    fn createColorImage(device: vk.Device, extent: vk.Extent3D) !vk.Image {
         return try device.createImage(.{
-            .format = Hdr.COLOR_FORMAT,
-            .extent = .{
-                .width = extent.width,
-                .height = extent.height,
-                .depth = 1,
-            },
+            .format = COLOR_FORMAT,
+            .extent = extent,
             .usage = .{ .color_attachment = true, .sampled = true },
             .memory = .{ .device_local = true },
         });
     }
 
-    fn createDepthImage(device: vk.Device, extent: vk.Extent2D) !vk.Image {
+    fn createDepthImage(device: vk.Device, extent: vk.Extent3D) !vk.Image {
         return try device.createImage(.{
-            .format = Hdr.DEPTH_FORMAT,
-            .extent = .{
-                .width = extent.width,
-                .height = extent.height,
-                .depth = 1,
-            },
+            .format = DEPTH_FORMAT,
+            .extent = extent,
             .usage = .{ .depth_stencil_attachment = true },
             .memory = .{ .device_local = true },
         });
     }
 
-    fn recreate(self: *Hdr, device: vk.Device, extent: vk.Extent2D) !void {
+    fn recreate(self: *Hdr, device: vk.Device, extent: vk.Extent3D) !void {
         self.color_image.deinit();
         self.color_image = try createColorImage(device, extent);
 
@@ -129,21 +121,58 @@ const Hdr = struct {
 const Sdr = struct {
     swapchain: vk.Swapchain,
     render_pass: vk.RenderPass,
-    format: vk.ImageFormat,
+    framebuffers: []vk.Framebuffer,
 
-    fn init(device: vk.Device, surface: vk.Surface) !Sdr {
-        const format = try device.querySurfaceFormat(surface);
-        const render_pass = try createSdrRenderPass(device, format);
-        const swapchain = try device.createSwapchain(surface, render_pass);
+    const COLOR_FORMAT: vk.ImageFormat = vk.ImageFormat.B8G8R8A8Unorm;
+
+    fn init(allocator: std.mem.Allocator, device: vk.Device, surface: vk.Surface) !Sdr {
+        const render_pass = try createSdrRenderPass(device);
+        const swapchain = try device.createSwapchain(.{
+            .surface = surface,
+        });
+
+        const framebuffers = try allocator.alloc(vk.Framebuffer, swapchain.images.len);
+
+        for (swapchain.views, 0..) |view, i| {
+            framebuffers[i] = try device.createFramebuffer(.{
+                .render_pass = render_pass,
+                .attachments = &.{view},
+                .extent = swapchain.extent.as2D(),
+            });
+        }
 
         return .{
             .swapchain = swapchain,
             .render_pass = render_pass,
-            .format = swapchain.format,
+            .framebuffers = framebuffers,
         };
     }
 
-    fn deinit(self: Sdr) void {
+    fn recreate(self: *Sdr, device: vk.Device, allocator: std.mem.Allocator) !void {
+        for (self.framebuffers) |framebuffer| {
+            framebuffer.deinit();
+        }
+
+        try self.swapchain.recreate();
+
+        self.framebuffers = try allocator.realloc(self.framebuffers, self.swapchain.images.len);
+
+        for (self.swapchain.views, 0..) |view, i| {
+            self.framebuffers[i] = try device.createFramebuffer(.{
+                .render_pass = self.render_pass,
+                .attachments = &.{view},
+                .extent = self.swapchain.extent.as2D(),
+            });
+        }
+    }
+
+    fn deinit(self: Sdr, allocator: std.mem.Allocator) void {
+        for (self.framebuffers) |framebuffer| {
+            framebuffer.deinit();
+        }
+
+        allocator.free(self.framebuffers);
+
         self.render_pass.deinit();
         self.swapchain.deinit();
     }
@@ -182,8 +211,8 @@ pub const Descriptor = struct {
 };
 
 pub fn init(desc: Descriptor) !Renderer {
-    const sdr = try Sdr.init(desc.device, desc.surface);
-    errdefer sdr.deinit();
+    const sdr = try Sdr.init(desc.allocator, desc.device, desc.surface);
+    errdefer sdr.deinit(desc.allocator);
 
     const hdr = try Hdr.init(desc.device, sdr.swapchain.extent);
     errdefer hdr.deinit();
@@ -257,6 +286,9 @@ pub fn init(desc: Descriptor) !Renderer {
 }
 
 pub fn deinit(self: Renderer) void {
+    // very important as it turns out
+    self.device.waitIdle() catch {};
+
     self.render_finished.deinit();
     self.image_available.deinit();
     self.in_flight.deinit();
@@ -273,39 +305,7 @@ pub fn deinit(self: Renderer) void {
     self.standard_material_instance_state.deinit();
 
     self.hdr.deinit();
-    self.sdr.deinit();
-}
-
-fn createSdrRenderPass(device: vk.Device, format: vk.ImageFormat) !vk.RenderPass {
-    return vk.RenderPass.init(device, .{
-        .attachments = &.{
-            .{
-                .format = format,
-                .samples = 1,
-                .load_op = .Clear,
-                .store_op = .Store,
-                .final_layout = .PresentSrc,
-            },
-        },
-        .subpasses = &.{
-            .{
-                .color_attachments = &.{
-                    .{
-                        .attachment = 0,
-                        .layout = .ColorAttachmentOptimal,
-                    },
-                },
-            },
-        },
-        .dependencies = &.{
-            .{
-                .dst_subpass = 0,
-                .src_stage_mask = .{ .color_attachment_output = true },
-                .dst_stage_mask = .{ .color_attachment_output = true },
-                .dst_access_mask = .{ .color_attachment_write = true },
-            },
-        },
-    });
+    self.sdr.deinit(self.allocator);
 }
 
 fn createHdrRenderPass(device: vk.Device) !vk.RenderPass {
@@ -344,16 +344,69 @@ fn createHdrRenderPass(device: vk.Device) !vk.RenderPass {
             .{
                 .dst_subpass = 0,
                 .src_stage_mask = .{
-                    .color_attachment_output = true,
-                    .early_fragment_tests = true,
+                    .top_of_pipe = true,
                 },
                 .dst_stage_mask = .{
                     .color_attachment_output = true,
                     .early_fragment_tests = true,
                 },
                 .dst_access_mask = .{
-                    .color_attachment_write = true,
+                    .depth_stencil_attachment_read = true,
                     .depth_stencil_attachment_write = true,
+                    .color_attachment_write = true,
+                },
+            },
+            .{
+                .src_subpass = 0,
+                .src_stage_mask = .{
+                    .color_attachment_output = true,
+                },
+                .src_access_mask = .{
+                    .color_attachment_write = true,
+                },
+                .dst_stage_mask = .{
+                    .fragment_shader = true,
+                },
+                .dst_access_mask = .{
+                    .shader_read = true,
+                },
+            },
+        },
+    });
+}
+
+fn createSdrRenderPass(device: vk.Device) !vk.RenderPass {
+    return vk.RenderPass.init(device, .{
+        .attachments = &.{
+            .{
+                .format = Sdr.COLOR_FORMAT,
+                .samples = 1,
+                .load_op = .Clear,
+                .store_op = .Store,
+                .final_layout = .PresentSrc,
+            },
+        },
+        .subpasses = &.{
+            .{
+                .color_attachments = &.{
+                    .{
+                        .attachment = 0,
+                        .layout = .ColorAttachmentOptimal,
+                    },
+                },
+            },
+        },
+        .dependencies = &.{
+            .{
+                .dst_subpass = 0,
+                .src_stage_mask = .{
+                    .fragment_shader = true,
+                },
+                .dst_stage_mask = .{
+                    .color_attachment_output = true,
+                },
+                .dst_access_mask = .{
+                    .color_attachment_write = true,
                 },
             },
         },
@@ -368,13 +421,17 @@ fn recordCommandBuffer(self: *Renderer, image_index: usize) !void {
         .render_pass = self.hdr.render_pass,
         .framebuffer = self.hdr.framebuffer,
         .render_area = .{
-            .extent = self.sdr.swapchain.extent,
+            .extent = self.sdr.swapchain.extent.as2D(),
         },
     });
 
     self.graphics_buffer.setViewport(.{
         .width = @floatFromInt(self.sdr.swapchain.extent.width),
         .height = @floatFromInt(self.sdr.swapchain.extent.height),
+    });
+
+    self.graphics_buffer.setScissor(.{
+        .extent = self.sdr.swapchain.extent.as2D(),
     });
 
     try StandardMaterial.recordInstance(
@@ -387,22 +444,20 @@ fn recordCommandBuffer(self: *Renderer, image_index: usize) !void {
 
     self.graphics_buffer.endRenderPass();
 
+    self.graphics_buffer.pipelineBarrier(.{
+        .src_stage = .{ .color_attachment_output = true },
+        .dst_stage = .{ .color_attachment_output = true },
+    });
+
     self.graphics_buffer.beginRenderPass(.{
         .render_pass = self.sdr.render_pass,
-        .framebuffer = self.sdr.swapchain.framebuffers[image_index],
+        .framebuffer = self.sdr.framebuffers[image_index],
         .render_area = .{
-            .extent = self.sdr.swapchain.extent,
+            .extent = self.sdr.swapchain.extent.as2D(),
         },
     });
 
-    self.graphics_buffer.setViewport(.{
-        .width = @floatFromInt(self.sdr.swapchain.extent.width),
-        .height = @floatFromInt(self.sdr.swapchain.extent.height),
-    });
-
-    try self.tonemapper.recordCommandBuffer(
-        self.graphics_buffer,
-    );
+    try self.tonemapper.recordCommandBuffer(self.graphics_buffer);
 
     self.graphics_buffer.endRenderPass();
 
@@ -410,7 +465,9 @@ fn recordCommandBuffer(self: *Renderer, image_index: usize) !void {
 }
 
 fn recreate(self: *Renderer) !void {
-    try self.sdr.swapchain.recreate();
+    try self.device.waitIdle();
+
+    try self.sdr.recreate(self.device, self.allocator);
     try self.hdr.recreate(self.device, self.sdr.swapchain.extent);
     try self.tonemapper.setHdrImage(self.device, self.hdr.color_view);
 }
@@ -421,8 +478,9 @@ pub fn drawFrame(self: *Renderer) !void {
     const image_index = self.sdr.swapchain.acquireNextImage(.{
         .semaphore = self.image_available,
     }) catch |err| switch (err) {
-        error.VK_ERROR_OUT_OF_DATE_KHR => return try self.recreate(),
-        error.VK_SUBOPTIMAL_KHR => return try self.recreate(),
+        error.VK_SUBOPTIMAL_KHR,
+        error.VK_ERROR_OUT_OF_DATE_KHR,
+        => return try self.recreate(),
         else => return err,
     };
 
@@ -432,13 +490,14 @@ pub fn drawFrame(self: *Renderer) !void {
         self.device,
         &self.standard_material_instance_state,
         &self.staging_buffer,
-        math.Mat4.rotateY(self.time),
+        math.Mat4.rotate(self.time, math.vec3(1.0, -2.0, 0.8).normalize()),
     );
-    self.time += 0.001;
+    self.time += 0.005;
 
-    const aspect = self.sdr.swapchain.extent.aspect();
+    const width: f32 = @floatFromInt(self.sdr.swapchain.extent.width);
+    const height: f32 = @floatFromInt(self.sdr.swapchain.extent.height);
 
-    try self.staging_buffer.write(&self.camera.uniform(aspect));
+    try self.staging_buffer.write(&self.camera.uniform(width / height));
     try self.staging_buffer.copyBuffer(.{
         .dst = self.camera_state.buffer,
         .size = @sizeOf(Camera.Uniforms),

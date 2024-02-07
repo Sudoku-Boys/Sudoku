@@ -127,16 +127,11 @@ fn maybeCreateDebugUtilsMessenger(instance: vk.api.VkInstance) !?vk.api.VkDebugU
     return null;
 }
 
-fn isNameEq(available: [256]u8, extension: [*c]const u8) bool {
-    const available_len = std.mem.len(@as([*c]const u8, &available));
-    const extension_len = std.mem.len(extension);
-
-    return std.mem.eql(u8, available[0..available_len], extension[0..extension_len]);
-}
-
 fn isLayerAvailable(available: []const vk.api.VkLayerProperties, name: [*c]const u8) bool {
+    const str = std.mem.span(name);
+
     for (available) |layer| {
-        if (isNameEq(layer.layerName, name)) {
+        if (std.mem.count(u8, str, layer.layerName) == 0) {
             return true;
         }
     }
@@ -191,8 +186,10 @@ fn getLayers(allocator: std.mem.Allocator, required: []const [*c]const u8) ![]co
 }
 
 fn isExtensionAvailable(available: []const vk.api.VkExtensionProperties, name: [*c]const u8) bool {
+    const str = std.mem.span(name);
+
     for (available) |ext| {
-        if (isNameEq(ext.extensionName, name)) {
+        if (std.mem.count(u8, str, &ext.extensionName) == 0) {
             return true;
         }
     }
@@ -263,7 +260,7 @@ pub const Descriptor = struct {
             .applicationVersion = self.application_version,
             .pEngineName = "Sudoku engine",
             .engineVersion = vk.api.VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = vk.api.VK_API_VERSION_1_0,
+            .apiVersion = vk.api.VK_API_VERSION_1_3,
         };
     }
 };
