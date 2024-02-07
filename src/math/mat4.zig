@@ -9,15 +9,48 @@ pub fn mat4(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @
 }
 
 pub const Mat4 = extern union {
-	
-	_ : extern struct {
-		m00 : f32, m01 : f32, m02 : f32, m03 : f32,
-		m10 : f32, m11 : f32, m12 : f32, m13 : f32,
-		m20 : f32, m21 : f32, m22 : f32, m23 : f32,
-		m30 : f32, m31 : f32, m32 : f32, m33 : f32,
-	},
-	f : [16]f32,
-	v : [4]@Vector(4, f32),
+
+	_: extern struct {
+        m00: f32,
+        m01: f32,
+        m02: f32,
+        m03: f32,
+        m10: f32,
+        m11: f32,
+        m12: f32,
+        m13: f32,
+        m20: f32,
+        m21: f32,
+        m22: f32,
+        m23: f32,
+        m30: f32,
+        m31: f32,
+        m32: f32,
+        m33: f32,
+    },
+    f: [16]f32,
+    v: [4]@Vector(4, f32),
+
+    pub const IDENTITY: Mat4 = .{
+        ._ = .{
+            .m00 = 1.0,
+            .m01 = 0.0,
+            .m02 = 0.0,
+            .m03 = 0.0,
+            .m10 = 0.0,
+            .m11 = 1.0,
+            .m12 = 0.0,
+            .m13 = 0.0,
+            .m20 = 0.0,
+            .m21 = 0.0,
+            .m22 = 1.0,
+            .m23 = 0.0,
+            .m30 = 0.0,
+            .m31 = 0.0,
+            .m32 = 0.0,
+            .m33 = 1.0,
+        },
+    };
 	
 	pub fn init(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @Vector(4, f32)) Mat4 {
 		return Mat4{.v=.{r0, r1, r2, r3}};
@@ -40,9 +73,9 @@ pub const Mat4 = extern union {
 	pub inline fn translate(tr: Vec3) Mat4 {
 		var mat: Mat4 = IDENTITY;
 
-		mat._.m03 = tr._.x;
-		mat._.m13 = tr._.y;
-		mat._.m23 = tr._.z;
+		mat._.m30 = tr._.x;
+		mat._.m31 = tr._.y;
+		mat._.m32 = tr._.z;
 
 		return mat;
 	}

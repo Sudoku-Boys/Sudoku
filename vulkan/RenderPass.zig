@@ -30,7 +30,7 @@ pub const Subpass = struct {
     input_attachments: []const AttachmentReference = &.{},
     color_attachments: []const AttachmentReference = &.{},
     resolve_attachments: []const AttachmentReference = &.{},
-    depth_stencil_attachment: AttachmentReference = .{},
+    depth_stencil_attachment: ?AttachmentReference = null,
     preserve_attachments: []const u32 = &.{},
 };
 
@@ -58,6 +58,9 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
 
     var vk_subpasses = try device.allocator.alloc(vk.api.VkSubpassDescription, desc.subpasses.len);
     defer device.allocator.free(vk_subpasses);
+
+    var vk_depth_stencils = try device.allocator.alloc(vk.api.VkAttachmentReference, desc.subpasses.len);
+    defer device.allocator.free(vk_depth_stencils);
 
     var vk_dependencies = try device.allocator.alloc(vk.api.VkSubpassDependency, desc.dependencies.len);
     defer device.allocator.free(vk_dependencies);
@@ -105,6 +108,13 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
             resolve_attachments[j] = resolve_attachment.toVk();
         }
 
+        var depth_stencil: [*c]const vk.api.VkAttachmentReference = null;
+
+        if (subpass.depth_stencil_attachment) |depth_stencil_attachment| {
+            vk_depth_stencils[i] = depth_stencil_attachment.toVk();
+            depth_stencil = &vk_depth_stencils[i];
+        }
+
         vk_subpasses[i] = vk.api.VkSubpassDescription{
             .flags = 0,
             .pipelineBindPoint = vk.api.VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -113,7 +123,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
             .colorAttachmentCount = @intCast(subpass.color_attachments.len),
             .pColorAttachments = color_attachments.ptr,
             .pResolveAttachments = resolve_attachments,
-            .pDepthStencilAttachment = null,
+            .pDepthStencilAttachment = depth_stencil,
             .preserveAttachmentCount = @intCast(subpass.preserve_attachments.len),
             .pPreserveAttachments = subpass.preserve_attachments.ptr,
         };
