@@ -161,21 +161,19 @@ pub const ImageMemoryBarrier = struct {
 };
 
 pub const PipelineBarrierDescriptor = struct {
-    src_stage: vk.PipelineStages,
-    dst_stage: vk.PipelineStages,
+    src_stage: vk.PipelineStages = .{},
+    dst_stage: vk.PipelineStages = .{},
     dependency_flags: vk.Dependencies = .{ .by_region = true },
-    image_barriers: []const ImageMemoryBarrier,
+    image_barriers: []const ImageMemoryBarrier = &.{},
 };
 
 pub fn pipelineBarrier(
     self: CommandBuffer,
     desc: PipelineBarrierDescriptor,
-) !void {
-    const imageBarriers: []vk.api.VkImageMemoryBarrier = try self.allocator.alloc(
-        vk.api.VkImageMemoryBarrier,
-        desc.image_barriers.len,
-    );
-    defer self.allocator.free(imageBarriers);
+) void {
+    std.debug.assert(desc.image_barriers.len <= 64);
+
+    var imageBarriers: [64]vk.api.VkImageMemoryBarrier = undefined;
 
     for (desc.image_barriers, 0..) |barrier, i| {
         imageBarriers[i] = vk.api.VkImageMemoryBarrier{
@@ -208,7 +206,7 @@ pub fn pipelineBarrier(
         0,
         null,
         @intCast(desc.image_barriers.len),
-        imageBarriers.ptr,
+        &imageBarriers,
     );
 }
 
@@ -329,21 +327,19 @@ pub fn setViewport(self: CommandBuffer, viewport: Viewport) void {
 }
 
 pub const Scissor = struct {
-    x: i32 = 0,
-    y: i32 = 0,
-    width: u32 = 0,
-    height: u32 = 0,
+    offset: vk.Offset2D = .{},
+    extent: vk.Extent2D,
 };
 
 pub fn setScissor(self: CommandBuffer, scissor: Scissor) void {
     const vk_scissor = vk.api.VkRect2D{
         .offset = vk.api.VkOffset2D{
-            .x = scissor.x,
-            .y = scissor.y,
+            .x = scissor.offset.x,
+            .y = scissor.offset.y,
         },
         .extent = vk.api.VkExtent2D{
-            .width = scissor.width,
-            .height = scissor.height,
+            .width = scissor.extent.width,
+            .height = scissor.extent.height,
         },
     };
 

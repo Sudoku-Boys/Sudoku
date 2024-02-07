@@ -17,15 +17,11 @@ vk: vk.api.VkImageView,
 device: vk.api.VkDevice,
 
 pub fn init(image: vk.Image, desc: Descriptor) !ImageView {
-    return fromVkImage(image.device, image.vk, desc);
-}
-
-pub fn fromVkImage(device: vk.api.VkDevice, image: vk.api.VkImage, desc: Descriptor) !ImageView {
     const view_info = vk.api.VkImageViewCreateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = null,
         .flags = 0,
-        .image = image,
+        .image = image.vk,
         .viewType = @intFromEnum(desc.type),
         .format = @intFromEnum(desc.format),
         .components = vk.api.VkComponentMapping{
@@ -35,7 +31,7 @@ pub fn fromVkImage(device: vk.api.VkDevice, image: vk.api.VkImage, desc: Descrip
             .a = vk.api.VK_COMPONENT_SWIZZLE_IDENTITY,
         },
         .subresourceRange = vk.api.VkImageSubresourceRange{
-            .aspectMask = vk.api.VK_IMAGE_ASPECT_COLOR_BIT,
+            .aspectMask = @bitCast(desc.aspect),
             .baseMipLevel = desc.base_mip_level,
             .levelCount = desc.mip_levels,
             .baseArrayLayer = desc.base_array_layer,
@@ -44,11 +40,11 @@ pub fn fromVkImage(device: vk.api.VkDevice, image: vk.api.VkImage, desc: Descrip
     };
 
     var view: vk.api.VkImageView = undefined;
-    try vk.check(vk.api.vkCreateImageView(device, &view_info, null, &view));
+    try vk.check(vk.api.vkCreateImageView(image.device, &view_info, null, &view));
 
     return .{
         .vk = view,
-        .device = device,
+        .device = image.device,
     };
 }
 

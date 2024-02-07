@@ -69,7 +69,7 @@ fn isDeviceValid(
     device: vk.api.VkPhysicalDevice,
     surface: ?vk.Surface,
 ) !bool {
-    if (try Queues.find(allocator, device, surface) == null) {
+    if (try QueueFamilies.find(allocator, device, surface) == null) {
         return false;
     }
 
@@ -78,12 +78,7 @@ fn isDeviceValid(
     }
 
     if (surface) |_surface| {
-        var swapChainSupport = try SwapchainSupport.query(allocator, device, _surface);
-        defer swapChainSupport.deinit();
-
-        if (!swapChainSupport.isAdequate()) {
-            return false;
-        }
+        _ = _surface;
     }
 
     return true;
@@ -130,12 +125,11 @@ fn getPhysicalDevices(
 }
 
 fn findPhysicalDevice(
-    allocator: std.mem.Allocator,
-    instance: vk.api.VkInstance,
+    instance: vk.Instance,
     surface: ?vk.Surface,
 ) !?vk.api.VkPhysicalDevice {
-    const devices = try getPhysicalDevices(allocator, instance);
-    defer allocator.free(devices);
+    const devices = try getPhysicalDevices(instance.allocator, instance.vk);
+    defer instance.allocator.free(devices);
 
     // if there are no physical devices, return null
     if (devices.len == 0) return null;
@@ -145,7 +139,7 @@ fn findPhysicalDevice(
     var best_score: i32 = -80085;
 
     for (devices[0..]) |device| {
-        var score = try ratePhysicalDevice(allocator, device, surface) orelse continue;
+        var score = try ratePhysicalDevice(instance.allocator, device, surface) orelse continue;
         if (score > best_score) {
             best_device = device;
             best_score = score;
@@ -155,76 +149,7 @@ fn findPhysicalDevice(
     return best_device;
 }
 
-pub const SwapchainSupport = struct {
-    capabilities: vk.api.VkSurfaceCapabilitiesKHR,
-    formats: []vk.api.VkSurfaceFormatKHR,
-    present_modes: []vk.api.VkPresentModeKHR,
-    allocator: std.mem.Allocator,
-
-    /// Query the swapchain support for a physical device.
-    ///
-    /// The returned `SwapchainSupport` must be deallocated with `deinit`.
-    pub fn query(
-        allocator: std.mem.Allocator,
-        device: vk.api.VkPhysicalDevice,
-        surface: vk.Surface,
-    ) !SwapchainSupport {
-        var capabilities: vk.api.VkSurfaceCapabilitiesKHR = undefined;
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-            device,
-            surface.vk,
-            &capabilities,
-        ));
-
-        var format_count: u32 = 0;
-        var present_mode_count: u32 = 0;
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(
-            device,
-            surface.vk,
-            &format_count,
-            null,
-        ));
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(
-            device,
-            surface.vk,
-            &present_mode_count,
-            null,
-        ));
-
-        var formats = try allocator.alloc(vk.api.VkSurfaceFormatKHR, format_count);
-        var present_modes = try allocator.alloc(vk.api.VkPresentModeKHR, present_mode_count);
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(
-            device,
-            surface.vk,
-            &format_count,
-            formats.ptr,
-        ));
-        try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(
-            device,
-            surface.vk,
-            &present_mode_count,
-            present_modes.ptr,
-        ));
-
-        return .{
-            .capabilities = capabilities,
-            .formats = formats,
-            .present_modes = present_modes,
-            .allocator = allocator,
-        };
-    }
-
-    pub fn deinit(self: SwapchainSupport) void {
-        self.allocator.free(self.formats);
-        self.allocator.free(self.present_modes);
-    }
-
-    pub fn isAdequate(self: SwapchainSupport) bool {
-        return self.formats.len != 0 and self.present_modes.len != 0;
-    }
-};
-
-pub const Queues = struct {
+pub const QueueFamilies = struct {
     graphics: u32,
     present: u32,
 
@@ -270,11 +195,11 @@ pub const Queues = struct {
         allocator: std.mem.Allocator,
         device: vk.api.VkPhysicalDevice,
         surface: ?vk.Surface,
-    ) !?Queues {
+    ) !?QueueFamilies {
         var graphics: ?u32 = null;
         var present: ?u32 = null;
 
-        var queue_families = try Queues.getQueueFamilies(allocator, device);
+        var queue_families = try QueueFamilies.getQueueFamilies(allocator, device);
         for (queue_families, 0..) |family, i| {
             var queue_index: u32 = @intCast(i);
 
@@ -294,12 +219,12 @@ pub const Queues = struct {
     }
 
     /// Get the queue indices as an array.
-    pub fn indices(self: Queues) [COUNT]u32 {
+    pub fn indices(self: QueueFamilies) [COUNT]u32 {
         return .{ self.graphics, self.present };
     }
 };
 
-fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const u8, queues: Queues) !vk.api.VkDevice {
+fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const u8, queues: QueueFamilies) !vk.api.VkDevice {
     const queueInfo = vk.api.VkDeviceQueueCreateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .pNext = null,
@@ -309,7 +234,7 @@ fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const
         .pQueuePriorities = &@as(f32, 1.0),
     };
 
-    var queueInfos = [_]vk.api.VkDeviceQueueCreateInfo{queueInfo} ** Queues.COUNT;
+    var queueInfos = [_]vk.api.VkDeviceQueueCreateInfo{queueInfo} ** QueueFamilies.COUNT;
 
     queueInfos[0].queueFamilyIndex = queues.graphics;
     queueInfos[1].queueFamilyIndex = queues.present;
@@ -321,7 +246,7 @@ fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const
         .sType = vk.api.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = null,
         .flags = 0,
-        .queueCreateInfoCount = Queues.COUNT,
+        .queueCreateInfoCount = QueueFamilies.COUNT,
         .pQueueCreateInfos = &queueInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = null,
@@ -350,27 +275,34 @@ fn getQueue(
     };
 }
 
+pub const Descriptor = struct {
+    instance: vk.Instance,
+    compatible_surface: ?vk.Surface,
+};
+
 vk: vk.api.VkDevice,
 physical: vk.api.VkPhysicalDevice,
-queues: Queues,
+queues: QueueFamilies,
 graphics: vk.Queue,
 present: vk.Queue,
 allocator: std.mem.Allocator,
 
-pub fn init(
-    instance: vk.Instance,
-    surface: ?vk.Surface,
-) !Device {
-    const physical = try findPhysicalDevice(instance.allocator, instance.vk, surface) orelse
-        return Error.NoPhysicalDevice;
+pub fn init(desc: Descriptor) !Device {
+    const physical = try findPhysicalDevice(
+        desc.instance,
+        desc.compatible_surface,
+    ) orelse return Error.NoPhysicalDevice;
 
-    const queues = try Queues.find(instance.allocator, physical, surface) orelse
-        return Error.NoQueueFamily;
+    const queues = try QueueFamilies.find(
+        desc.instance.allocator,
+        physical,
+        desc.compatible_surface,
+    ) orelse return Error.NoQueueFamily;
 
     const device = try createDevice(physical, &REQUIRED_EXTENSIONS, queues);
 
-    const graphics = getQueue(instance.allocator, device, queues.graphics);
-    const present = getQueue(instance.allocator, device, queues.present);
+    const graphics = getQueue(desc.instance.allocator, device, queues.graphics);
+    const present = getQueue(desc.instance.allocator, device, queues.present);
 
     return Device{
         .vk = device,
@@ -378,7 +310,7 @@ pub fn init(
         .queues = queues,
         .graphics = graphics,
         .present = present,
-        .allocator = instance.allocator,
+        .allocator = desc.instance.allocator,
     };
 }
 
@@ -388,15 +320,6 @@ pub fn deinit(self: Device) void {
 
 pub fn waitIdle(self: Device) !void {
     try vk.check(vk.api.vkDeviceWaitIdle(self.vk));
-}
-
-pub fn querySwapchainSupport(self: Device, surface: vk.Surface) !SwapchainSupport {
-    return SwapchainSupport.query(self.allocator, self.physical, surface);
-}
-
-pub fn querySurfaceFormat(self: Device, surface: vk.Surface) !vk.ImageFormat {
-    const support = try self.querySwapchainSupport(surface);
-    return @enumFromInt(vk.Swapchain.pickSurfaceFormat(support.formats).format);
 }
 
 pub fn queryMemoryType(
@@ -476,7 +399,10 @@ pub fn createRenderPass(
     return vk.RenderPass.init(self, desc);
 }
 
-pub fn createSampler(self: Device, desc: vk.Sampler.Descriptor) !vk.Sampler {
+pub fn createSampler(
+    self: Device,
+    desc: vk.Sampler.Descriptor,
+) !vk.Sampler {
     return vk.Sampler.init(self, desc);
 }
 
@@ -486,10 +412,9 @@ pub fn createSemaphore(self: Device) !vk.Semaphore {
 
 pub fn createSwapchain(
     self: Device,
-    surface: vk.Surface,
-    render_pass: vk.RenderPass,
+    desc: vk.Swapchain.Descriptor,
 ) !vk.Swapchain {
-    return vk.Swapchain.init(self, surface, render_pass);
+    return vk.Swapchain.init(self, desc);
 }
 
 pub const BufferResource = struct {

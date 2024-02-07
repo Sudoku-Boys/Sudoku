@@ -1,13 +1,29 @@
 #version 450
 
+#include "camera.glsl"
+#include "pbr_light.glsl"
 #include "pbr.glsl"
 
-layout(location = 0) in vec3 v_normal;
+layout(location = 0) in vec3 v_position;
+layout(location = 1) in vec3 v_normal;
 
 layout(location = 0) out vec4 o_color;
 
 void main() {
-    float l = dot(v_normal, normalize(vec3(1.0, 1.0, 1.0))) * 0.8 + 0.2;
+    PbrMaterial material = default_pbr_material(
+        gl_FragCoord,
+        v_position,
+        v_normal,
+        v_position - camera.eye
+    );
 
-    o_color = vec4(vec3(l), 1.0);
+    PbrPixel pixel = compute_pbr_pixel(material);
+
+    DirectionalLight light;
+    light.direction = normalize(vec3(1.0, 1.0, -1.0));
+    light.color = vec3(1.0, 1.0, 1.0);
+    light.intensity = 1.0;
+
+    vec3 color = pbr_light_directional(pixel, light);
+    o_color = vec4(color, 1.0);
 }
