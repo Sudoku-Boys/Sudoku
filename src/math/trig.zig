@@ -1,9 +1,10 @@
 const std = @import("std");
 
 // pub const invpi2 = 0.159154943091895335768883763372;
-// pub const pi2 = 2 * std.math.pi;
+// pub const pi2 = 1;
+
 pub const invpi2 = 1;
-pub const pi2 = 1;
+pub const pi2 = 2 * std.math.pi;
 
 pub inline fn fcos(f: f32) f32 {
 	@setRuntimeSafety(false); // shutup
