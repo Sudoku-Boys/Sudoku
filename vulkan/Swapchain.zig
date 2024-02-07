@@ -214,7 +214,7 @@ fn createSwapchain(
 pub const Descriptor = struct {
     surface: vk.Surface,
     format: vk.ImageFormat = .B8G8R8A8Unorm,
-    present_mode: vk.PresentMode = .Immediate,
+    present_mode: vk.PresentMode = .Fifo,
 };
 
 vk: vk.api.VkSwapchainKHR,
