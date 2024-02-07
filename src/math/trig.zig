@@ -1,18 +1,18 @@
 const std = @import("std");
 
 pub inline fn fcos(f: f32) f32 {
-	@setRuntimeSafety(false); // shutup
-	@setFloatMode(.Optimized);
-	// from float to int
-	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)));
-	//
-	//	abs(0x40000000 - source) = diff
-	//	0.5 - diff;
-	//
-	// shift right to switch to 31 bit fixed point
-	var it : i32 = @as(i32, @bitCast(source >> 1));
-	// do this to make range between [0, 0.5]
-	it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
+    @setRuntimeSafety(false); // shutup
+    @setFloatMode(.Optimized);
+    // from float to int
+    const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)));
+    //
+    //	abs(0x40000000 - source) = diff
+    //	0.5 - diff;
+    //
+    // shift right to switch to 31 bit fixed point
+    var it: i32 = @as(i32, @bitCast(source >> 1));
+    // do this to make range between [0, 0.5]
+    it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
 
     const x: i64 = it;
 
@@ -30,10 +30,10 @@ pub inline fn fcos(f: f32) f32 {
 }
 
 pub inline fn fsin(f: f32) f32 {
-	@setRuntimeSafety(false); // shutup
-	@setFloatMode(.Optimized);
-	// from float to int
-	const source: u32 = @intFromFloat((f - 0.25) * @as(f32, @floatFromInt(0x100000000)));
+    @setRuntimeSafety(false); // shutup
+    @setFloatMode(.Optimized);
+    // from float to int
+    const source: u32 = @intFromFloat((f - 0.25) * @as(f32, @floatFromInt(0x100000000)));
 
     var it: i32 = @as(i32, @bitCast(source >> 1));
     it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);

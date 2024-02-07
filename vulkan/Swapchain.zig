@@ -106,7 +106,7 @@ fn createSwapchain(
         surface,
         &capabilities,
     ));
-    
+
     capabilities.currentExtent.width = @max(1, capabilities.currentExtent.width);
     capabilities.currentExtent.height = @max(1, capabilities.currentExtent.height);
 
@@ -304,7 +304,7 @@ pub fn recreate(self: *Swapchain) !void {
         self.surface.vk,
         self.vk,
     );
-    
+
     self.extent = result.extent;
     self.format = result.format;
     self.present_mode = result.present_mode;

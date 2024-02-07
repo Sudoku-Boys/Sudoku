@@ -309,7 +309,7 @@ pub fn deinit(self: Renderer) void {
 }
 
 fn createHdrRenderPass(device: vk.Device) !vk.RenderPass {
-        return vk.RenderPass.init(device, .{
+    return vk.RenderPass.init(device, .{
         .attachments = &.{
             .{
                 .format = Hdr.COLOR_FORMAT,
