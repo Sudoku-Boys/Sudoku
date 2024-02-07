@@ -14,7 +14,7 @@ pub inline fn fcos(f: f32) f32 {
 	//	0.5 - diff;
 	//
 	// shift right to switch to 31 bit fixed point
-	var it : i32 = source >> 1;
+	var it : i32 = @as(i32, @bitCast(source >> 1));
 	// do this to make range between [0, 0.5]
 	it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
 
@@ -38,7 +38,7 @@ pub inline fn fsin(f: f32) f32 {
 	// from float to int
 	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2 - 0.25);
 
-	var it : i32 = source >> 1;
+	var it : i32 = @as(i32, @bitCast(source >> 1));
 	it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
 
 	const x: i64 = it;
