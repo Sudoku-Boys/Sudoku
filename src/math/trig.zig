@@ -8,6 +8,7 @@ pub const pi2 = 2 * std.math.pi;
 
 pub inline fn fcos(f: f32) f32 {
 	@setRuntimeSafety(false); // shutup
+	@setFloatMode(.Optimized);
 	// from float to int
 	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2);
 	//
@@ -36,6 +37,7 @@ pub inline fn fcos(f: f32) f32 {
 
 pub inline fn fsin(f: f32) f32 {
 	@setRuntimeSafety(false); // shutup
+	@setFloatMode(.Optimized);
 	// from float to int
 	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2 - 0.25);
 

@@ -309,7 +309,7 @@ fn createSdrRenderPass(device: vk.Device, format: vk.ImageFormat) !vk.RenderPass
 }
 
 fn createHdrRenderPass(device: vk.Device) !vk.RenderPass {
-    return vk.RenderPass.init(device, .{
+        return vk.RenderPass.init(device, .{
         .attachments = &.{
             .{
                 .format = Hdr.COLOR_FORMAT,
