@@ -1,3 +1,5 @@
 # Ignore zig build artifacts
 zig-cache/
 zig-out/
+.idea/
+.vscode/
