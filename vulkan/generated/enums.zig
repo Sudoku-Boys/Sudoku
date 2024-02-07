@@ -483,6 +483,16 @@ pub const SharingMode = enum(u32) {
     Concurrent = 1,
 };
 
+// Enum for VK_PRESENT_MODE_
+pub const PresentMode = enum(u32) {
+    Immediate = 0,
+    Mailbox = 1,
+    Fifo = 2,
+    FifoRelaxed = 3,
+    SharedDemandRefresh = 1000111000,
+    SharedContinuousRefresh = 1000111001,
+};
+
 // Enum for VK_PRIMITIVE_TOPOLOGY_
 pub const PrimitiveTopology = enum(u32) {
     PointList = 0,
@@ -524,3 +534,4 @@ pub const StoreOp = enum(u32) {
     DontCare = 1,
     None = 1000301000,
 };
+

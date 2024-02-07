@@ -180,9 +180,6 @@ fn createGraphicsPipeline(
                 .{},
             },
         },
-        .rasterizer = .{
-            .cull_mode = .{},
-        },
         .layouts = &.{
             camera_bind_group_layout,
             material_bind_group_layout,

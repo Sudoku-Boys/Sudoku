@@ -18,7 +18,10 @@ pub fn main() !void {
     });
     defer window.deinit();
 
-    const device = try vk.Device.init(instance, window.surface);
+    const device = try vk.Device.init(.{
+        .instance = instance,
+        .compatible_surface = window.surface,
+    });
     defer device.deinit();
 
     var renderer = try Renderer.init(.{

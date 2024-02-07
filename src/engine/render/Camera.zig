@@ -34,7 +34,7 @@ pub const RenderState = struct {
                 .{
                     .binding = 0xffab,
                     .type = .UniformBuffer,
-                    .stages = .{ .vertex = true },
+                    .stages = .{ .vertex = true, .fragment = true },
                 },
             },
         });
@@ -79,7 +79,7 @@ pub const RenderState = struct {
     }
 };
 
-fov: f32 = 70.0 / 360.0,
+fov: f32 = 70.0,
 near: f32 = 0.1,
 far: f32 = 100.0,
 
@@ -89,7 +89,7 @@ eye: math.Vec3 = math.vec3(0.0, 0.0, 0.0),
 pub fn proj(self: Camera, aspect: f32) math.Mat4 {
     return math.Mat4.projection(
         aspect,
-        std.math.degreesToRadians(f32, self.fov),
+        self.fov / 360.0,
         self.near,
         self.far,
     );

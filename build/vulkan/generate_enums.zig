@@ -119,6 +119,7 @@ pub fn main() !void {
     try vkEnum(stdout.writer(), u32, "ImageLayout", "VK_IMAGE_LAYOUT_");
     try vkEnum(stdout.writer(), u32, "MipmapMode", "VK_SAMPLER_MIPMAP_MODE_");
     try vkEnum(stdout.writer(), u32, "SharingMode", "VK_SHARING_MODE_");
+    try vkEnum(stdout.writer(), u32, "PresentMode", "VK_PRESENT_MODE_");
     try vkEnum(stdout.writer(), u32, "PrimitiveTopology", "VK_PRIMITIVE_TOPOLOGY_");
     try vkEnum(stdout.writer(), u32, "PolygonMode", "VK_POLYGON_MODE_");
     try vkEnum(stdout.writer(), u32, "StencilOp", "VK_STENCIL_OP_");

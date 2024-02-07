@@ -115,7 +115,7 @@ fn VecBase(comptime T: type, comptime size: usize) type {
 
         pub fn dot(a: T, b: T) f32 {
             @setFloatMode(.Optimized);
-            return @reduce(a * b, .Add);
+            return @reduce(.Add, a.v * b.v);
         }
 
         pub fn len(a: T) f32 {

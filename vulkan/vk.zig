@@ -61,19 +61,19 @@ pub usingnamespace @import("generated/flags.zig");
 pub const Extent2D = struct {
     width: u32,
     height: u32,
-
-    pub fn aspect(self: Extent2D) f32 {
-        const w: f32 = @floatFromInt(self.width);
-        const h: f32 = @floatFromInt(self.height);
-
-        return w / h;
-    }
 };
 
 pub const Extent3D = struct {
     width: u32,
     height: u32,
     depth: u32,
+
+    pub fn as2D(self: Extent3D) Extent2D {
+        return .{
+            .width = self.width,
+            .height = self.height,
+        };
+    }
 };
 
 pub const Offset2D = struct {
@@ -85,6 +85,23 @@ pub const Offset3D = struct {
     x: i32 = 0,
     y: i32 = 0,
     z: i32 = 0,
+
+    pub fn as2D(self: Offset3D) Offset2D {
+        return .{
+            .x = self.x,
+            .y = self.y,
+        };
+    }
+};
+
+pub const Rect2D = struct {
+    offset: Offset2D = .{},
+    extent: Extent2D,
+};
+
+pub const Rect3D = struct {
+    offset: Offset3D = .{},
+    extent: Extent3D,
 };
 
 pub const ImageType = enum(u8) {

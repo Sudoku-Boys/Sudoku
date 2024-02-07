@@ -56,6 +56,10 @@ const ShaderProcessor = struct {
     }
 
     fn process(self: *ShaderProcessor, path: []const u8) !void {
+        for (self.included_files.items) |file| {
+            if (std.mem.eql(u8, file, path)) return;
+        }
+
         const source = try std.fs.cwd().readFileAlloc(
             self.allocator,
             path,
