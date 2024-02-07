@@ -422,6 +422,7 @@ pub fn drawFrame(self: *Renderer) !void {
         .semaphore = self.image_available,
     }) catch |err| switch (err) {
         error.VK_ERROR_OUT_OF_DATE_KHR => return try self.recreate(),
+        error.VK_SUBOPTIMAL_KHR => return try self.recreate(),
         else => return err,
     };
 
