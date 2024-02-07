@@ -79,7 +79,7 @@ pub const RenderState = struct {
     }
 };
 
-fov: f32 = 70.0,
+fov: f32 = 70.0 / 360.0,
 near: f32 = 0.1,
 far: f32 = 100.0,
 
