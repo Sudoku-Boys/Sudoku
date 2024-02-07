@@ -23,7 +23,7 @@ void main() {
     light.direction = normalize(vec3(1.0, 1.0, -1.0));
     light.color = vec3(1.0, 1.0, 1.0);
     light.intensity = 1.0;
-
-    vec3 color = pbr_light_directional(pixel, light);
+    
+    vec3 color = pixel.albedo * vec3(1.0, 0.9, 0.7) * vec3(0.1) + pbr_light_directional(pixel, light) * vec3(0.9);
     o_color = vec4(color, 1.0);
 }

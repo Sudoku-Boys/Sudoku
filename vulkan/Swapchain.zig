@@ -96,6 +96,7 @@ const CreatedSwapchain = struct {
 fn createSwapchain(
     device: vk.Device,
     format: vk.ImageFormat,
+    present_mode: vk.PresentMode,
     surface: vk.api.VkSurfaceKHR,
     old_swapchain: vk.api.VkSwapchainKHR,
 ) !CreatedSwapchain {
@@ -105,6 +106,9 @@ fn createSwapchain(
         surface,
         &capabilities,
     ));
+
+    capabilities.currentExtent.width = @max(1, capabilities.currentExtent.width);
+    capabilities.currentExtent.height = @max(1, capabilities.currentExtent.height);
 
     const min_image_count = @min(
         capabilities.minImageCount + 1,
@@ -148,7 +152,7 @@ fn createSwapchain(
     ));
 
     const vk_format = pickSurfaceFormat(formats, @intFromEnum(format));
-    const present_mode = pickPresentMode(present_modes, vk.api.VK_PRESENT_MODE_MAILBOX_KHR);
+    const vk_present_mode = pickPresentMode(present_modes, @intFromEnum(present_mode));
 
     // create the actual swapchain
     var swapchain_info = vk.api.VkSwapchainCreateInfoKHR{
@@ -170,7 +174,7 @@ fn createSwapchain(
         .pQueueFamilyIndices = undefined,
         .preTransform = vk.api.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         .compositeAlpha = vk.api.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = present_mode,
+        .presentMode = vk_present_mode,
         .clipped = vk.api.VK_FALSE,
         .oldSwapchain = old_swapchain,
     };
@@ -198,7 +202,7 @@ fn createSwapchain(
     return .{
         .swapchain = swapchain,
         .format = @enumFromInt(vk_format.format),
-        .present_mode = @enumFromInt(present_mode),
+        .present_mode = @enumFromInt(vk_present_mode),
         .extent = .{
             .width = capabilities.currentExtent.width,
             .height = capabilities.currentExtent.height,
@@ -210,6 +214,7 @@ fn createSwapchain(
 pub const Descriptor = struct {
     surface: vk.Surface,
     format: vk.ImageFormat = .B8G8R8A8Unorm,
+    present_mode: vk.PresentMode = .Fifo,
 };
 
 vk: vk.api.VkSwapchainKHR,
@@ -219,6 +224,7 @@ device: vk.Device,
 
 extent: vk.Extent3D,
 format: vk.ImageFormat,
+present_mode: vk.PresentMode,
 
 images: []vk.api.VkImage,
 views: []vk.ImageView,
@@ -228,6 +234,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Swapchain {
     const result = try createSwapchain(
         device,
         desc.format,
+        desc.present_mode,
         desc.surface.vk,
         null,
     );
@@ -268,6 +275,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Swapchain {
         .device = device,
 
         .format = result.format,
+        .present_mode = result.present_mode,
         .extent = result.extent,
 
         .images = images,
@@ -292,9 +300,14 @@ pub fn recreate(self: *Swapchain) !void {
     const result = try createSwapchain(
         self.device,
         self.format,
+        self.present_mode,
         self.surface.vk,
         self.vk,
     );
+
+    self.extent = result.extent;
+    self.format = result.format;
+    self.present_mode = result.present_mode;
 
     vk.api.vkDestroySwapchainKHR(self.device.vk, self.vk, null);
     self.vk = result.swapchain;
@@ -318,9 +331,6 @@ pub fn recreate(self: *Swapchain) !void {
     // re-allocate memory for the views and framebuffers
     self.views = try self.device.allocator.realloc(self.views, images_count);
     try createImageViews(self.device.vk, result.format, self.images, self.views);
-
-    self.extent = result.extent;
-    self.format = result.format;
 }
 
 pub fn acquireNextImage(

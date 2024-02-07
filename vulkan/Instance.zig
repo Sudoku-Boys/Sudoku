@@ -131,7 +131,7 @@ fn isLayerAvailable(available: []const vk.api.VkLayerProperties, name: [*c]const
     const str = std.mem.span(name);
 
     for (available) |layer| {
-        if (std.mem.count(u8, str, layer.layerName) == 0) {
+        if (std.mem.count(u8, str, &layer.layerName) == str.len) {
             return true;
         }
     }
@@ -166,10 +166,10 @@ fn getLayers(allocator: std.mem.Allocator, required: []const [*c]const u8) ![]co
     var layers = std.ArrayList([*c]const u8).init(allocator);
     errdefer layers.deinit();
 
-    try layers.appendSlice(requiredExtensions());
+    try layers.appendSlice(requiredLayers());
     try layers.appendSlice(required);
 
-    if (!try areExtensionsAvailable(allocator, layers.items)) {
+    if (!try areLayersAvailable(allocator, layers.items)) {
         std.log.err("Required layers not available:", .{});
 
         for (layers.items) |layer| {
@@ -178,7 +178,7 @@ fn getLayers(allocator: std.mem.Allocator, required: []const [*c]const u8) ![]co
         return error.RequiredLayerNotAvailable;
     }
 
-    if (try areExtensionsAvailable(allocator, desiredLayers())) {
+    if (try areLayersAvailable(allocator, desiredLayers())) {
         try layers.appendSlice(desiredLayers());
     }
 
