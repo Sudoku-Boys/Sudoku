@@ -1,20 +1,41 @@
 const std = @import("std");
-const Sudoku = @import("Sudoku.zig");
+const Sudoku = @import("sudoku.zig");
 
-test "Include sudoku.zig" {
-    _ = Sudoku.AnySudoku.init(null);
+
+const MyType = struct {
+    const Self = @This();
+
+    x: u8,
+    y: u8,
+
+    pub fn init() {
+        return Self{ .x = 0, .y = 0 };
+    }
+
+    pub fn add(self: Self) u8 {
+        return self.x + self.y;
+    }
+
+
 }
 
+
 pub fn main() !void {
-    const S = Sudoku.Sudoku(10, 10, .MATRIX, .STACK);
+    var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 
-    // var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
+    var s = Sudoku.from_stencil(".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....", 3, 3, .MATRIX, &optionalAllocator);
+    defer s.deinit();
 
-    //    std.debug.print("Sudoku: {}\n", .{@typeInfo(S)});
+    s.set(.{ .i = 1, .j = 1 }, 8);
+    const writer = std.io.getStdOut().writer();
 
-    var s = S.init(null);
+    s.set(.{ .i = 3, .j = 3 }, 9);
 
-    std.debug.print("Size of board {}\n", .{s.size});
+    _ = try s.display(writer);
 
-    _ = s.set(.{ .i = 99, .j = 99 }, 99);
+    std.debug.print("As stencil {s}\n", .{Sudoku.to_stencil(s, &optionalAllocator)});
+}
+
+test "Some test" {
+    try std.testing.expect(Sudoku.SudokuMemory.HEAP != Sudoku.SudokuMemory.STACK);
 }
