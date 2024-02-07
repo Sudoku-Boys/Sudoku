@@ -53,6 +53,8 @@ pub fn build(b: *std.Build) !void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
+    sudoku_backend.addSudokuExe(b, target, optimize);
+
     const unit_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
@@ -63,5 +65,5 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    sudoku_backend.addSudokuBackendTests(b, target, optimize);
+    sudoku_backend.addSudokuTests(b, test_step, target, optimize);
 }
