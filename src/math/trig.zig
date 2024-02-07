@@ -1,16 +1,10 @@
 const std = @import("std");
 
-// pub const invpi2 = 0.159154943091895335768883763372;
-// pub const pi2 = 1;
-
-pub const invpi2 = 1;
-pub const pi2 = 2 * std.math.pi;
-
 pub inline fn fcos(f: f32) f32 {
 	@setRuntimeSafety(false); // shutup
 	@setFloatMode(.Optimized);
 	// from float to int
-	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2);
+	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)));
 	//
 	//	abs(0x40000000 - source) = diff
 	//	0.5 - diff;
@@ -39,7 +33,7 @@ pub inline fn fsin(f: f32) f32 {
 	@setRuntimeSafety(false); // shutup
 	@setFloatMode(.Optimized);
 	// from float to int
-	const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)) * invpi2 - 0.25);
+	const source: u32 = @intFromFloat((f - 0.25) * @as(f32, @floatFromInt(0x100000000)));
 
     var it: i32 = @as(i32, @bitCast(source >> 1));
     it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
@@ -62,7 +56,7 @@ pub inline fn cos(f: f32) f32 {
     // get abs
     // range in [0, 1/2], equivilant to [0, PI]
 
-    const s0: f32 = @fabs(f * invpi2) + 0.5;
+    const s0: f32 = @fabs(f) + 0.5;
     const s1: f32 = s0 - @trunc(s0) - 0.5;
     const x: f32 = @fabs(s1);
 
@@ -71,7 +65,7 @@ pub inline fn cos(f: f32) f32 {
 }
 
 pub inline fn sin(f: f32) f32 {
-    const s0: f32 = @fabs(f * invpi2 - 0.25) + 0.5;
+    const s0: f32 = @fabs(f - 0.25) + 0.5;
     const s1: f32 = s0 - @trunc(s0) - 0.5;
     const x: f32 = @fabs(s1);
 
@@ -80,7 +74,6 @@ pub inline fn sin(f: f32) f32 {
 }
 
 // untested danger zone, builds, works?
-const v4_invpi2: @Vector(4, f32) = .{ invpi2, invpi2, invpi2, invpi2 };
 const v4_0c25: @Vector(4, f32) = .{ 0.25, 0.25, 0.25, 0.25 };
 const v4_0c5: @Vector(4, f32) = .{ 0.5, 0.5, 0.5, 0.5 };
 const v4_1c0: @Vector(4, f32) = .{ 1.0, 1.0, 1.0, 1.0 };
@@ -88,7 +81,6 @@ const v4_20c0: @Vector(4, f32) = .{ 20.0, 20.0, 20.0, 20.0 };
 const v4_m64c0: @Vector(4, f32) = .{ -64.0, -64.0, -64.0, -64.0 };
 const v4_80c0: @Vector(4, f32) = .{ 80.0, 80.0, 80.0, 80.0 };
 
-const v8_invpi2: @Vector(8, f32) = .{ invpi2, invpi2, invpi2, invpi2, invpi2, invpi2, invpi2, invpi2 };
 const v8_0c25: @Vector(8, f32) = .{ 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25 };
 const v8_0c5: @Vector(8, f32) = .{ 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 };
 const v8_1c0: @Vector(8, f32) = .{ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
@@ -102,7 +94,7 @@ pub inline fn cosv(f: []f32) []f32 {
     var out: [f.len]f32 = undefined;
 
     while (i + 7 < f.len) : (i += 8) {
-        const s0: @Vector(8, f32) = @fabs(f[i .. i + 7].* * v8_invpi2) + v8_0c5;
+        const s0: @Vector(8, f32) = @fabs(f[i .. i + 7].*) + v8_0c5;
         const s1: @Vector(8, f32) = s0 - @trunc(s0) - v8_0c5;
         const x: @Vector(8, f32) = @fabs(s1);
 
@@ -110,7 +102,7 @@ pub inline fn cosv(f: []f32) []f32 {
         out[i .. i + 7].* = x2 * (x2 * (v8_m64c0 * x + v8_80c0) - v8_20c0) + v8_1c0;
     }
     while (i + 3 < f.len) : (i += 4) {
-        const s0: @Vector(4, f32) = @fabs(f[i .. i + 3].* * v4_invpi2) + v4_0c5;
+        const s0: @Vector(4, f32) = @fabs(f[i .. i + 3].*) + v4_0c5;
         const s1: @Vector(4, f32) = s0 - @trunc(s0) - v4_0c5;
         const x: @Vector(4, f32) = @fabs(s1);
 
@@ -118,7 +110,7 @@ pub inline fn cosv(f: []f32) []f32 {
         out[i .. i + 3].* = x2 * (x2 * (v4_m64c0 * x + v4_80c0) - v4_20c0) + v4_1c0;
     }
     while (i < f.len) : (i += 1) {
-        const s0: f32 = @fabs(f[i] * invpi2) + 0.5;
+        const s0: f32 = @fabs(f[i]) + 0.5;
         const s1: f32 = s0 - @trunc(s0) - 0.5;
         const x: f32 = @fabs(s1);
 
@@ -135,7 +127,7 @@ pub inline fn sinv(f: []f32) []f32 {
     var out: [f.len]f32 = undefined;
 
     while (i + 7 < f.len) : (i += 8) {
-        const s0: @Vector(8, f32) = @fabs(f[i .. i + 7].* * v8_invpi2 - v8_0c25) + v8_0c5;
+        const s0: @Vector(8, f32) = @fabs(f[i .. i + 7].* - v8_0c25) + v8_0c5;
         const s1: @Vector(8, f32) = s0 - @trunc(s0) - v8_0c5;
         const x: @Vector(8, f32) = @fabs(s1);
 
@@ -143,7 +135,7 @@ pub inline fn sinv(f: []f32) []f32 {
         out[i .. i + 7].* = x2 * (x2 * (v8_m64c0 * x + v8_80c0) - v8_20c0) + v8_1c0;
     }
     while (i + 3 < f.len) : (i += 4) {
-        const s0: @Vector(4, f32) = @fabs(f[i .. i + 3].* * v4_invpi2 - v4_0c25) + v4_0c5;
+        const s0: @Vector(4, f32) = @fabs(f[i .. i + 3].* - v4_0c25) + v4_0c5;
         const s1: @Vector(4, f32) = s0 - @trunc(s0) - v4_0c5;
         const x: @Vector(4, f32) = @fabs(s1);
 
@@ -151,7 +143,7 @@ pub inline fn sinv(f: []f32) []f32 {
         out[i .. i + 3].* = x2 * (x2 * (v4_m64c0 * x + v4_80c0) - v4_20c0) + v4_1c0;
     }
     while (i < f.len) : (i += 1) {
-        const s0: f32 = @fabs(f[i] * invpi2 - 0.25) + 0.5;
+        const s0: f32 = @fabs(f[i] - 0.25) + 0.5;
         const s1: f32 = s0 - @trunc(s0) - 0.5;
         const x: f32 = @fabs(s1);
 
