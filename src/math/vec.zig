@@ -36,6 +36,7 @@ pub const Vec3 = extern union {
     pub usingnamespace VecBase(@This(), 3);
 
     pub const ZERO = vec3(0, 0, 0);
+    pub const ONE = vec3(1, 1, 1);
     pub const X = vec3(1, 0, 0);
     pub const Y = vec3(0, 1, 0);
     pub const Z = vec3(0, 0, 1);

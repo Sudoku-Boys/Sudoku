@@ -11,11 +11,12 @@ pub const Descriptor = struct {
     attachments: []const vk.ImageView,
     extent: vk.Extent2D,
     layers: u32 = 1,
+
+    pub const MAX_ATTACHMENTS = 32;
 };
 
 pub fn init(device: vk.Device, desc: Descriptor) !Framebuffer {
-    const attachments = try device.allocator.alloc(vk.api.VkImageView, desc.attachments.len);
-    defer device.allocator.free(attachments);
+    var attachments: [Descriptor.MAX_ATTACHMENTS]vk.api.VkImageView = undefined;
 
     for (desc.attachments, 0..) |attachment, i| {
         attachments[i] = attachment.vk;
@@ -27,7 +28,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Framebuffer {
         .flags = 0,
         .renderPass = desc.render_pass.vk,
         .attachmentCount = @intCast(desc.attachments.len),
-        .pAttachments = attachments.ptr,
+        .pAttachments = &attachments,
         .width = desc.extent.width,
         .height = desc.extent.height,
         .layers = desc.layers,

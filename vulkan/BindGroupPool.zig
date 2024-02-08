@@ -11,14 +11,15 @@ pub const PoolSize = struct {
 pub const Descriptor = struct {
     pool_sizes: []const PoolSize,
     max_groups: u32,
+
+    pub const MAX_POOL_SIZES = 16;
 };
 
 vk: vk.api.VkDescriptorPool,
 device: vk.api.VkDevice,
 
 pub fn init(device: vk.Device, desc: Descriptor) !BindGroupPool {
-    const pool_sizes = try device.allocator.alloc(vk.api.VkDescriptorPoolSize, desc.pool_sizes.len);
-    defer device.allocator.free(pool_sizes);
+    var pool_sizes: [Descriptor.MAX_POOL_SIZES]vk.api.VkDescriptorPoolSize = undefined;
 
     for (desc.pool_sizes, 0..) |pool_size, i| {
         pool_sizes[i] = vk.api.VkDescriptorPoolSize{
@@ -32,8 +33,8 @@ pub fn init(device: vk.Device, desc: Descriptor) !BindGroupPool {
         .pNext = null,
         .flags = 0,
         .maxSets = desc.max_groups,
-        .poolSizeCount = @intCast(pool_sizes.len),
-        .pPoolSizes = pool_sizes.ptr,
+        .poolSizeCount = @intCast(desc.pool_sizes.len),
+        .pPoolSizes = &pool_sizes,
     };
 
     var pool: vk.api.VkDescriptorPool = undefined;

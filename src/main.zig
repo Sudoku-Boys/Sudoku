@@ -1,19 +1,25 @@
 const std = @import("std");
-const Window = @import("engine/Window.zig");
-const Renderer = @import("engine/render/Renderer.zig");
 const vk = @import("vulkan");
 
+const engine = @import("engine.zig");
+const math = @import("math.zig");
+
 pub fn main() !void {
-    try Window.initGlfw();
-    defer Window.deinitGlfw();
+    try engine.Window.initGlfw();
+    defer engine.Window.deinitGlfw();
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    const allocator = gpa.allocator();
 
     const instance = try vk.Instance.init(.{
-        .allocator = std.heap.c_allocator,
-        .required_extensions = Window.requiredVulkanExtensions(),
+        .allocator = allocator,
+        .required_extensions = engine.Window.requiredVulkanExtensions(),
     });
     defer instance.deinit();
 
-    const window = try Window.init(.{
+    const window = try engine.Window.init(.{
         .instance = instance,
     });
     defer window.deinit();
@@ -24,28 +30,68 @@ pub fn main() !void {
     });
     defer device.deinit();
 
-    var renderer = try Renderer.init(.{
-        .allocator = std.heap.c_allocator,
+    var materials = engine.Materials.init(allocator);
+    defer materials.deinit();
+
+    const material = try materials.add(engine.StandardMaterial{
+        .color = .{ .r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0 },
+    });
+
+    var meshes = engine.Meshes.init(allocator);
+    defer meshes.deinit();
+
+    const mesh = try meshes.add(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
+
+    var scene = engine.Scene.init(allocator);
+    defer scene.deinit();
+
+    try scene.objects.append(.{
+        .mesh = mesh,
+        .material = material,
+        .transform = .{},
+    });
+
+    try scene.objects.append(.{
+        .mesh = mesh,
+        .material = material,
+        .transform = engine.Transform.xyz(1.5, 0.0, 0.0),
+    });
+
+    var renderer = try engine.Renderer.init(.{
+        .allocator = allocator,
         .device = device,
         .surface = window.surface,
     });
     defer renderer.deinit();
 
-    var lastTime: i64 = std.time.milliTimestamp();
-    var frames: i64 = 0;
-    while (!window.shouldClose()) {
-        Window.pollEvents();
-        try renderer.drawFrame();
-        frames += 1;
+    try renderer.addMaterial(engine.StandardMaterial);
 
-        const time = std.time.milliTimestamp();
-        if (time - lastTime > 1000) {
-            lastTime = time;
-            var buffer: [128:0]u8 = undefined;
-            const tit = try std.fmt.bufPrint(&buffer, "Sudoku Engine | FPS: {d}", .{frames});
-            buffer[tit.len] = 0;
-            window.setTitle(tit);
-            frames = 0;
+    var frame_timer = try std.time.Timer.start();
+    var time: f32 = 0.0;
+
+    while (!window.shouldClose()) {
+        engine.Window.pollEvents();
+        try renderer.drawFrame(
+            materials,
+            meshes,
+            scene,
+        );
+
+        const dt: f32 = @as(f32, @floatFromInt(frame_timer.lap())) / std.time.ns_per_s;
+        time += dt;
+
+        materials.getPtr(engine.StandardMaterial, material).?.color = .{
+            .r = (math.sin(time) + 1.0) / 2.0,
+            .g = (math.cos(time) + 1.0) / 2.0,
+            .b = (math.sin(time) * math.cos(time) + 1.0) / 2.0,
+            .a = 1.0,
+        };
+
+        const axis = math.vec3(1.0, -2.0, 0.8).normalize();
+        const rotation = math.Mat4.rotate(dt, axis);
+
+        for (scene.objects.items) |*object| {
+            object.transform.rotation = object.transform.rotation.mul(rotation);
         }
     }
 }

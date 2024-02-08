@@ -30,7 +30,7 @@ pub const RenderState = struct {
         errdefer bind_group_pool.deinit();
 
         const bind_group_layout = try device.createBindGroupLayout(.{
-            .bindings = &.{
+            .entries = &.{
                 .{
                     .binding = 0xffab,
                     .type = .UniformBuffer,
@@ -49,7 +49,7 @@ pub const RenderState = struct {
 
         const bind_group = try bind_group_pool.alloc(bind_group_layout);
 
-        try device.updateBindGroups(.{
+        device.updateBindGroups(.{
             .writes = &.{
                 .{
                     .dst = bind_group,
@@ -95,7 +95,7 @@ pub fn proj(self: Camera, aspect: f32) math.Mat4 {
     );
 }
 
-pub fn uniform(self: Camera, aspect: f32) Uniforms {
+pub fn uniforms(self: Camera, aspect: f32) Uniforms {
     return Uniforms{
         .view = self.view.f,
         .proj = self.proj(aspect).f,

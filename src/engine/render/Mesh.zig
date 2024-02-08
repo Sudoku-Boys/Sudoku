@@ -1,5 +1,4 @@
 const std = @import("std");
-const vk = @import("vulkan");
 
 const math = @import("../../math.zig");
 
@@ -29,11 +28,34 @@ pub const Vertex = extern struct {
     };
 };
 
-vertices: []const Vertex,
-indices: []const u32,
+vertices: std.ArrayList(Vertex),
+indices: std.ArrayList(u32),
 
-pub fn cube(comptime size: f32, color: u32) Mesh {
-    const vertices = .{
+pub fn init(allocator: std.mem.Allocator) Mesh {
+    const vertices = std.ArrayList(Vertex).init(allocator);
+    const indices = std.ArrayList(u32).init(allocator);
+
+    return .{
+        .vertices = vertices,
+        .indices = indices,
+    };
+}
+
+pub fn deinit(self: Mesh) void {
+    self.vertices.deinit();
+    self.indices.deinit();
+}
+
+pub fn vertexBytes(self: Mesh) []const u8 {
+    return std.mem.sliceAsBytes(self.vertices.items);
+}
+
+pub fn indexBytes(mesh: Mesh) []const u8 {
+    return std.mem.sliceAsBytes(mesh.indices.items);
+}
+
+pub fn cube(allocator: std.mem.Allocator, size: f32, color: u32) !Mesh {
+    const cube_vertices = .{
         // front
         .{ .position = math.vec3(-1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.Z, .color = color },
         .{ .position = math.vec3(1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.Z, .color = color },
@@ -66,7 +88,7 @@ pub fn cube(comptime size: f32, color: u32) Mesh {
         .{ .position = math.vec3(-1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.NEG_X, .color = color },
     };
 
-    const indices = .{
+    const cube_indices = .{
         0,  1,  2,  2,  3,  0,
         4,  6,  5,  7,  6,  4,
         8,  9,  10, 10, 11, 8,
@@ -75,16 +97,14 @@ pub fn cube(comptime size: f32, color: u32) Mesh {
         20, 22, 21, 23, 22, 20,
     };
 
+    var vertices = std.ArrayList(Vertex).init(allocator);
+    try vertices.appendSlice(&cube_vertices);
+
+    var indices = std.ArrayList(u32).init(allocator);
+    try indices.appendSlice(&cube_indices);
+
     return .{
-        .vertices = &vertices,
-        .indices = &indices,
+        .vertices = vertices,
+        .indices = indices,
     };
-}
-
-pub fn vertexBytes(self: Mesh) []const u8 {
-    return std.mem.sliceAsBytes(self.vertices);
-}
-
-pub fn indexBytes(mesh: Mesh) []const u8 {
-    return std.mem.sliceAsBytes(mesh.indices);
 }

@@ -28,7 +28,7 @@ pub fn init(
     errdefer bind_group_pool.deinit();
 
     const bind_group_layout = try device.createBindGroupLayout(.{
-        .bindings = &.{
+        .entries = &.{
             .{
                 .binding = 0,
                 .type = .CombinedImageSampler,
@@ -97,7 +97,7 @@ fn createRenderPipeline(
 }
 
 pub fn setHdrImage(self: Tonemapper, device: vk.Device, hdr_image: vk.ImageView) !void {
-    try device.updateBindGroups(.{
+    device.updateBindGroups(.{
         .writes = &.{
             .{
                 .dst = self.bind_group,
