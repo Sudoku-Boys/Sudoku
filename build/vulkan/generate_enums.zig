@@ -65,6 +65,10 @@ fn vkEnumFields(comptime fields: []VkEnumField, comptime prefix: []const u8) usi
             end -= 4;
         }
 
+        if (std.mem.endsWith(u8, decl.name[start..end], "_EXT")) {
+            end -= 4;
+        }
+
         const field_name = vkEnumFieldName(decl.name[start..end]);
 
         fields[i] = VkEnumField{
