@@ -49,13 +49,13 @@ pub fn main() !void {
     try scene.objects.append(.{
         .mesh = mesh,
         .material = material,
-        .transform = .{},
+        .transform = engine.Transform.xyz(-2, 0.0, 0.0),
     });
 
     try scene.objects.append(.{
         .mesh = mesh,
         .material = material,
-        .transform = engine.Transform.xyz(1.5, 0.0, 0.0),
+        .transform = engine.Transform.xyz(2, 0.0, 0.0),
     });
 
     var renderer = try engine.Renderer.init(.{
@@ -91,8 +91,8 @@ pub fn main() !void {
         const axis = math.vec3(1.0, -2.0, 0.8).normalize();
         const rotation = math.Mat4.rotate(dt, axis);
 
-        for (scene.objects.items) |*object| {
-            object.transform.rotation = object.transform.rotation.mul(rotation);
+        for (scene.objects.items, 0..) |*object, i| {
+            object.transform.rotation = object.transform.rotation.mul(if (i % 2 == 0) rotation else rotation.inv());
         }
     }
 }
