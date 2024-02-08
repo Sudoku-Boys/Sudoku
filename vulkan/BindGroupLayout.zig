@@ -3,7 +3,7 @@ const vk = @import("vk.zig");
 
 const BindGroupLayout = @This();
 
-pub const Binding = struct {
+pub const Entry = struct {
     binding: u32,
     type: vk.BindingType,
     stages: vk.ShaderStages = .{},
@@ -11,16 +11,18 @@ pub const Binding = struct {
 };
 
 pub const Descriptor = struct {
-    bindings: []const Binding = &.{},
+    entries: []const Entry = &.{},
+
+    pub const MAX_ENTRIES = 32;
 };
 
 vk: vk.api.VkDescriptorSetLayout,
 device: vk.api.VkDevice,
 
 pub fn init(device: vk.Device, desc: Descriptor) !BindGroupLayout {
-    const bindings = try device.allocator.alloc(vk.api.VkDescriptorSetLayoutBinding, desc.bindings.len);
+    var bindings: [Descriptor.MAX_ENTRIES]vk.api.VkDescriptorSetLayoutBinding = undefined;
 
-    for (desc.bindings, 0..) |binding, i| {
+    for (desc.entries, 0..) |binding, i| {
         bindings[i] = vk.api.VkDescriptorSetLayoutBinding{
             .binding = binding.binding,
             .descriptorType = @intFromEnum(binding.type),
@@ -34,8 +36,8 @@ pub fn init(device: vk.Device, desc: Descriptor) !BindGroupLayout {
         .sType = vk.api.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = null,
         .flags = 0,
-        .bindingCount = @intCast(bindings.len),
-        .pBindings = bindings.ptr,
+        .bindingCount = @intCast(desc.entries.len),
+        .pBindings = &bindings,
     };
 
     var layout: vk.api.VkDescriptorSetLayout = undefined;

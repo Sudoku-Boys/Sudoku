@@ -10,10 +10,6 @@ layout(location = 2) in vec4 v_color;
 
 layout(location = 0) out vec4 o_color;
 
-layout(set = 0, binding = 0) uniform StandardMaterial {
-    vec4 base_color;
-} standard_material;
-
 void main() {
     PbrMaterial material = default_pbr_material(
         gl_FragCoord,
@@ -22,7 +18,7 @@ void main() {
         v_position - camera.eye
     );
 
-    material.albedo = standard_material.base_color.rgb * v_color.rgb;
+    material.albedo = v_color.rgb;
 
     PbrPixel pixel = compute_pbr_pixel(material);
 

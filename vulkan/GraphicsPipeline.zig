@@ -47,13 +47,13 @@ pub const VertexBinding = struct {
 };
 
 pub const VertexStage = struct {
-    shader: vk.Spv,
+    shader: vk.Spirv,
     entry_point: [*c]const u8 = "main",
     bindings: []const VertexBinding = &.{},
 };
 
 pub const FragmentStage = struct {
-    shader: vk.Spv,
+    shader: vk.Spirv,
     entry_point: [*c]const u8 = "main",
 };
 
@@ -78,7 +78,7 @@ pub const DepthBias = struct {
     slope_factor: f32 = 0.0,
 };
 
-pub const Rasterizer = struct {
+pub const Rasterization = struct {
     depth_clamp_enable: bool = false,
     rasterizer_discard_enable: bool = false,
     polygon_mode: vk.PolygonMode = .Fill,
@@ -87,7 +87,7 @@ pub const Rasterizer = struct {
     depth_bias: ?DepthBias = null,
     line_width: f32 = 1.0,
 
-    fn toVk(self: Rasterizer) vk.api.VkPipelineRasterizationStateCreateInfo {
+    fn toVk(self: Rasterization) vk.api.VkPipelineRasterizationStateCreateInfo {
         var info = vk.api.VkPipelineRasterizationStateCreateInfo{
             .sType = vk.api.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
             .pNext = null,
@@ -160,11 +160,11 @@ pub const StencilOpState = struct {
 };
 
 pub const DepthStencil = struct {
-    depth_test_enable: bool = false,
-    depth_write_enable: bool = false,
+    depth_test: bool = false,
+    depth_write: bool = false,
     depth_compare_op: vk.CompareOp = .Less,
-    depth_bounds_test_enable: bool = false,
-    stencil_test_enable: bool = false,
+    depth_bounds_test: bool = false,
+    stencil_test: bool = false,
     front: StencilOpState = .{},
     back: StencilOpState = .{},
     min_depth_bounds: f32 = 0.0,
@@ -175,11 +175,11 @@ pub const DepthStencil = struct {
             .sType = vk.api.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
             .pNext = null,
             .flags = 0,
-            .depthTestEnable = vk.vkBool(self.depth_test_enable),
-            .depthWriteEnable = vk.vkBool(self.depth_write_enable),
+            .depthTestEnable = vk.vkBool(self.depth_test),
+            .depthWriteEnable = vk.vkBool(self.depth_write),
             .depthCompareOp = @intFromEnum(self.depth_compare_op),
-            .depthBoundsTestEnable = vk.vkBool(self.depth_bounds_test_enable),
-            .stencilTestEnable = vk.vkBool(self.stencil_test_enable),
+            .depthBoundsTestEnable = vk.vkBool(self.depth_bounds_test),
+            .stencilTestEnable = vk.vkBool(self.stencil_test),
             .front = self.front.toVk(),
             .back = self.back.toVk(),
             .minDepthBounds = self.min_depth_bounds,
@@ -189,25 +189,25 @@ pub const DepthStencil = struct {
 };
 
 pub const ColorBlendAttachment = struct {
-    blend_enable: bool = false,
+    blend: bool = false,
     src_color_blend_factor: vk.BlendFactor = .One,
     dst_color_blend_factor: vk.BlendFactor = .Zero,
     color_blend_op: vk.BlendOp = .Add,
     src_alpha_blend_factor: vk.BlendFactor = .One,
     dst_alpha_blend_factor: vk.BlendFactor = .Zero,
     alpha_blend_op: vk.BlendOp = .Add,
-    color_write_mask: vk.ColorComponents = .{ .r = true, .g = true, .b = true, .a = true },
+    color_writes: vk.ColorComponents = .{ .r = true, .g = true, .b = true, .a = true },
 
     fn toVk(self: ColorBlendAttachment) vk.api.VkPipelineColorBlendAttachmentState {
         return vk.api.VkPipelineColorBlendAttachmentState{
-            .blendEnable = vk.vkBool(self.blend_enable),
+            .blendEnable = vk.vkBool(self.blend),
             .srcColorBlendFactor = @intFromEnum(self.src_color_blend_factor),
             .dstColorBlendFactor = @intFromEnum(self.dst_color_blend_factor),
             .colorBlendOp = @intFromEnum(self.color_blend_op),
             .srcAlphaBlendFactor = @intFromEnum(self.src_alpha_blend_factor),
             .dstAlphaBlendFactor = @intFromEnum(self.dst_alpha_blend_factor),
             .alphaBlendOp = @intFromEnum(self.alpha_blend_op),
-            .colorWriteMask = @bitCast(self.color_write_mask),
+            .colorWriteMask = @bitCast(self.color_writes),
         };
     }
 };
@@ -257,7 +257,7 @@ pub const Descriptor = struct {
     vertex: VertexStage,
     fragment: FragmentStage,
     input_assembly: InputAssembly = .{},
-    rasterizer: Rasterizer = .{},
+    rasterization: Rasterization = .{},
     multisample: Multisample = .{},
     depth_stencil: ?DepthStencil = .{},
     color_blend: ColorBlend = .{},
@@ -376,7 +376,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
     };
 
     const input_assembly = desc.input_assembly.toVk();
-    const rasterizer = desc.rasterizer.toVk();
+    const rasterizer = desc.rasterization.toVk();
     const multisample = desc.multisample.toVk();
 
     var depth_stencil: ?vk.api.VkPipelineDepthStencilStateCreateInfo = null;

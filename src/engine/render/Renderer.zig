@@ -1,14 +1,14 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const Camera = @import("Camera.zig");
-const StandardMaterial = @import("StandardMaterial.zig");
+const Materials = @import("Materials.zig");
+const Meshes = @import("Meshes.zig");
 const Tonemapper = @import("Tonemapper.zig");
-const Mesh = @import("Mesh.zig");
-const math = @import("../../math.zig");
+const Scene = @import("Scene.zig");
+const SceneRenderer = @import("SceneRenderer.zig");
 
 const Renderer = @This();
 
-const Hdr = struct {
+pub const Hdr = struct {
     color_image: vk.Image,
     color_view: vk.ImageView,
     depth_image: vk.Image,
@@ -38,7 +38,7 @@ const Hdr = struct {
         });
         errdefer depth_view.deinit();
 
-        const render_pass = try createHdrRenderPass(device);
+        const render_pass = try createRenderPass(device);
         errdefer render_pass.deinit();
 
         const framebuffer = try device.createFramebuffer(.{
@@ -60,6 +60,15 @@ const Hdr = struct {
         };
     }
 
+    fn deinit(self: Hdr) void {
+        self.framebuffer.deinit();
+        self.render_pass.deinit();
+        self.depth_view.deinit();
+        self.depth_image.deinit();
+        self.color_view.deinit();
+        self.color_image.deinit();
+    }
+
     fn createColorImage(device: vk.Device, extent: vk.Extent3D) !vk.Image {
         return try device.createImage(.{
             .format = COLOR_FORMAT,
@@ -75,6 +84,73 @@ const Hdr = struct {
             .extent = extent,
             .usage = .{ .depth_stencil_attachment = true },
             .memory = .{ .device_local = true },
+        });
+    }
+
+    fn createRenderPass(device: vk.Device) !vk.RenderPass {
+        return vk.RenderPass.init(device, .{
+            .attachments = &.{
+                .{
+                    .format = Hdr.COLOR_FORMAT,
+                    .samples = 1,
+                    .load_op = .Clear,
+                    .store_op = .Store,
+                    .final_layout = .ShaderReadOnlyOptimal,
+                },
+                .{
+                    .format = Hdr.DEPTH_FORMAT,
+                    .samples = 1,
+                    .load_op = .Clear,
+                    .store_op = .Store,
+                    .final_layout = .DepthStencilAttachmentOptimal,
+                },
+            },
+            .subpasses = &.{
+                .{
+                    .color_attachments = &.{
+                        .{
+                            .attachment = 0,
+                            .layout = .ColorAttachmentOptimal,
+                        },
+                    },
+                    .depth_stencil_attachment = .{
+                        .attachment = 1,
+                        .layout = .DepthStencilAttachmentOptimal,
+                    },
+                },
+            },
+            .dependencies = &.{
+                .{
+                    .dst_subpass = 0,
+                    .src_stage_mask = .{
+                        .top_of_pipe = true,
+                    },
+                    .dst_stage_mask = .{
+                        .color_attachment_output = true,
+                        .early_fragment_tests = true,
+                    },
+                    .dst_access_mask = .{
+                        .depth_stencil_attachment_read = true,
+                        .depth_stencil_attachment_write = true,
+                        .color_attachment_write = true,
+                    },
+                },
+                .{
+                    .src_subpass = 0,
+                    .src_stage_mask = .{
+                        .color_attachment_output = true,
+                    },
+                    .src_access_mask = .{
+                        .color_attachment_write = true,
+                    },
+                    .dst_stage_mask = .{
+                        .fragment_shader = true,
+                    },
+                    .dst_access_mask = .{
+                        .shader_read = true,
+                    },
+                },
+            },
         });
     }
 
@@ -107,28 +183,25 @@ const Hdr = struct {
             },
         });
     }
-
-    fn deinit(self: Hdr) void {
-        self.framebuffer.deinit();
-        self.render_pass.deinit();
-        self.depth_view.deinit();
-        self.depth_image.deinit();
-        self.color_view.deinit();
-        self.color_image.deinit();
-    }
 };
 
-const Sdr = struct {
+pub const Sdr = struct {
     swapchain: vk.Swapchain,
     render_pass: vk.RenderPass,
     framebuffers: []vk.Framebuffer,
 
     const COLOR_FORMAT: vk.ImageFormat = vk.ImageFormat.B8G8R8A8Unorm;
 
-    fn init(allocator: std.mem.Allocator, device: vk.Device, surface: vk.Surface) !Sdr {
-        const render_pass = try createSdrRenderPass(device);
+    fn init(
+        allocator: std.mem.Allocator,
+        device: vk.Device,
+        surface: vk.Surface,
+        present_mode: vk.PresentMode,
+    ) !Sdr {
+        const render_pass = try createRenderPass(device);
         const swapchain = try device.createSwapchain(.{
             .surface = surface,
+            .present_mode = present_mode,
         });
 
         const framebuffers = try allocator.alloc(vk.Framebuffer, swapchain.images.len);
@@ -148,6 +221,55 @@ const Sdr = struct {
         };
     }
 
+    fn deinit(self: Sdr, allocator: std.mem.Allocator) void {
+        for (self.framebuffers) |framebuffer| {
+            framebuffer.deinit();
+        }
+
+        allocator.free(self.framebuffers);
+
+        self.render_pass.deinit();
+        self.swapchain.deinit();
+    }
+
+    fn createRenderPass(device: vk.Device) !vk.RenderPass {
+        return vk.RenderPass.init(device, .{
+            .attachments = &.{
+                .{
+                    .format = Sdr.COLOR_FORMAT,
+                    .samples = 1,
+                    .load_op = .Clear,
+                    .store_op = .Store,
+                    .final_layout = .PresentSrc,
+                },
+            },
+            .subpasses = &.{
+                .{
+                    .color_attachments = &.{
+                        .{
+                            .attachment = 0,
+                            .layout = .ColorAttachmentOptimal,
+                        },
+                    },
+                },
+            },
+            .dependencies = &.{
+                .{
+                    .dst_subpass = 0,
+                    .src_stage_mask = .{
+                        .fragment_shader = true,
+                    },
+                    .dst_stage_mask = .{
+                        .color_attachment_output = true,
+                    },
+                    .dst_access_mask = .{
+                        .color_attachment_write = true,
+                    },
+                },
+            },
+        });
+    }
+
     fn recreate(self: *Sdr, device: vk.Device, allocator: std.mem.Allocator) !void {
         for (self.framebuffers) |framebuffer| {
             framebuffer.deinit();
@@ -165,17 +287,6 @@ const Sdr = struct {
             });
         }
     }
-
-    fn deinit(self: Sdr, allocator: std.mem.Allocator) void {
-        for (self.framebuffers) |framebuffer| {
-            framebuffer.deinit();
-        }
-
-        allocator.free(self.framebuffers);
-
-        self.render_pass.deinit();
-        self.swapchain.deinit();
-    }
 };
 
 allocator: std.mem.Allocator,
@@ -188,17 +299,9 @@ hdr: Hdr,
 graphics_pool: vk.CommandPool,
 graphics_buffer: vk.CommandBuffer,
 
-time: f32,
-
-camera: Camera,
-camera_state: Camera.RenderState,
+scene_renderer: SceneRenderer,
 
 tonemapper: Tonemapper,
-
-staging_buffer: vk.StagingBuffer,
-
-standard_material_pipeline_state: StandardMaterial.PipelineState,
-standard_material_instance_state: StandardMaterial.InstanceState,
 
 in_flight: vk.Fence,
 image_available: vk.Semaphore,
@@ -208,10 +311,16 @@ pub const Descriptor = struct {
     allocator: std.mem.Allocator,
     device: vk.Device,
     surface: vk.Surface,
+    present_mode: vk.PresentMode = .Fifo,
 };
 
 pub fn init(desc: Descriptor) !Renderer {
-    const sdr = try Sdr.init(desc.allocator, desc.device, desc.surface);
+    const sdr = try Sdr.init(
+        desc.allocator,
+        desc.device,
+        desc.surface,
+        desc.present_mode,
+    );
     errdefer sdr.deinit(desc.allocator);
 
     const hdr = try Hdr.init(desc.device, sdr.swapchain.extent);
@@ -222,6 +331,15 @@ pub fn init(desc: Descriptor) !Renderer {
 
     const graphics_buffer = try graphics_pool.alloc(.Primary);
 
+    var scene_renderer = try SceneRenderer.init(
+        desc.allocator,
+        desc.device,
+        graphics_pool,
+        hdr.render_pass,
+        0,
+    );
+    errdefer scene_renderer.deinit();
+
     const in_flight = try desc.device.createFence(true);
     errdefer in_flight.deinit();
 
@@ -230,28 +348,6 @@ pub fn init(desc: Descriptor) !Renderer {
 
     const render_finished = try desc.device.createSemaphore();
     errdefer render_finished.deinit();
-
-    var staging_buffer = try vk.StagingBuffer.init(desc.device, graphics_pool);
-    errdefer staging_buffer.deinit();
-
-    const camera_state = try Camera.RenderState.init(desc.device);
-
-    const standard_material_pipeline_state = try StandardMaterial.PipelineState.init(
-        desc.device,
-        camera_state.bind_group_layout,
-        hdr.render_pass,
-        0,
-    );
-    errdefer standard_material_pipeline_state.deinit();
-
-    const mesh = Mesh.cube(1.0, 0xffffffff);
-
-    const standard_material_instance_state = try StandardMaterial.InstanceState.init(
-        desc.device,
-        standard_material_pipeline_state,
-        &staging_buffer,
-        mesh,
-    );
 
     const tonemapper = try Tonemapper.init(desc.device, sdr.render_pass, 0);
     try tonemapper.setHdrImage(desc.device, hdr.color_view);
@@ -267,17 +363,9 @@ pub fn init(desc: Descriptor) !Renderer {
         .graphics_pool = graphics_pool,
         .graphics_buffer = graphics_buffer,
 
-        .time = 0.0,
-
-        .camera = .{},
-        .camera_state = camera_state,
+        .scene_renderer = scene_renderer,
 
         .tonemapper = tonemapper,
-
-        .staging_buffer = staging_buffer,
-
-        .standard_material_pipeline_state = standard_material_pipeline_state,
-        .standard_material_instance_state = standard_material_instance_state,
 
         .in_flight = in_flight,
         .image_available = image_available,
@@ -285,7 +373,7 @@ pub fn init(desc: Descriptor) !Renderer {
     };
 }
 
-pub fn deinit(self: Renderer) void {
+pub fn deinit(self: *Renderer) void {
     // very important as it turns out
     self.device.waitIdle() catch {};
 
@@ -293,137 +381,27 @@ pub fn deinit(self: Renderer) void {
     self.image_available.deinit();
     self.in_flight.deinit();
 
-    self.staging_buffer.deinit();
-
     self.tonemapper.deinit();
 
-    self.camera_state.deinit();
+    self.scene_renderer.deinit();
 
     self.graphics_pool.deinit();
-
-    self.standard_material_pipeline_state.deinit();
-    self.standard_material_instance_state.deinit();
 
     self.hdr.deinit();
     self.sdr.deinit(self.allocator);
 }
 
-fn createHdrRenderPass(device: vk.Device) !vk.RenderPass {
-    return vk.RenderPass.init(device, .{
-        .attachments = &.{
-            .{
-                .format = Hdr.COLOR_FORMAT,
-                .samples = 1,
-                .load_op = .Clear,
-                .store_op = .Store,
-                .final_layout = .ShaderReadOnlyOptimal,
-            },
-            .{
-                .format = Hdr.DEPTH_FORMAT,
-                .samples = 1,
-                .load_op = .Clear,
-                .store_op = .Store,
-                .final_layout = .DepthStencilAttachmentOptimal,
-            },
-        },
-        .subpasses = &.{
-            .{
-                .color_attachments = &.{
-                    .{
-                        .attachment = 0,
-                        .layout = .ColorAttachmentOptimal,
-                    },
-                },
-                .depth_stencil_attachment = .{
-                    .attachment = 1,
-                    .layout = .DepthStencilAttachmentOptimal,
-                },
-            },
-        },
-        .dependencies = &.{
-            .{
-                .dst_subpass = 0,
-                .src_stage_mask = .{
-                    .top_of_pipe = true,
-                },
-                .dst_stage_mask = .{
-                    .color_attachment_output = true,
-                    .early_fragment_tests = true,
-                },
-                .dst_access_mask = .{
-                    .depth_stencil_attachment_read = true,
-                    .depth_stencil_attachment_write = true,
-                    .color_attachment_write = true,
-                },
-            },
-            .{
-                .src_subpass = 0,
-                .src_stage_mask = .{
-                    .color_attachment_output = true,
-                },
-                .src_access_mask = .{
-                    .color_attachment_write = true,
-                },
-                .dst_stage_mask = .{
-                    .fragment_shader = true,
-                },
-                .dst_access_mask = .{
-                    .shader_read = true,
-                },
-            },
-        },
-    });
+pub fn addMaterial(self: *Renderer, comptime T: type) !void {
+    try self.scene_renderer.addMaterial(T);
 }
 
-fn createSdrRenderPass(device: vk.Device) !vk.RenderPass {
-    return vk.RenderPass.init(device, .{
-        .attachments = &.{
-            .{
-                .format = Sdr.COLOR_FORMAT,
-                .samples = 1,
-                .load_op = .Clear,
-                .store_op = .Store,
-                .final_layout = .PresentSrc,
-            },
-        },
-        .subpasses = &.{
-            .{
-                .color_attachments = &.{
-                    .{
-                        .attachment = 0,
-                        .layout = .ColorAttachmentOptimal,
-                    },
-                },
-            },
-        },
-        .dependencies = &.{
-            .{
-                .dst_subpass = 0,
-                .src_stage_mask = .{
-                    .fragment_shader = true,
-                },
-                .dst_stage_mask = .{
-                    .color_attachment_output = true,
-                },
-                .dst_access_mask = .{
-                    .color_attachment_write = true,
-                },
-            },
-        },
-    });
-}
-
-fn recordCommandBuffer(self: *Renderer, image_index: usize) !void {
+fn recordCommandBuffer(
+    self: *Renderer,
+    scene: Scene,
+    image_index: usize,
+) !void {
     try self.graphics_buffer.reset();
     try self.graphics_buffer.begin(.{});
-
-    self.graphics_buffer.beginRenderPass(.{
-        .render_pass = self.hdr.render_pass,
-        .framebuffer = self.hdr.framebuffer,
-        .render_area = .{
-            .extent = self.sdr.swapchain.extent.as2D(),
-        },
-    });
 
     self.graphics_buffer.setViewport(.{
         .width = @floatFromInt(self.sdr.swapchain.extent.width),
@@ -434,20 +412,23 @@ fn recordCommandBuffer(self: *Renderer, image_index: usize) !void {
         .extent = self.sdr.swapchain.extent.as2D(),
     });
 
-    try StandardMaterial.recordInstance(
-        self.graphics_buffer,
-        self.standard_material_pipeline_state,
-        self.standard_material_instance_state,
-        self.camera_state.bind_group,
-        Mesh.cube(1.0, 0xffffffff),
-    );
+    self.graphics_buffer.beginRenderPass(.{
+        .render_pass = self.hdr.render_pass,
+        .framebuffer = self.hdr.framebuffer,
+        .render_area = .{
+            .extent = self.sdr.swapchain.extent.as2D(),
+        },
+    });
+
+    const width: f32 = @floatFromInt(self.sdr.swapchain.extent.width);
+    const height: f32 = @floatFromInt(self.sdr.swapchain.extent.height);
+
+    self.scene_renderer.aspect_ratio = width / height;
+    try self.scene_renderer.draw(self.graphics_buffer, scene);
 
     self.graphics_buffer.endRenderPass();
 
-    self.graphics_buffer.pipelineBarrier(.{
-        .src_stage = .{ .color_attachment_output = true },
-        .dst_stage = .{ .color_attachment_output = true },
-    });
+    // ---------- SDR ----------
 
     self.graphics_buffer.beginRenderPass(.{
         .render_pass = self.sdr.render_pass,
@@ -472,7 +453,14 @@ fn recreate(self: *Renderer) !void {
     try self.tonemapper.setHdrImage(self.device, self.hdr.color_view);
 }
 
-pub fn drawFrame(self: *Renderer) !void {
+pub fn drawFrame(
+    self: *Renderer,
+    materials: Materials,
+    meshes: Meshes,
+    scene: Scene,
+) !void {
+    try self.scene_renderer.prepare(materials, meshes, scene);
+
     try self.in_flight.wait(.{});
 
     const image_index = self.sdr.swapchain.acquireNextImage(.{
@@ -486,24 +474,7 @@ pub fn drawFrame(self: *Renderer) !void {
 
     try self.in_flight.reset();
 
-    try StandardMaterial.prepareInstance(
-        self.device,
-        &self.standard_material_instance_state,
-        &self.staging_buffer,
-        math.Mat4.rotate(self.time, math.vec3(1.0, -2.0, 0.8).normalize()),
-    );
-    self.time += 0.005;
-
-    const width: f32 = @floatFromInt(self.sdr.swapchain.extent.width);
-    const height: f32 = @floatFromInt(self.sdr.swapchain.extent.height);
-
-    try self.staging_buffer.write(&self.camera.uniform(width / height));
-    try self.staging_buffer.copyBuffer(.{
-        .dst = self.camera_state.buffer,
-        .size = @sizeOf(Camera.Uniforms),
-    });
-
-    try self.recordCommandBuffer(image_index);
+    try self.recordCommandBuffer(scene, image_index);
 
     try self.device.graphics.submit(.{
         .wait_semaphores = &.{

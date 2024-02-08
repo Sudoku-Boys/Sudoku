@@ -28,7 +28,7 @@ pub fn init(
     errdefer bind_group_pool.deinit();
 
     const bind_group_layout = try device.createBindGroupLayout(.{
-        .bindings = &.{
+        .entries = &.{
             .{
                 .binding = 0,
                 .type = .CombinedImageSampler,
@@ -76,18 +76,16 @@ fn createRenderPipeline(
 ) !vk.GraphicsPipeline {
     return device.createGraphicsPipeline(.{
         .vertex = .{
-            .shader = vk.embedSpv(@embedFile("shader/fullscreen.vert")),
+            .shader = vk.embedSpirv(@embedFile("shader/fullscreen.vert")),
             .entry_point = "main",
         },
         .fragment = .{
-            .shader = vk.embedSpv(@embedFile("shader/tonemapper.frag")),
+            .shader = vk.embedSpirv(@embedFile("shader/tonemapper.frag")),
             .entry_point = "main",
         },
         .color_blend = .{
             .attachments = &.{
-                .{
-                    .blend_enable = false,
-                },
+                .{},
             },
         },
         .layouts = &.{bind_group_layout},
@@ -97,7 +95,7 @@ fn createRenderPipeline(
 }
 
 pub fn setHdrImage(self: Tonemapper, device: vk.Device, hdr_image: vk.ImageView) !void {
-    try device.updateBindGroups(.{
+    device.updateBindGroups(.{
         .writes = &.{
             .{
                 .dst = self.bind_group,

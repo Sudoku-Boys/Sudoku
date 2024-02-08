@@ -22,3 +22,12 @@ pub fn rgba(r: f32, g: f32, b: f32, a: f32) Color {
 pub fn rgb(r: f32, g: f32, b: f32) Color {
     return rgba(r, g, b, 1.0);
 }
+
+pub fn asArray(self: Color) [4]f32 {
+    return .{
+        self.r,
+        self.g,
+        self.b,
+        self.a,
+    };
+}

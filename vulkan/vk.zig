@@ -28,12 +28,12 @@ pub const Attachment = RenderPass.Attachment;
 pub const Subpass = RenderPass.Subpass;
 pub const AttachmentReference = RenderPass.AttachmentReference;
 
-pub const Spv = []const u32;
+pub const Spirv = []const u32;
 
 const std = @import("std");
 
 /// Embed a SPIR-V file as a `[]const u32`.
-pub fn embedSpv(comptime data: []const u8) Spv {
+pub fn embedSpirv(comptime data: []const u8) Spirv {
     // we need to do this whole rigmarole to ensure correct alignment
     // I do not like it, but it is what it is
     const len = data.len / @sizeOf(u32);
