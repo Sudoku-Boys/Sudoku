@@ -76,11 +76,11 @@ fn createRenderPipeline(
 ) !vk.GraphicsPipeline {
     return device.createGraphicsPipeline(.{
         .vertex = .{
-            .shader = vk.embedSpirv(@embedFile("shader/fullscreen.vert")),
+            .shader = vk.embedSpirv(@embedFile("shaders/fullscreen.vert")),
             .entry_point = "main",
         },
         .fragment = .{
-            .shader = vk.embedSpirv(@embedFile("shader/tonemapper.frag")),
+            .shader = vk.embedSpirv(@embedFile("shaders/tonemap.frag")),
             .entry_point = "main",
         },
         .color_blend = .{

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const math = @import("../../math.zig");
+const math = @import("../math.zig");
 
 const Mesh = @This();
 
@@ -57,35 +57,35 @@ pub fn indexBytes(mesh: Mesh) []const u8 {
 pub fn cube(allocator: std.mem.Allocator, size: f32, color: u32) !Mesh {
     const cube_vertices = .{
         // front
-        .{ .position = math.vec3(-1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.Z, .color = color },
-        .{ .position = math.vec3(1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.Z, .color = color },
-        .{ .position = math.vec3(1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.Z, .color = color },
-        .{ .position = math.vec3(-1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.Z, .color = color },
+        .{ .position = math.vec3(-1.0, -1.0, 1.0).mul(size), .normal = math.Vec3.Z, .color = color },
+        .{ .position = math.vec3(1.0, -1.0, 1.0).mul(size), .normal = math.Vec3.Z, .color = color },
+        .{ .position = math.vec3(1.0, 1.0, 1.0).mul(size), .normal = math.Vec3.Z, .color = color },
+        .{ .position = math.vec3(-1.0, 1.0, 1.0).mul(size), .normal = math.Vec3.Z, .color = color },
         // back
-        .{ .position = math.vec3(-1.0, -1.0, -1.0).muls(size), .normal = math.Vec3.NEG_Z, .color = color },
-        .{ .position = math.vec3(1.0, -1.0, -1.0).muls(size), .normal = math.Vec3.NEG_Z, .color = color },
-        .{ .position = math.vec3(1.0, 1.0, -1.0).muls(size), .normal = math.Vec3.NEG_Z, .color = color },
-        .{ .position = math.vec3(-1.0, 1.0, -1.0).muls(size), .normal = math.Vec3.NEG_Z, .color = color },
+        .{ .position = math.vec3(-1.0, -1.0, -1.0).mul(size), .normal = math.Vec3.NEG_Z, .color = color },
+        .{ .position = math.vec3(1.0, -1.0, -1.0).mul(size), .normal = math.Vec3.NEG_Z, .color = color },
+        .{ .position = math.vec3(1.0, 1.0, -1.0).mul(size), .normal = math.Vec3.NEG_Z, .color = color },
+        .{ .position = math.vec3(-1.0, 1.0, -1.0).mul(size), .normal = math.Vec3.NEG_Z, .color = color },
         // top
-        .{ .position = math.vec3(-1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.Y, .color = color },
-        .{ .position = math.vec3(1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.Y, .color = color },
-        .{ .position = math.vec3(1.0, 1.0, -1.0).muls(size), .normal = math.Vec3.Y, .color = color },
-        .{ .position = math.vec3(-1.0, 1.0, -1.0).muls(size), .normal = math.Vec3.Y, .color = color },
+        .{ .position = math.vec3(-1.0, 1.0, 1.0).mul(size), .normal = math.Vec3.Y, .color = color },
+        .{ .position = math.vec3(1.0, 1.0, 1.0).mul(size), .normal = math.Vec3.Y, .color = color },
+        .{ .position = math.vec3(1.0, 1.0, -1.0).mul(size), .normal = math.Vec3.Y, .color = color },
+        .{ .position = math.vec3(-1.0, 1.0, -1.0).mul(size), .normal = math.Vec3.Y, .color = color },
         // bottom
-        .{ .position = math.vec3(-1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.NEG_Y, .color = color },
-        .{ .position = math.vec3(1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.NEG_Y, .color = color },
-        .{ .position = math.vec3(1.0, -1.0, -1.0).muls(size), .normal = math.Vec3.NEG_Y, .color = color },
-        .{ .position = math.vec3(-1.0, -1.0, -1.0).muls(size), .normal = math.Vec3.NEG_Y, .color = color },
+        .{ .position = math.vec3(-1.0, -1.0, 1.0).mul(size), .normal = math.Vec3.NEG_Y, .color = color },
+        .{ .position = math.vec3(1.0, -1.0, 1.0).mul(size), .normal = math.Vec3.NEG_Y, .color = color },
+        .{ .position = math.vec3(1.0, -1.0, -1.0).mul(size), .normal = math.Vec3.NEG_Y, .color = color },
+        .{ .position = math.vec3(-1.0, -1.0, -1.0).mul(size), .normal = math.Vec3.NEG_Y, .color = color },
         // right
-        .{ .position = math.vec3(1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.X, .color = color },
-        .{ .position = math.vec3(1.0, -1.0, -1.0).muls(size), .normal = math.Vec3.X, .color = color },
-        .{ .position = math.vec3(1.0, 1.0, -1.0).muls(size), .normal = math.Vec3.X, .color = color },
-        .{ .position = math.vec3(1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.X, .color = color },
+        .{ .position = math.vec3(1.0, -1.0, 1.0).mul(size), .normal = math.Vec3.X, .color = color },
+        .{ .position = math.vec3(1.0, -1.0, -1.0).mul(size), .normal = math.Vec3.X, .color = color },
+        .{ .position = math.vec3(1.0, 1.0, -1.0).mul(size), .normal = math.Vec3.X, .color = color },
+        .{ .position = math.vec3(1.0, 1.0, 1.0).mul(size), .normal = math.Vec3.X, .color = color },
         // left
-        .{ .position = math.vec3(-1.0, -1.0, 1.0).muls(size), .normal = math.Vec3.NEG_X, .color = color },
-        .{ .position = math.vec3(-1.0, -1.0, -1.0).muls(size), .normal = math.Vec3.NEG_X, .color = color },
-        .{ .position = math.vec3(-1.0, 1.0, -1.0).muls(size), .normal = math.Vec3.NEG_X, .color = color },
-        .{ .position = math.vec3(-1.0, 1.0, 1.0).muls(size), .normal = math.Vec3.NEG_X, .color = color },
+        .{ .position = math.vec3(-1.0, -1.0, 1.0).mul(size), .normal = math.Vec3.NEG_X, .color = color },
+        .{ .position = math.vec3(-1.0, -1.0, -1.0).mul(size), .normal = math.Vec3.NEG_X, .color = color },
+        .{ .position = math.vec3(-1.0, 1.0, -1.0).mul(size), .normal = math.Vec3.NEG_X, .color = color },
+        .{ .position = math.vec3(-1.0, 1.0, 1.0).mul(size), .normal = math.Vec3.NEG_X, .color = color },
     };
 
     const cube_indices = .{

@@ -56,6 +56,11 @@ fn compileShader(
     tool_step.addFileArg(.{ .path = path });
     tool_step.addArg(stage.argName());
 
+    // rebuild when any file changes
+    //
+    // NOTE: this is a bit of a hack, and can probably be done better
+    tool_step.addDirectoryArg(.{ .path = "shaders" });
+
     if (b.host.target.os.tag == .windows) {
         tool_step.addPathDir("ext/win/lib");
     }
@@ -69,7 +74,7 @@ pub fn compileShaders(
     const tool = compileShaderTool(b);
 
     const dir = std.fs.cwd();
-    var shader = try dir.openIterableDir("shader", .{});
+    var shader = try dir.openIterableDir("shaders", .{});
     defer shader.close();
 
     var shaders = std.ArrayList(CompiledShader).init(b.allocator);
@@ -77,7 +82,7 @@ pub fn compileShaders(
     var it = shader.iterate();
     while (try it.next()) |entry| {
         if (ShaderStage.fromPath(entry.name)) |stage| {
-            const path = try std.mem.join(b.allocator, "/", &.{ "shader", entry.name });
+            const path = try std.mem.join(b.allocator, "/", &.{ "shaders", entry.name });
             const data = compileShader(b, tool, path, stage);
 
             try shaders.append(CompiledShader{

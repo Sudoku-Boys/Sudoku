@@ -2,7 +2,10 @@ const std = @import("std");
 
 const intrinsic = @import("simd.zig");
 const trig = @import("trig.zig");
-const Vec3 = @import("vec.zig").Vec3;
+const vec = @import("vec.zig");
+
+const Vec3 = vec.Vec3;
+const Vec4 = vec.Vec4;
 
 pub fn mat4(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @Vector(4, f32)) Mat4 {
     return Mat4.init(r0, r1, r2, r3);
@@ -89,11 +92,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotateX(rot: f32) Mat4 {
+    pub inline fn rotateX(angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.fcos(angle);
+        const s = trig.fsin(angle);
 
         mat._.m11 = c;
         mat._.m12 = s;
@@ -103,11 +106,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotateY(rot: f32) Mat4 {
+    pub inline fn rotateY(angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.fcos(angle);
+        const s = trig.fsin(angle);
 
         mat._.m00 = c;
         mat._.m02 = -s;
@@ -117,11 +120,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotateZ(rot: f32) Mat4 {
+    pub inline fn rotateZ(angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.fcos(angle);
+        const s = trig.fsin(angle);
 
         mat._.m00 = c;
         mat._.m01 = s;
@@ -131,11 +134,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotate(rot: f32, axis: Vec3) Mat4 {
+    pub inline fn rotate(axis: Vec3, angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.cos(angle);
+        const s = trig.sin(angle);
         const ic = 1 - c;
 
         mat._.m00 = axis._.x * axis._.x * ic + c;
@@ -391,31 +394,21 @@ pub const Mat4 = extern union {
         return mul(a, inv(b));
     }
 
-    pub inline fn mulv(a: Mat4, b: @Vector(4, f32)) @Vector(4, f32) {
+    pub inline fn mulv(a: Mat4, b: Vec4) Vec4 {
         // load matrix a
         const r0 = a.v[0];
         const r1 = a.v[1];
         const r2 = a.v[2];
         const r3 = a.v[3];
 
-        // transpose matrix a
-        const tr01a = intrinsic.unpacklo(r0, r1);
-        const tr23a = intrinsic.unpacklo(r2, r3);
-        const tr01b = intrinsic.unpackhi(r0, r1);
-        const tr23b = intrinsic.unpackhi(r2, r3);
-
-        const t0 = intrinsic.movelh(tr01a, tr23a);
-        const t1 = intrinsic.movehl(tr23a, tr01a);
-        const t2 = intrinsic.movelh(tr01b, tr23b);
-        const t3 = intrinsic.movehl(tr23b, tr01b);
-
         // permute column vector into rows
-        const p0 = intrinsic.permute(b, .{ 0, 0, 0, 0 });
-        const p1 = intrinsic.permute(b, .{ 1, 1, 1, 1 });
-        const p2 = intrinsic.permute(b, .{ 2, 2, 2, 2 });
-        const p3 = intrinsic.permute(b, .{ 3, 3, 3, 3 });
+        const p0 = intrinsic.permute(b.v, .{ 0, 0, 0, 0 });
+        const p1 = intrinsic.permute(b.v, .{ 1, 1, 1, 1 });
+        const p2 = intrinsic.permute(b.v, .{ 2, 2, 2, 2 });
+        const p3 = intrinsic.permute(b.v, .{ 3, 3, 3, 3 });
 
         // mathimus maximus
-        return (p0 * t0) + (p1 * t1) + (p2 * t2) + (p3 * t3);
+        const v = (p0 * r0) + (p1 * r1) + (p2 * r2) + (p3 * r3);
+        return .{ .v = v };
     }
 };

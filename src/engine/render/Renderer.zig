@@ -2,7 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Materials = @import("Materials.zig").Materials;
 const Meshes = @import("Meshes.zig").Meshes;
-const Tonemapper = @import("Tonemapper.zig");
+const Tonemap = @import("Tonemap.zig");
 const Scene = @import("Scene.zig");
 const SceneRenderer = @import("SceneRenderer.zig");
 
@@ -301,7 +301,7 @@ graphics_buffer: vk.CommandBuffer,
 
 scene_renderer: SceneRenderer,
 
-tonemapper: Tonemapper,
+tonemap: Tonemap,
 
 in_flight: vk.Fence,
 image_available: vk.Semaphore,
@@ -349,8 +349,8 @@ pub fn init(desc: Descriptor) !Renderer {
     const render_finished = try desc.device.createSemaphore();
     errdefer render_finished.deinit();
 
-    const tonemapper = try Tonemapper.init(desc.device, sdr.render_pass, 0);
-    try tonemapper.setHdrImage(desc.device, hdr.color_view);
+    const tonemap = try Tonemap.init(desc.device, sdr.render_pass, 0);
+    try tonemap.setHdrImage(desc.device, hdr.color_view);
 
     return .{
         .allocator = desc.allocator,
@@ -365,7 +365,7 @@ pub fn init(desc: Descriptor) !Renderer {
 
         .scene_renderer = scene_renderer,
 
-        .tonemapper = tonemapper,
+        .tonemap = tonemap,
 
         .in_flight = in_flight,
         .image_available = image_available,
@@ -381,7 +381,7 @@ pub fn deinit(self: *Renderer) void {
     self.image_available.deinit();
     self.in_flight.deinit();
 
-    self.tonemapper.deinit();
+    self.tonemap.deinit();
 
     self.scene_renderer.deinit();
 
@@ -438,7 +438,7 @@ fn recordCommandBuffer(
         },
     });
 
-    try self.tonemapper.recordCommandBuffer(self.graphics_buffer);
+    try self.tonemap.recordCommandBuffer(self.graphics_buffer);
 
     self.graphics_buffer.endRenderPass();
 
@@ -450,7 +450,7 @@ fn recreate(self: *Renderer) !void {
 
     try self.sdr.recreate(self.device, self.allocator);
     try self.hdr.recreate(self.device, self.sdr.swapchain.extent);
-    try self.tonemapper.setHdrImage(self.device, self.hdr.color_view);
+    try self.tonemap.setHdrImage(self.device, self.hdr.color_view);
 }
 
 pub fn drawFrame(

@@ -102,7 +102,7 @@ pub fn main() !void {
     const allocator = arena.allocator();
 
     const args = try std.process.argsAlloc(allocator);
-    if (args.len != 3) return error.InvalidArgument;
+    if (args.len < 3) return error.InvalidArgument;
 
     var processor = ShaderProcessor.init(allocator);
     defer processor.deinit();

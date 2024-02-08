@@ -261,7 +261,7 @@ pub const Descriptor = struct {
     multisample: Multisample = .{},
     depth_stencil: ?DepthStencil = .{},
     color_blend: ColorBlend = .{},
-    layouts: []const vk.BindGroupLayout = &.{},
+    layouts: []const ?vk.BindGroupLayout = &.{},
     render_pass: vk.RenderPass,
     subpass: u32,
 };
@@ -393,8 +393,12 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
     const bind_groups = try device.allocator.alloc(vk.api.VkDescriptorSetLayout, desc.layouts.len);
     defer device.allocator.free(bind_groups);
 
-    for (desc.layouts, 0..) |group, i| {
-        bind_groups[i] = group.vk;
+    for (desc.layouts, 0..) |optional_group, i| {
+        if (optional_group) |group| {
+            bind_groups[i] = group.vk;
+        } else {
+            bind_groups[i] = null;
+        }
     }
 
     const pipeline_layout = vk.api.VkPipelineLayoutCreateInfo{

@@ -154,7 +154,7 @@ pub const LoadOp = enum(u32) {
     Load = 0,
     Clear = 1,
     DontCare = 2,
-    None = 1000400000,
+    NoneExt = 1000400000,
 };
 
 // Enum for VK_LOGIC_OP_
@@ -464,7 +464,6 @@ pub const ImageLayout = enum(u32) {
     SharedPresent = 1000111000,
     FragmentDensityMapOptimalExt = 1000218000,
     FragmentShadingRateAttachmentOptimal = 1000164003,
-    RenderingLocalRead = 1000232000,
     VideoEncodeDst = 1000299000,
     VideoEncodeSrc = 1000299001,
     VideoEncodeDpb = 1000299002,
@@ -534,3 +533,4 @@ pub const StoreOp = enum(u32) {
     DontCare = 1,
     None = 1000301000,
 };
+

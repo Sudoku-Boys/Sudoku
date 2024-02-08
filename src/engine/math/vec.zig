@@ -14,6 +14,7 @@ pub fn vec4(v0: f32, v1: f32, v2: f32, v3: f32) Vec4 {
 
 pub const Vec2 = extern union {
     _: extern struct { x: f32, y: f32 },
+    f: [2]f32,
     v: @Vector(2, f32),
 
     pub usingnamespace VecBase(@This(), 2);
@@ -31,6 +32,7 @@ pub const Vec2 = extern union {
 
 pub const Vec3 = extern union {
     _: extern struct { x: f32, y: f32, z: f32 },
+    f: [3]f32,
     v: @Vector(3, f32),
 
     pub usingnamespace VecBase(@This(), 3);
@@ -67,6 +69,7 @@ pub const Vec3 = extern union {
 
 pub const Vec4 = extern union {
     _: extern struct { x: f32, y: f32, z: f32, w: f32 },
+    f: [4]f32,
     v: @Vector(4, f32),
 
     pub usingnamespace VecBase(@This(), 4);
@@ -88,30 +91,75 @@ fn swizzleType(comptime size: usize) type {
 
 fn VecBase(comptime T: type, comptime size: usize) type {
     return struct {
-        pub fn add(a: T, b: T) T {
-            return .{ .v = a.v + b.v };
+        pub fn add(a: T, b: anytype) T {
+            if (@TypeOf(b) == T) {
+                return .{ .v = a.v + b.v };
+            }
+
+            if (@TypeOf(b) == f32) {
+                return .{ .v = a.v + @as(@Vector(size, f32), @splat(b)) };
+            }
+
+            @compileError("Invalid type for add");
         }
-        pub fn sub(a: T, b: T) T {
-            return .{ .v = a.v - b.v };
+        pub fn sub(a: T, b: anytype) T {
+            if (@TypeOf(b) == T) {
+                return .{ .v = a.v - b.v };
+            }
+
+            if (@TypeOf(b) == f32) {
+                return .{ .v = a.v - @as(@Vector(size, f32), @splat(b)) };
+            }
+
+            @compileError("Invalid type for sub");
         }
-        pub fn mul(a: T, b: T) T {
-            return .{ .v = a.v * b.v };
+        pub fn mul(a: T, b: anytype) T {
+            if (@TypeOf(b) == T) {
+                return .{ .v = a.v * b.v };
+            }
+
+            if (@TypeOf(b) == f32) {
+                return .{ .v = a.v * @as(@Vector(size, f32), @splat(b)) };
+            }
+
+            @compileError("Invalid type for mul");
         }
-        pub fn div(a: T, b: T) T {
-            return .{ .v = a.v / b.v };
+        pub fn div(a: T, b: anytype) T {
+            if (@TypeOf(b) == T) {
+                return .{ .v = a.v / b.v };
+            }
+
+            if (@TypeOf(b) == f32) {
+                return .{ .v = a.v / @as(@Vector(size, f32), @splat(b)) };
+            }
+
+            @compileError("Invalid type for div");
+        }
+
+        pub fn addEq(a: *T, b: anytype) void {
+            a.* = a.add(b);
+        }
+        pub fn subEq(a: *T, b: anytype) void {
+            a.* = a.sub(b);
+        }
+        pub fn mulEq(a: *T, b: anytype) void {
+            a.* = a.mul(b);
+        }
+        pub fn divEq(a: *T, b: anytype) void {
+            a.* = a.div(b);
         }
 
         pub fn adds(a: T, b: f32) T {
-            return .{ .v = a.v + @as(@Vector(size, f32), @splat(b)) };
+            return a.add(b);
         }
         pub fn subs(a: T, b: f32) T {
-            return .{ .v = a.v - @as(@Vector(size, f32), @splat(b)) };
+            return a.sub(b);
         }
         pub fn muls(a: T, b: f32) T {
-            return .{ .v = a.v * @as(@Vector(size, f32), @splat(b)) };
+            return a.mul(b);
         }
         pub fn divs(a: T, b: f32) T {
-            return .{ .v = a.v / @as(@Vector(size, f32), @splat(b)) };
+            return a.div(b);
         }
 
         pub fn dot(a: T, b: T) f32 {
@@ -124,7 +172,12 @@ fn VecBase(comptime T: type, comptime size: usize) type {
         }
 
         pub fn normalize(a: T) T {
-            return muls(a, 1 / @sqrt(dot(a, a)));
+            return mul(a, 1 / @sqrt(dot(a, a)));
+        }
+
+        pub fn normalize_or_zero(a: T) T {
+            const len_squared = dot(a, a);
+            return if (len_squared > 0) mul(a, 1 / @sqrt(len_squared)) else a;
         }
 
         pub fn swizzle(self: T, comptime wiz: []const u8) swizzleType(wiz.len) {
