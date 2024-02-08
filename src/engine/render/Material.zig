@@ -9,10 +9,24 @@ pub const Context = struct {
     staging_buffer: *vk.StagingBuffer,
 };
 
+pub const Pipeline = struct {
+    input_assembly: vk.GraphicsPipeline.InputAssembly = .{},
+    rasterization: vk.GraphicsPipeline.Rasterization = .{},
+    depth_stencil: ?vk.GraphicsPipeline.DepthStencil = .{
+        .depth_test = true,
+        .depth_write = true,
+    },
+    color_attachment: vk.GraphicsPipeline.ColorBlendAttachment = .{},
+};
+
 pub const VTable = struct {
+    vertex_shader: *const fn () vk.Spirv,
+    fragment_shader: *const fn () vk.Spirv,
+    pipeline: *const fn () Pipeline,
+    bind_group_layout_entries: *const fn () []const vk.BindGroupLayout.Entry,
+
     alloc_state: *const fn (std.mem.Allocator) anyerror!*anyopaque,
     free_state: *const fn (std.mem.Allocator, *anyopaque) void,
-    bind_group_layout_entries: *const fn () []const vk.BindGroupLayout.Entry,
 
     init_state: *const fn (*anyopaque, Context, vk.BindGroup) anyerror!void,
     deinit_state: *const fn (*anyopaque) void,
@@ -28,33 +42,75 @@ pub fn init(comptime T: type) Material {
 
     return .{
         .vtable = &VTable{
+            .vertex_shader = Opaque(T).vertexShader,
+            .fragment_shader = Opaque(T).fragmentShader,
+            .pipeline = Opaque(T).pipeline,
+            .bind_group_layout_entries = Opaque(T).bindGroupLayoutEntries,
+
             .alloc_state = Opaque(T).allocState,
             .free_state = Opaque(T).freeState,
-            .init_state = Opaque(T).initState,
 
+            .init_state = Opaque(T).initState,
             .deinit_state = Opaque(T).deinitState,
-            .bind_group_layout_entries = Opaque(T).bindGroupLayoutEntries,
             .update = Opaque(T).update,
         },
         .type_id = std.meta.activeTag(@typeInfo(T)),
     };
 }
 
-fn Opaque(comptime T: type) type {
-    const State = T.State;
+fn getState(comptime T: type) ?type {
+    if (@hasDecl(T, "State")) {
+        return T.State;
+    } else {
+        return null;
+    }
+}
 
+fn Opaque(comptime T: type) type {
     return struct {
-        fn allocState(allocator: std.mem.Allocator) !*anyopaque {
-            return try allocator.create(State);
+        fn vertexShader() vk.Spirv {
+            if (@hasDecl(T, "vertexShader")) {
+                return T.vertexShader();
+            } else {
+                return vk.embedSpirv(@embedFile("shader/default.vert"));
+            }
         }
 
-        fn freeState(allocator: std.mem.Allocator, state: *anyopaque) void {
-            const state_ptr: *State = @ptrCast(@alignCast(state));
-            allocator.destroy(state_ptr);
+        fn fragmentShader() vk.Spirv {
+            if (@hasDecl(T, "fragmentShader")) {
+                return T.fragmentShader();
+            } else {
+                return vk.embedSpirv(@embedFile("shader/default.frag"));
+            }
+        }
+
+        fn pipeline() Pipeline {
+            if (@hasDecl(T, "pipeline")) {
+                return T.pipeline();
+            } else {
+                return .{};
+            }
         }
 
         fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
             return T.bindGroupLayoutEntries();
+        }
+
+        fn allocState(allocator: std.mem.Allocator) !*anyopaque {
+            if (getState(T)) |State| {
+                if (@sizeOf(State) == 0) return undefined;
+
+                return try allocator.create(State);
+            }
+        }
+
+        fn freeState(allocator: std.mem.Allocator, state: *anyopaque) void {
+            if (getState(T)) |State| {
+                if (@sizeOf(State) > 0) {
+                    const state_ptr: *State = @ptrCast(@alignCast(state));
+                    allocator.destroy(state_ptr);
+                }
+            }
         }
 
         fn initState(
@@ -62,21 +118,46 @@ fn Opaque(comptime T: type) type {
             cx: Context,
             bind_group: vk.BindGroup,
         ) anyerror!void {
-            const state_ptr: *State = @ptrCast(@alignCast(state));
-            state_ptr.* = try T.initState(cx, bind_group);
+            if (getState(T)) |State| {
+                const state_ptr: *State = @ptrCast(@alignCast(state));
+                state_ptr.* = try T.initState(cx, bind_group);
+            }
         }
 
         fn deinitState(state: *anyopaque) void {
-            const state_ptr: *State = @ptrCast(@alignCast(state));
-            T.deinitState(state_ptr);
+            if (getState(T)) |State| {
+                const state_ptr: *State = @ptrCast(@alignCast(state));
+                T.deinitState(state_ptr);
+            }
         }
 
         fn update(material: *anyopaque, state: *anyopaque, cx: Context) anyerror!void {
             const material_ptr: *T = @ptrCast(@alignCast(material));
-            const state_ptr: *State = @ptrCast(@alignCast(state));
-            try material_ptr.update(state_ptr, cx);
+
+            if (getState(T)) |State| {
+                const state_ptr: *State = @ptrCast(@alignCast(state));
+                try T.update(material_ptr, state_ptr, cx);
+            } else {
+                try material_ptr.update(cx);
+            }
         }
     };
+}
+
+pub fn vertexShader(self: Material) vk.Spirv {
+    return self.vtable.vertex_shader();
+}
+
+pub fn fragmentShader(self: Material) vk.Spirv {
+    return self.vtable.fragment_shader();
+}
+
+pub fn pipeline(self: Material) Pipeline {
+    return self.vtable.pipeline();
+}
+
+pub fn bindGroupLayoutEntries(self: Material) []const vk.BindGroupLayout.Entry {
+    return self.vtable.bind_group_layout_entries();
 }
 
 pub fn allocState(self: Material, allocator: std.mem.Allocator) !*anyopaque {
@@ -85,10 +166,6 @@ pub fn allocState(self: Material, allocator: std.mem.Allocator) !*anyopaque {
 
 pub fn freeState(self: Material, allocator: std.mem.Allocator, state: *anyopaque) void {
     self.vtable.free_state(allocator, state);
-}
-
-pub fn bindGroupLayoutEntries(self: Material) []const vk.BindGroupLayout.Entry {
-    return self.vtable.bind_group_layout_entries();
 }
 
 pub fn initState(
