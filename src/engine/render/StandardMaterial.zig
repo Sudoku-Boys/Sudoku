@@ -8,6 +8,14 @@ const StandardMaterial = @This();
 
 color: Color = Color.WHITE,
 
+pub fn vertexShader() vk.Spirv {
+    return vk.embedSpirv(@embedFile("shader/standard_material.vert"));
+}
+
+pub fn fragmentShader() vk.Spirv {
+    return vk.embedSpirv(@embedFile("shader/standard_material.frag"));
+}
+
 pub fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
     return &.{
         .{

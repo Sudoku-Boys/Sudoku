@@ -213,9 +213,11 @@ fn createMaterialPipeline(
         .entries = bind_group_layout_entries,
     });
 
+    const material_pipeline = material.pipeline();
+
     const pipeline = try self.device.createGraphicsPipeline(.{
         .vertex = .{
-            .shader = vk.embedSpv(@embedFile("shader/standard_material.vert")),
+            .shader = material.vertexShader(),
             .entry_point = "main",
             .bindings = &.{
                 .{
@@ -227,16 +229,15 @@ fn createMaterialPipeline(
             },
         },
         .fragment = .{
-            .shader = vk.embedSpv(@embedFile("shader/standard_material.frag")),
+            .shader = material.fragmentShader(),
             .entry_point = "main",
         },
-        .depth_stencil = .{
-            .depth_test_enable = true,
-            .depth_write_enable = true,
-        },
+        .input_assembly = material_pipeline.input_assembly,
+        .rasterization = material_pipeline.rasterization,
+        .depth_stencil = material_pipeline.depth_stencil,
         .color_blend = .{
             .attachments = &.{
-                .{},
+                material_pipeline.color_attachment,
             },
         },
         .layouts = &.{
