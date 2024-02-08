@@ -136,6 +136,10 @@ pub fn shouldClose(self: *const Self) bool {
     return glfw.glfwWindowShouldClose(self.window) == glfw.GLFW_TRUE;
 }
 
+pub fn setTitle(self: *const Self, title: []const u8) void {
+    glfw.glfwSetWindowTitle(self.window, title.ptr);
+}
+
 pub fn deinit(self: *const Self) void {
     // destroy the surface first
     self.surface.deinit();
