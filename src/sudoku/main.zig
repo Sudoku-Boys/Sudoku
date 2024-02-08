@@ -1,25 +1,6 @@
 const std = @import("std");
 const Sudoku = @import("sudoku.zig");
 
-
-const MyType = struct {
-    const Self = @This();
-
-    x: u8,
-    y: u8,
-
-    pub fn init() {
-        return Self{ .x = 0, .y = 0 };
-    }
-
-    pub fn add(self: Self) u8 {
-        return self.x + self.y;
-    }
-
-
-}
-
-
 pub fn main() !void {
     var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 
@@ -36,6 +17,6 @@ pub fn main() !void {
     std.debug.print("As stencil {s}\n", .{Sudoku.to_stencil(s, &optionalAllocator)});
 }
 
-test "Some test" {
+test "Test to include suduku.zig" {
     try std.testing.expect(Sudoku.SudokuMemory.HEAP != Sudoku.SudokuMemory.STACK);
 }
