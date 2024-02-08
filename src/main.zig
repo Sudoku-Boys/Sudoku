@@ -11,6 +11,7 @@ pub fn main() !void {
         .allocator = std.heap.c_allocator,
         .required_extensions = Window.requiredVulkanExtensions(),
     });
+
     defer instance.deinit();
 
     const window = try Window.init(.{

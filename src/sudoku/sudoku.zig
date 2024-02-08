@@ -202,19 +202,7 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
                 return SudokuEmptySentinel;
             }
 
-            // Find index of the first set bit.
-            var i: ValueRangeType = 0;
-
-            while (i < self.size) {
-                if (field & (@shlExact(@as(BitFieldType, 1), i)) != 0) {
-                    // We return i + 1 as the bit field is 0 indexed.
-                    return i + 1;
-                }
-
-                i += 1;
-            }
-
-            unreachable;
+            return @intCast(@ctz(field) + 1);
         }
 
         fn set_bitfield(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
@@ -341,7 +329,7 @@ test "Test 9x9 Sudoku" {
     s.set(.{ .i = 0, .j = 5 }, 5);
     s.set(.{ .i = 0, .j = 6 }, 6);
     s.set(.{ .i = 0, .j = 7 }, 7);
-    s.set(.{ .i = 0, .j = 8 }, 8);
+    s.set(.{ .i = 0, .j = 8 }, 9);
 
     try expect(s.get(.{ .i = 0, .j = 0 }) == 0);
     try expect(s.get(.{ .i = 0, .j = 1 }) == 1);
@@ -351,8 +339,7 @@ test "Test 9x9 Sudoku" {
     try expect(s.get(.{ .i = 0, .j = 5 }) == 5);
     try expect(s.get(.{ .i = 0, .j = 6 }) == 6);
     try expect(s.get(.{ .i = 0, .j = 7 }) == 7);
-    try expect(s.get(.{ .i = 0, .j = 8 }) == 8);
-
+    try expect(s.get(.{ .i = 0, .j = 8 }) == 9);
     var it_row = s.iterator(.ROW, .{ .i = 0, .j = 0 });
 
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 0 }));
@@ -398,9 +385,9 @@ test "Very large using matrix backend, does it compile?" {
 
     var s = S.init(null);
 
-    s.set(.{ .i = 999, .j = 999 }, 999);
+    s.set(.{ .i = 999, .j = 999 }, 1000);
 
-    try expect(s.get(.{ .i = 999, .j = 999 }) == 999);
+    try expect(s.get(.{ .i = 999, .j = 999 }) == 1000);
 }
 
 pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, alloc: *std.mem.Allocator) Sudoku(
