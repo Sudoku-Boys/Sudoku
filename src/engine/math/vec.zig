@@ -25,6 +25,15 @@ pub const Vec2 = extern union {
         return Vec2{ .v = .{ v0, v1 } };
     }
 
+    pub fn all(v: anytype) Vec2 {
+        if (@TypeOf(v) == Vec2) return v;
+        if (@TypeOf(v) == f32 or @TypeOf(v) == comptime_float) {
+            return Vec2{ .v = .{ v, v } };
+        }
+
+        @compileError("Invalid type for all");
+    }
+
     pub fn reflect(vec: Vec2, normal: Vec2) Vec2 {
         return Vec3{ .v = vec.sub(normal.muls(2 * vec.dot(normal))) };
     }
@@ -50,8 +59,13 @@ pub const Vec3 = extern union {
         return Vec3{ .v = .{ v0, v1, v2 } };
     }
 
-    pub fn all(v: f32) Vec3 {
-        return Vec3{ .v = .{ v, v, v } };
+    pub fn all(v: anytype) Vec3 {
+        if (@TypeOf(v) == Vec3) return v;
+        if (@TypeOf(v) == f32 or @TypeOf(v) == comptime_float) {
+            return Vec3{ .v = .{ v, v, v } };
+        }
+
+        @compileError("Invalid type for all");
     }
 
     pub fn reflect(vec: Vec3, normal: Vec3) Vec3 {
@@ -77,6 +91,15 @@ pub const Vec4 = extern union {
     pub fn init(v0: f32, v1: f32, v2: f32, v3: f32) Vec4 {
         return Vec4{ .v = .{ v0, v1, v2, v3 } };
     }
+
+    pub fn all(v: anytype) Vec4 {
+        if (@TypeOf(v) == Vec4) return v;
+        if (@TypeOf(v) == f32 or @TypeOf(v) == comptime_float) {
+            return Vec4{ .v = .{ v, v, v, v } };
+        }
+
+        @compileError("Invalid type for all");
+    }
 };
 
 fn swizzleType(comptime size: usize) type {
@@ -96,7 +119,7 @@ fn VecBase(comptime T: type, comptime size: usize) type {
                 return .{ .v = a.v + b.v };
             }
 
-            if (@TypeOf(b) == f32) {
+            if (@TypeOf(b) == f32 or @TypeOf(b) == comptime_float) {
                 return .{ .v = a.v + @as(@Vector(size, f32), @splat(b)) };
             }
 
@@ -107,7 +130,7 @@ fn VecBase(comptime T: type, comptime size: usize) type {
                 return .{ .v = a.v - b.v };
             }
 
-            if (@TypeOf(b) == f32) {
+            if (@TypeOf(b) == f32 or @TypeOf(b) == comptime_float) {
                 return .{ .v = a.v - @as(@Vector(size, f32), @splat(b)) };
             }
 
@@ -118,7 +141,7 @@ fn VecBase(comptime T: type, comptime size: usize) type {
                 return .{ .v = a.v * b.v };
             }
 
-            if (@TypeOf(b) == f32) {
+            if (@TypeOf(b) == f32 or @TypeOf(b) == comptime_float) {
                 return .{ .v = a.v * @as(@Vector(size, f32), @splat(b)) };
             }
 
@@ -129,7 +152,7 @@ fn VecBase(comptime T: type, comptime size: usize) type {
                 return .{ .v = a.v / b.v };
             }
 
-            if (@TypeOf(b) == f32) {
+            if (@TypeOf(b) == f32 or @TypeOf(b) == comptime_float) {
                 return .{ .v = a.v / @as(@Vector(size, f32), @splat(b)) };
             }
 
@@ -160,6 +183,10 @@ fn VecBase(comptime T: type, comptime size: usize) type {
         }
         pub fn divs(a: T, b: f32) T {
             return a.div(b);
+        }
+
+        pub fn neg(a: T) T {
+            return .{ .v = -a.v };
         }
 
         pub fn dot(a: T, b: T) f32 {

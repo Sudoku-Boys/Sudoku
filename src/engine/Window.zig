@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
+const math = @import("math.zig");
 
 pub const glfw = @cImport({
     @cInclude("vulkan/vulkan.h");
@@ -59,6 +60,17 @@ pub fn pollEvents() void {
 pub fn isKeyDown(window: Window, key: u8) bool {
     const key_upper = std.ascii.toUpper(key);
     return glfw.glfwGetKey(window.window, key_upper) == glfw.GLFW_PRESS;
+}
+
+pub fn isMouseDown(window: Window, button: u8) bool {
+    return glfw.glfwGetMouseButton(window.window, button) == glfw.GLFW_PRESS;
+}
+
+pub fn mousePosition(window: Window) math.Vec2 {
+    var x: f64 = 0;
+    var y: f64 = 0;
+    glfw.glfwGetCursorPos(window.window, &x, &y);
+    return math.vec2(@floatCast(x), @floatCast(y));
 }
 
 /// Get the required Vulkan extensions for GLFW.
