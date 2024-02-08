@@ -17,6 +17,7 @@ pub fn main() !void {
         .allocator = allocator,
         .required_extensions = engine.Window.requiredVulkanExtensions(),
     });
+
     defer instance.deinit();
 
     const window = try engine.Window.init(.{

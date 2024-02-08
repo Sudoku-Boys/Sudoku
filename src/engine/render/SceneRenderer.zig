@@ -3,11 +3,11 @@ const vk = @import("vulkan");
 
 const Camera = @import("Camera.zig");
 const Material = @import("Material.zig");
-const Materials = @import("Materials.zig");
+const Materials = @import("Materials.zig").Materials;
 const Mesh = @import("Mesh.zig");
-const Meshes = @import("Meshes.zig");
+const Meshes = @import("Meshes.zig").Meshes;
 const Object = @import("Object.zig");
-const OpaqueMaterial = @import("OpaqueMaterial.zig");
+const OpaqueMaterial = @import("OpagueWrapper.zig");
 const Scene = @import("Scene.zig");
 const math = @import("../../math.zig");
 
@@ -306,35 +306,35 @@ fn createMeshState(
     mesh_entry: *Meshes.Entry,
 ) !MeshState {
     const vertex_buffer = try self.device.createBuffer(.{
-        .size = mesh_entry.mesh.vertexBytes().len,
+        .size = mesh_entry.value.vertexBytes().len,
         .usage = .{ .vertex_buffer = true, .transfer_dst = true },
         .memory = .{ .device_local = true },
     });
     errdefer vertex_buffer.deinit();
 
     const index_buffer = try self.device.createBuffer(.{
-        .size = mesh_entry.mesh.indexBytes().len,
+        .size = mesh_entry.value.indexBytes().len,
         .usage = .{ .index_buffer = true, .transfer_dst = true },
         .memory = .{ .device_local = true },
     });
     errdefer index_buffer.deinit();
 
-    try self.staging_buffer.write(mesh_entry.mesh.vertexBytes());
+    try self.staging_buffer.write(mesh_entry.value.vertexBytes());
     try self.staging_buffer.copyBuffer(.{
         .dst = vertex_buffer,
-        .size = mesh_entry.mesh.vertexBytes().len,
+        .size = mesh_entry.value.vertexBytes().len,
     });
 
-    try self.staging_buffer.write(mesh_entry.mesh.indexBytes());
+    try self.staging_buffer.write(mesh_entry.value.indexBytes());
     try self.staging_buffer.copyBuffer(.{
         .dst = index_buffer,
-        .size = mesh_entry.mesh.indexBytes().len,
+        .size = mesh_entry.value.indexBytes().len,
     });
 
     return .{
         .vertex_buffer = vertex_buffer,
         .index_buffer = index_buffer,
-        .index_count = @intCast(mesh_entry.mesh.indices.items.len),
+        .index_count = @intCast(mesh_entry.value.indices.items.len),
         .generation = mesh_entry.generation,
         .version = mesh_entry.version,
     };
@@ -405,7 +405,7 @@ fn createMaterialState(
     try self.updateMaterialState(
         pipeline,
         &state,
-        material_entry.material,
+        material_entry.value,
     );
 
     return state;
@@ -518,7 +518,7 @@ fn prepareMaterialState(
         try self.updateMaterialState(
             pipeline,
             material_state,
-            entry.material,
+            entry.value,
         );
 
         material_state.version = entry.version;
@@ -538,16 +538,16 @@ pub fn prepare(
         try self.prepareObjectState(object_state, object);
     }
 
-    for (meshes.entries.items, 0..) |*optional_entry, i| {
+    for (meshes.map.entries.items, 0..) |*optional_entry, i| {
         if (optional_entry.*) |*entry| {
             const mesh_state = try self.getMeshState(entry, i);
             try self.prepareMeshState(mesh_state, entry);
         }
     }
 
-    for (materials.entries.items, 0..) |*optional_entry, i| {
+    for (materials.map.entries.items, 0..) |*optional_entry, i| {
         if (optional_entry.*) |*entry| {
-            const pipeline = self.pipelines.get(entry.material.type_id) orelse continue;
+            const pipeline = self.pipelines.get(entry.value.type_id) orelse continue;
             const material_state = try self.getMaterialState(pipeline, entry, i);
             try self.prepareMaterialState(material_state, pipeline, entry);
         }
