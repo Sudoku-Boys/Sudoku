@@ -245,4 +245,3 @@ pub const ShaderStages = packed struct(u32) {
         .compute = true,
     };
 };
-
