@@ -18,24 +18,9 @@ fn createShaderModule(device: vk.api.VkDevice, spv: []const u32) !vk.api.VkShade
     return shader_module;
 }
 
-pub const VertexFormat = enum(u32) {
-    f32x1 = vk.api.VK_FORMAT_R32_SFLOAT,
-    f32x2 = vk.api.VK_FORMAT_R32G32_SFLOAT,
-    f32x3 = vk.api.VK_FORMAT_R32G32B32_SFLOAT,
-    f32x4 = vk.api.VK_FORMAT_R32G32B32A32_SFLOAT,
-    i32x1 = vk.api.VK_FORMAT_R32_SINT,
-    i32x2 = vk.api.VK_FORMAT_R32G32_SINT,
-    i32x3 = vk.api.VK_FORMAT_R32G32B32_SINT,
-    i32x4 = vk.api.VK_FORMAT_R32G32B32A32_SINT,
-    u32x1 = vk.api.VK_FORMAT_R32_UINT,
-    u32x2 = vk.api.VK_FORMAT_R32G32_UINT,
-    u32x3 = vk.api.VK_FORMAT_R32G32B32_UINT,
-    u32x4 = vk.api.VK_FORMAT_R32G32B32A32_UINT,
-};
-
 pub const VertexAttribute = struct {
     location: u32,
-    format: VertexFormat,
+    format: vk.VertexFormat,
     offset: u32,
 };
 

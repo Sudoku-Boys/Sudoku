@@ -99,12 +99,12 @@ pub fn proj(self: Camera, aspect: f32) math.Mat4 {
 }
 
 pub fn uniforms(self: Camera, aspect: f32) Uniforms {
-    const view_matrix = self.transform.computeMatrix().inv();
+    const view_matrix = self.transform.computeMatrix();
     const proj_matrix = self.proj(aspect);
-    const view_proj_matrix = view_matrix.mul(proj_matrix);
+    const view_proj_matrix = view_matrix.inv().mul(proj_matrix);
     const inv_view_proj_matrix = view_proj_matrix.inv();
 
-    const eye = view_matrix.mulv(math.vec4(0.0, 0.0, 0.0, 1.0));
+    const eye = self.transform.translation;
 
     return Uniforms{
         .view = view_matrix.f,

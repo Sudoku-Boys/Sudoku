@@ -1,12 +1,19 @@
 const std = @import("std");
 const vk = @import("vulkan");
 
+const Mesh = @import("Mesh.zig");
+
 const Material = @This();
 
 pub const Context = struct {
     allocator: *std.mem.Allocator,
     device: *vk.Device,
     staging_buffer: *vk.StagingBuffer,
+};
+
+pub const VertexAttribute = struct {
+    name: []const u8,
+    format: vk.VertexFormat,
 };
 
 pub const Pipeline = struct {
@@ -22,6 +29,7 @@ pub const Pipeline = struct {
 pub const VTable = struct {
     vertex_shader: *const fn () vk.Spirv,
     fragment_shader: *const fn () vk.Spirv,
+    vertex_attributes: *const fn () []const VertexAttribute,
     pipeline: *const fn () Pipeline,
     bind_group_layout_entries: *const fn () []const vk.BindGroupLayout.Entry,
 
@@ -37,13 +45,11 @@ vtable: *const VTable,
 type_id: std.builtin.TypeId,
 
 pub fn init(comptime T: type) Material {
-    const State = T.State;
-    _ = State;
-
     return .{
         .vtable = &VTable{
             .vertex_shader = Opaque(T).vertexShader,
             .fragment_shader = Opaque(T).fragmentShader,
+            .vertex_attributes = Opaque(T).vertexAttributes,
             .pipeline = Opaque(T).pipeline,
             .bind_group_layout_entries = Opaque(T).bindGroupLayoutEntries,
 
@@ -81,6 +87,18 @@ fn Opaque(comptime T: type) type {
                 return T.fragmentShader();
             } else {
                 return vk.embedSpirv(@embedFile("shaders/default.frag"));
+            }
+        }
+
+        fn vertexAttributes() []const VertexAttribute {
+            if (@hasDecl(T, "vertexAttributes")) {
+                return T.vertexAttributes();
+            } else {
+                return &.{
+                    .{ .name = Mesh.POSITION, .format = .f32x3 },
+                    .{ .name = Mesh.NORMAL, .format = .f32x3 },
+                    .{ .name = Mesh.TEX_COORD_0, .format = .f32x2 },
+                };
             }
         }
 
@@ -150,6 +168,10 @@ pub fn vertexShader(self: Material) vk.Spirv {
 
 pub fn fragmentShader(self: Material) vk.Spirv {
     return self.vtable.fragment_shader();
+}
+
+pub fn vertexAttributes(self: Material) []const VertexAttribute {
+    return self.vtable.vertex_attributes();
 }
 
 pub fn pipeline(self: Material) Pipeline {

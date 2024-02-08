@@ -46,20 +46,28 @@ fn compileShaderTool(
     return tool;
 }
 
+fn rebuildDetection(b: *std.Build, run: *std.Build.RunStep) !void {
+    var shaders = try std.fs.cwd().openIterableDir("shaders", .{});
+    defer shaders.close();
+
+    var it = shaders.iterate();
+    while (try it.next()) |entry| {
+        const other_path = try std.fs.path.join(b.allocator, &.{ "shaders", entry.name });
+        run.addFileArg(.{ .path = other_path });
+    }
+}
+
 fn compileShader(
     b: *std.Build,
     tool: *std.Build.Step.Compile,
     path: []const u8,
     stage: ShaderStage,
-) std.Build.LazyPath {
+) !std.Build.LazyPath {
     const tool_step = b.addRunArtifact(tool);
     tool_step.addFileArg(.{ .path = path });
     tool_step.addArg(stage.argName());
 
-    // rebuild when any file changes
-    //
-    // NOTE: this is a bit of a hack, and can probably be done better
-    tool_step.addDirectoryArg(.{ .path = "shaders" });
+    try rebuildDetection(b, tool_step);
 
     if (b.host.target.os.tag == .windows) {
         tool_step.addPathDir("ext/win/lib");
@@ -83,7 +91,7 @@ pub fn compileShaders(
     while (try it.next()) |entry| {
         if (ShaderStage.fromPath(entry.name)) |stage| {
             const path = try std.mem.join(b.allocator, "/", &.{ "shaders", entry.name });
-            const data = compileShader(b, tool, path, stage);
+            const data = try compileShader(b, tool, path, stage);
 
             try shaders.append(CompiledShader{
                 .name = path,

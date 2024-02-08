@@ -4,9 +4,6 @@ const api = @cImport({
     @cInclude("vulkan/vulkan.h");
 });
 
-// ints up to 64
-const ints = .{ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63" };
-
 fn vkFlagsIsValidField(comptime name: []const u8, comptime prefix: []const u8) bool {
     if (!std.mem.startsWith(u8, name, prefix)) return false;
     if (std.mem.startsWith(u8, name[prefix.len..], "FEATURE")) return false;
@@ -56,7 +53,7 @@ fn vkFlagsFields(comptime fields: []?VkFlagsField, comptime prefix: []const u8) 
 
         // if the index is out of bounds, panic
         if (index >= fields.len) {
-            @compileError("too many fields in " ++ decl.name ++ ", " ++ ints[index]);
+            @compileError(std.fmt.comptimePrint("too many fields for prefix '{}', {}", .{ prefix, index }));
         }
 
         // if the field is already set, skip it

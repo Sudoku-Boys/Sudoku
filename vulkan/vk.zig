@@ -58,6 +58,30 @@ pub const SUBPASS_EXTERNAL: u32 = api.VK_SUBPASS_EXTERNAL;
 pub usingnamespace @import("generated/enums.zig");
 pub usingnamespace @import("generated/flags.zig");
 
+pub const VertexFormat = enum(u32) {
+    f32x1 = api.VK_FORMAT_R32_SFLOAT,
+    f32x2 = api.VK_FORMAT_R32G32_SFLOAT,
+    f32x3 = api.VK_FORMAT_R32G32B32_SFLOAT,
+    f32x4 = api.VK_FORMAT_R32G32B32A32_SFLOAT,
+    i32x1 = api.VK_FORMAT_R32_SINT,
+    i32x2 = api.VK_FORMAT_R32G32_SINT,
+    i32x3 = api.VK_FORMAT_R32G32B32_SINT,
+    i32x4 = api.VK_FORMAT_R32G32B32A32_SINT,
+    u32x1 = api.VK_FORMAT_R32_UINT,
+    u32x2 = api.VK_FORMAT_R32G32_UINT,
+    u32x3 = api.VK_FORMAT_R32G32B32_UINT,
+    u32x4 = api.VK_FORMAT_R32G32B32A32_UINT,
+
+    pub fn size(self: VertexFormat) u32 {
+        switch (self) {
+            .f32x1, .i32x1, .u32x1 => return 4,
+            .f32x2, .i32x2, .u32x2 => return 8,
+            .f32x3, .i32x3, .u32x3 => return 12,
+            .f32x4, .i32x4, .u32x4 => return 16,
+        }
+    }
+};
+
 pub const Extent2D = struct {
     width: u32,
     height: u32,

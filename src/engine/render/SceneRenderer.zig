@@ -16,35 +16,52 @@ const TypeId = std.builtin.TypeId;
 
 const SceneRenderer = @This();
 
-pub const ModelUniforms = extern struct {
+const ModelUniforms = extern struct {
     model: math.Mat4,
 };
 
-pub const ObjectState = struct {
+const ObjectState = struct {
     bind_group_pool: vk.BindGroupPool,
     bind_group: vk.BindGroup,
     model_buffer: vk.Buffer,
 
-    pub fn deinit(self: ObjectState) void {
+    fn deinit(self: ObjectState) void {
         self.bind_group_pool.deinit();
         self.model_buffer.deinit();
     }
 };
 
-pub const MeshState = struct {
-    vertex_buffer: vk.Buffer,
+const VertexBuffer = struct {
+    name: []const u8,
+    buffer: vk.Buffer,
+};
+
+const MeshState = struct {
+    vertex_buffers: []const VertexBuffer,
     index_buffer: vk.Buffer,
     index_count: u32,
     generation: u64,
     version: u64,
 
-    pub fn deinit(self: MeshState) void {
-        self.vertex_buffer.deinit();
+    fn deinit(self: MeshState, allocator: std.mem.Allocator) void {
+        for (self.vertex_buffers) |buffer| {
+            buffer.buffer.deinit();
+        }
+
+        allocator.free(self.vertex_buffers);
         self.index_buffer.deinit();
+    }
+
+    fn getBuffer(self: MeshState, name: []const u8) ?vk.Buffer {
+        for (self.vertex_buffers) |buffer| {
+            if (std.mem.eql(u8, buffer.name, name)) return buffer.buffer;
+        }
+
+        return null;
     }
 };
 
-pub const MaterialState = struct {
+const MaterialState = struct {
     type_id: TypeId,
     bind_group_pool: vk.BindGroupPool,
     bind_group: vk.BindGroup,
@@ -52,7 +69,7 @@ pub const MaterialState = struct {
     generation: u64,
     version: u64,
 
-    pub fn deinit(
+    fn deinit(
         self: MaterialState,
         allocator: std.mem.Allocator,
         material: Material,
@@ -64,7 +81,7 @@ pub const MaterialState = struct {
     }
 };
 
-pub const MaterialPipeline = struct {
+const MaterialPipeline = struct {
     material: Material,
     pipeline: vk.GraphicsPipeline,
     bind_group_layout: vk.BindGroupLayout,
@@ -167,7 +184,7 @@ pub fn deinit(self: *SceneRenderer) void {
     self.materials.deinit();
 
     for (self.meshes.items) |optional_state| {
-        if (optional_state) |state| state.deinit();
+        if (optional_state) |state| state.deinit(self.allocator);
     }
     self.meshes.deinit();
 
@@ -228,20 +245,42 @@ fn createMaterialPipeline(
         .entries = bind_group_layout_entries,
     });
 
+    const material_attributes = material.vertexAttributes();
+
+    const vertex_bindings = try self.allocator.alloc(
+        vk.GraphicsPipeline.VertexBinding,
+        material_attributes.len,
+    );
+    defer self.allocator.free(vertex_bindings);
+
+    const vertex_attributes = try self.allocator.alloc(
+        vk.GraphicsPipeline.VertexAttribute,
+        material_attributes.len,
+    );
+    defer self.allocator.free(vertex_attributes);
+
+    for (material_attributes, 0..) |attribute, i| {
+        vertex_attributes[i] = .{
+            .location = @intCast(i),
+            .format = attribute.format,
+            .offset = 0,
+        };
+
+        vertex_bindings[i] = .{
+            .binding = @intCast(i),
+            .stride = attribute.format.size(),
+            .input_rate = .Vertex,
+            .attributes = vertex_attributes[i .. i + 1],
+        };
+    }
+
     const material_pipeline = material.pipeline();
 
     const pipeline = try self.device.createGraphicsPipeline(.{
         .vertex = .{
             .shader = material.vertexShader(),
             .entry_point = "main",
-            .bindings = &.{
-                .{
-                    .binding = 0,
-                    .stride = @sizeOf(Mesh.Vertex),
-                    .input_rate = .Vertex,
-                    .attributes = Mesh.Vertex.ATTRIBUTES,
-                },
-            },
+            .bindings = vertex_bindings,
         },
         .fragment = .{
             .shader = material.fragmentShader(),
@@ -320,12 +359,32 @@ fn createMeshState(
     self: *SceneRenderer,
     mesh_entry: *Meshes.Entry,
 ) !MeshState {
-    const vertex_buffer = try self.device.createBuffer(.{
-        .size = mesh_entry.value.vertexBytes().len,
-        .usage = .{ .vertex_buffer = true, .transfer_dst = true },
-        .memory = .{ .device_local = true },
-    });
-    errdefer vertex_buffer.deinit();
+    const vertex_buffers = try self.allocator.alloc(
+        VertexBuffer,
+        mesh_entry.value.attributes.items.len,
+    );
+    errdefer self.allocator.free(vertex_buffers);
+
+    for (mesh_entry.value.attributes.items, 0..) |attribute, i| {
+        const size = attribute.vertices.data.items.len;
+        const buffer = try self.device.createBuffer(.{
+            .size = size,
+            .usage = .{ .vertex_buffer = true, .transfer_dst = true },
+            .memory = .{ .device_local = true },
+        });
+        errdefer buffer.deinit();
+
+        try self.staging_buffer.write(attribute.vertices.data.items);
+        try self.staging_buffer.copyBuffer(.{
+            .dst = buffer,
+            .size = size,
+        });
+
+        vertex_buffers[i] = .{
+            .name = attribute.name,
+            .buffer = buffer,
+        };
+    }
 
     const index_buffer = try self.device.createBuffer(.{
         .size = mesh_entry.value.indexBytes().len,
@@ -334,12 +393,6 @@ fn createMeshState(
     });
     errdefer index_buffer.deinit();
 
-    try self.staging_buffer.write(mesh_entry.value.vertexBytes());
-    try self.staging_buffer.copyBuffer(.{
-        .dst = vertex_buffer,
-        .size = mesh_entry.value.vertexBytes().len,
-    });
-
     try self.staging_buffer.write(mesh_entry.value.indexBytes());
     try self.staging_buffer.copyBuffer(.{
         .dst = index_buffer,
@@ -347,7 +400,7 @@ fn createMeshState(
     });
 
     return .{
-        .vertex_buffer = vertex_buffer,
+        .vertex_buffers = vertex_buffers,
         .index_buffer = index_buffer,
         .index_count = @intCast(mesh_entry.value.indices.items.len),
         .generation = mesh_entry.generation,
@@ -513,7 +566,7 @@ fn prepareMeshState(
     if (mesh_state.version != entry.version or
         mesh_state.generation != entry.generation)
     {
-        mesh_state.deinit();
+        mesh_state.deinit(self.allocator);
         mesh_state.* = try self.createMeshState(entry);
     }
 }
@@ -587,7 +640,11 @@ pub fn draw(
         command_buffer.bindBindGroup(pipeline.pipeline, 1, object_state.bind_group, &.{});
         command_buffer.bindBindGroup(pipeline.pipeline, 2, self.camera.bind_group, &.{});
 
-        command_buffer.bindVertexBuffer(0, mesh_state.vertex_buffer, 0);
+        for (pipeline.material.vertexAttributes(), 0..) |attribute, j| {
+            const buffer = mesh_state.getBuffer(attribute.name) orelse continue;
+            command_buffer.bindVertexBuffer(@intCast(j), buffer, 0);
+        }
+
         command_buffer.bindIndexBuffer(mesh_state.index_buffer, 0, .u32);
 
         command_buffer.drawIndexed(.{

@@ -78,7 +78,21 @@ pub const Quat = extern struct {
         return quat.normalize();
     }
 
-    pub fn mul(self: Quat, other: Quat) Quat {
+    fn MulReturnType(comptime T: type) type {
+        if (T == Quat) return Quat;
+        if (T == Vec3) return Vec3;
+
+        @compileError("Unsupported type");
+    }
+
+    pub fn mul(self: Quat, other: anytype) MulReturnType(@TypeOf(other)) {
+        if (@TypeOf(other) == Quat) return self.mulQuat(other);
+        if (@TypeOf(other) == Vec3) return self.mulVec3(other);
+
+        @compileError("Unsupported type");
+    }
+
+    pub fn mulQuat(self: Quat, other: Quat) Quat {
         return .{
             .x = self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
             .y = self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x,
@@ -104,6 +118,30 @@ pub const Quat = extern struct {
             .y = -self.y * invNorm,
             .z = -self.z * invNorm,
             .w = self.w * invNorm,
+        };
+    }
+
+    pub fn mulVec3(self: Quat, v: Vec3) Vec3 {
+        const x2 = self.x * self.x;
+        const y2 = self.y * self.y;
+        const z2 = self.z * self.z;
+        const xy = self.x * self.y;
+        const xz = self.x * self.z;
+        const yz = self.y * self.z;
+        const wx = self.w * self.x;
+        const wy = self.w * self.y;
+        const wz = self.w * self.z;
+
+        const x = v._.x;
+        const y = v._.y;
+        const z = v._.z;
+
+        return .{
+            ._ = .{
+                .x = (1.0 - 2.0 * (y2 + z2)) * x + (2.0 * (xy - wz)) * y + (2.0 * (xz + wy)) * z,
+                .y = (2.0 * (xy + wz)) * x + (1.0 - 2.0 * (x2 + z2)) * y + (2.0 * (yz - wx)) * z,
+                .z = (2.0 * (xz - wy)) * x + (2.0 * (yz + wx)) * y + (1.0 - 2.0 * (x2 + y2)) * z,
+            },
         };
     }
 
