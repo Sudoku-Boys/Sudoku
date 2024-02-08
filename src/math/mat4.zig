@@ -303,11 +303,11 @@ pub const Mat4 = extern union {
         const tr23b = intrinsic.unpackhi(n2, n3);
 
         return Mat4{
-            .v = {
-                intrinsic.movelh(tr01a, tr23a);
-                intrinsic.movehl(tr23a, tr01a);
-                intrinsic.movelh(tr01b, tr23b);
-                intrinsic.movehl(tr23b, tr01b);
+            .v = .{
+                intrinsic.movelh(tr01a, tr23a),
+                intrinsic.movehl(tr23a, tr01a),
+                intrinsic.movelh(tr01b, tr23b),
+                intrinsic.movehl(tr23b, tr01b),
             },
         };
     }
