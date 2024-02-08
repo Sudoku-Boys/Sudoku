@@ -8,8 +8,9 @@ const Mesh = @import("Mesh.zig");
 const Meshes = @import("Meshes.zig").Meshes;
 const Object = @import("Object.zig");
 const OpaqueMaterial = @import("OpagueWrapper.zig");
+const Sky = @import("Sky.zig");
 const Scene = @import("Scene.zig");
-const math = @import("../../math.zig");
+const math = @import("../math.zig");
 
 const TypeId = std.builtin.TypeId;
 
@@ -89,6 +90,8 @@ meshes: std.ArrayList(?MeshState),
 materials: std.ArrayList(?MaterialState),
 pipelines: std.AutoHashMap(TypeId, MaterialPipeline),
 
+sky: Sky,
+
 staging_buffer: vk.StagingBuffer,
 
 camera: Camera.RenderState,
@@ -111,6 +114,14 @@ pub fn init(
     const materials = std.ArrayList(?MaterialState).init(allocator);
     const pipelines = std.AutoHashMap(TypeId, MaterialPipeline).init(allocator);
 
+    const sky = try Sky.init(
+        device,
+        camera.bind_group_layout,
+        hdr_render_pass,
+        hdr_subpass,
+    );
+    errdefer sky.deinit();
+
     const staging_buffer = try vk.StagingBuffer.init(device, command_pool);
     errdefer staging_buffer.deinit();
 
@@ -130,6 +141,8 @@ pub fn init(
         .materials = materials,
         .pipelines = pipelines,
 
+        .sky = sky,
+
         .staging_buffer = staging_buffer,
 
         .camera = camera,
@@ -138,6 +151,8 @@ pub fn init(
 
 pub fn deinit(self: *SceneRenderer) void {
     self.staging_buffer.deinit();
+
+    self.sky.deinit();
 
     for (self.materials.items) |optional_state| {
         if (optional_state) |state| {
@@ -559,6 +574,8 @@ pub fn draw(
     command_buffer: vk.CommandBuffer,
     scene: Scene,
 ) !void {
+    try self.sky.record(command_buffer, self.camera);
+
     for (scene.objects.items, 0..) |object, i| {
         const object_state = self.objects.items[i] orelse continue;
         const mesh_state = self.meshes.items[object.mesh.index] orelse continue;

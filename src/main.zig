@@ -2,7 +2,6 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
-const math = @import("math.zig");
 
 pub fn main() !void {
     try engine.Window.initGlfw();
@@ -62,6 +61,7 @@ pub fn main() !void {
         .allocator = allocator,
         .device = device,
         .surface = window.surface,
+        .present_mode = .Fifo,
     });
     defer renderer.deinit();
 
@@ -81,15 +81,36 @@ pub fn main() !void {
         const dt: f32 = @as(f32, @floatFromInt(frame_timer.lap())) / std.time.ns_per_s;
         time += dt;
 
+        var movement = engine.Vec3.ZERO;
+
+        if (window.isKeyDown('w')) {
+            movement.v -= engine.Vec3.Z.v;
+        }
+
+        if (window.isKeyDown('s')) {
+            movement.v += engine.Vec3.Z.v;
+        }
+
+        if (window.isKeyDown('a')) {
+            movement.v -= engine.Vec3.X.v;
+        }
+
+        if (window.isKeyDown('d')) {
+            movement.v += engine.Vec3.X.v;
+        }
+
+        movement = movement.normalize_or_zero().muls(dt * 5.0);
+        scene.camera.transform.translation.addEq(movement);
+
         materials.getPtr(engine.StandardMaterial, material).?.color = .{
-            .r = (math.sin(time) + 1.0) / 2.0,
-            .g = (math.cos(time) + 1.0) / 2.0,
-            .b = (math.sin(time) * math.cos(time) + 1.0) / 2.0,
+            .r = (engine.sin(time) + 1.0) / 2.0,
+            .g = (engine.cos(time) + 1.0) / 2.0,
+            .b = (engine.sin(time) * engine.cos(time) + 1.0) / 2.0,
             .a = 1.0,
         };
 
-        const axis = math.vec3(1.0, -2.0, 0.8).normalize();
-        const rotation = math.Mat4.rotate(dt, axis);
+        const axis = engine.vec3(1.0, -2.0, 0.8).normalize();
+        const rotation = engine.Quat.rotate(axis, dt);
 
         for (scene.objects.items, 0..) |*object, i| {
             object.transform.rotation = object.transform.rotation.mul(if (i % 2 == 0) rotation else rotation.inv());

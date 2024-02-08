@@ -72,7 +72,7 @@ fn Opaque(comptime T: type) type {
             if (@hasDecl(T, "vertexShader")) {
                 return T.vertexShader();
             } else {
-                return vk.embedSpirv(@embedFile("shader/default.vert"));
+                return vk.embedSpirv(@embedFile("shaders/default.vert"));
             }
         }
 
@@ -80,7 +80,7 @@ fn Opaque(comptime T: type) type {
             if (@hasDecl(T, "fragmentShader")) {
                 return T.fragmentShader();
             } else {
-                return vk.embedSpirv(@embedFile("shader/default.frag"));
+                return vk.embedSpirv(@embedFile("shaders/default.frag"));
             }
         }
 
