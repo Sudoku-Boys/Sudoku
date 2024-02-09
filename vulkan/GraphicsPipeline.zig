@@ -284,6 +284,7 @@ fn createFragmentStage(
 vk: vk.api.VkPipeline,
 layout: vk.api.VkPipelineLayout,
 device: vk.api.VkDevice,
+empty: vk.BindGroupLayout,
 
 pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
     const vertex_module = try createShaderModule(device.vk, desc.vertex.shader);
@@ -432,10 +433,12 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
         .vk = pipeline,
         .layout = layout,
         .device = device.vk,
+        .empty = null_layout,
     };
 }
 
 pub fn deinit(self: GraphicsPipeline) void {
     vk.api.vkDestroyPipelineLayout(self.device, self.layout, null);
     vk.api.vkDestroyPipeline(self.device, self.vk, null);
+    self.empty.deinit();
 }
