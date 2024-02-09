@@ -211,6 +211,13 @@ fn VecBase(comptime T: type, comptime size: usize) type {
             return a;
         }
 
+        pub fn from(a: anytype) T {
+            if (@TypeOf(a) == T) return a;
+            if (@TypeOf(a) == f32 or @TypeOf(a) == comptime_float) return T{ .v = @as(@Vector(size, f32), @splat(a)) };
+            if (@TypeOf(a) == @Vector(size, f32)) return T{ .v = a };
+            @compileError("Vector cannot be created from given type");
+        }
+
         pub fn dot(a: T, b: T) f32 {
             @setFloatMode(.Optimized);
             return @reduce(.Add, a.v * b.v);
