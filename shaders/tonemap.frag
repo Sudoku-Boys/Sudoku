@@ -1,6 +1,7 @@
 #version 450
 
 #include "fullscreen.glsl"
+#include "dither.glsl"
 
 layout(location = 0) out vec4 out_color;
 
@@ -19,6 +20,11 @@ void main() {
     vec3 color = texture(hdr_image, uv).rgb;
 
     color = tonemap_aces(color);
+
+    // apply dithering to help with color banding
+    //
+    // https://shader-tutorial.dev/advanced/color-banding-dithering/
+    color += dither(uv);
 
     out_color = vec4(color, 1.0);
 }

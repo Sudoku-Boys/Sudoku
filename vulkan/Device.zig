@@ -200,6 +200,8 @@ pub const QueueFamilies = struct {
         var present: ?u32 = null;
 
         var queue_families = try QueueFamilies.getQueueFamilies(allocator, device);
+        defer allocator.free(queue_families);
+
         for (queue_families, 0..) |family, i| {
             var queue_index: u32 = @intCast(i);
 
@@ -463,11 +465,14 @@ pub const BindGroupWrite = struct {
 
 pub const UpdateBindGroupsDescriptor = struct {
     writes: []const BindGroupWrite,
+
+    pub const MAX_WRITES = 64;
 };
 
-pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) !void {
-    const writes = try self.allocator.alloc(vk.api.VkWriteDescriptorSet, desc.writes.len);
-    defer self.allocator.free(writes);
+pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) void {
+    std.debug.assert(desc.writes.len <= UpdateBindGroupsDescriptor.MAX_WRITES);
+
+    var writes: [UpdateBindGroupsDescriptor.MAX_WRITES]vk.api.VkWriteDescriptorSet = undefined;
 
     for (desc.writes, 0..) |write, i| {
         writes[i] = vk.api.VkWriteDescriptorSet{
@@ -515,7 +520,7 @@ pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) !void {
         }
     }
 
-    vk.api.vkUpdateDescriptorSets(self.vk, @intCast(writes.len), writes.ptr, 0, null);
+    vk.api.vkUpdateDescriptorSets(self.vk, @intCast(desc.writes.len), &writes, 0, null);
 }
 
 fn getVkFences(self: Device, fences: []const vk.Fence) ![]vk.api.VkFence {

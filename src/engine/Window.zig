@@ -1,12 +1,14 @@
+const std = @import("std");
 const builtin = @import("builtin");
-pub const vk = @import("vulkan");
+const vk = @import("vulkan");
+const math = @import("math.zig");
 
 pub const glfw = @cImport({
     @cInclude("vulkan/vulkan.h");
     @cInclude("GLFW/glfw3.h");
 });
 
-const Self = @This();
+const Window = @This();
 
 /// Error codes for the window module.
 pub const Error = error{
@@ -53,6 +55,22 @@ pub fn assertGlfwInitialized() !void {
 /// Block until an event occurs, or the timeout is reached.
 pub fn pollEvents() void {
     glfw.glfwPollEvents();
+}
+
+pub fn isKeyDown(window: Window, key: u8) bool {
+    const key_upper = std.ascii.toUpper(key);
+    return glfw.glfwGetKey(window.window, key_upper) == glfw.GLFW_PRESS;
+}
+
+pub fn isMouseDown(window: Window, button: u8) bool {
+    return glfw.glfwGetMouseButton(window.window, button) == glfw.GLFW_PRESS;
+}
+
+pub fn mousePosition(window: Window) math.Vec2 {
+    var x: f64 = 0;
+    var y: f64 = 0;
+    glfw.glfwGetCursorPos(window.window, &x, &y);
+    return math.vec2(@floatCast(x), @floatCast(y));
 }
 
 /// Get the required Vulkan extensions for GLFW.
@@ -102,7 +120,7 @@ surface: vk.Surface,
 instance: vk.Instance,
 
 /// Create a new window, with the given descriptor.
-pub fn init(desc: Descriptor) !Self {
+pub fn init(desc: Descriptor) !Window {
     try assertGlfwInitialized();
 
     // check if Vulkan is supported, if not what even is the point
@@ -125,22 +143,22 @@ pub fn init(desc: Descriptor) !Self {
     // create the vulkan surface
     const surface = try createVkSurface(window, desc.instance.vk);
 
-    return Self{
+    return Window{
         .window = window,
         .surface = .{ .vk = surface, .instance = desc.instance.vk },
         .instance = desc.instance,
     };
 }
 
-pub fn shouldClose(self: *const Self) bool {
+pub fn shouldClose(self: *const Window) bool {
     return glfw.glfwWindowShouldClose(self.window) == glfw.GLFW_TRUE;
 }
 
-pub fn setTitle(self: *const Self, title: []const u8) void {
+pub fn setTitle(self: *const Window, title: []const u8) void {
     glfw.glfwSetWindowTitle(self.window, title.ptr);
 }
 
-pub fn deinit(self: *const Self) void {
+pub fn deinit(self: *const Window) void {
     // destroy the surface first
     self.surface.deinit();
     glfw.glfwDestroyWindow(self.window);

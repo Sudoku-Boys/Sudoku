@@ -2,7 +2,10 @@ const std = @import("std");
 
 const intrinsic = @import("simd.zig");
 const trig = @import("trig.zig");
-const Vec3 = @import("vec.zig").Vec3;
+const vec = @import("vec.zig");
+
+const Vec3 = vec.Vec3;
+const Vec4 = vec.Vec4;
 
 pub fn mat4(r0: @Vector(4, f32), r1: @Vector(4, f32), r2: @Vector(4, f32), r3: @Vector(4, f32)) Mat4 {
     return Mat4.init(r0, r1, r2, r3);
@@ -89,11 +92,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotateX(rot: f32) Mat4 {
+    pub inline fn rotateX(angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.fcos(angle);
+        const s = trig.fsin(angle);
 
         mat._.m11 = c;
         mat._.m12 = s;
@@ -103,11 +106,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotateY(rot: f32) Mat4 {
+    pub inline fn rotateY(angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.fcos(angle);
+        const s = trig.fsin(angle);
 
         mat._.m00 = c;
         mat._.m02 = -s;
@@ -117,11 +120,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotateZ(rot: f32) Mat4 {
+    pub inline fn rotateZ(angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.fcos(angle);
+        const s = trig.fsin(angle);
 
         mat._.m00 = c;
         mat._.m01 = s;
@@ -131,11 +134,11 @@ pub const Mat4 = extern union {
         return mat;
     }
 
-    pub inline fn rotate(rot: f32, axis: Vec3) Mat4 {
+    pub inline fn rotate(axis: Vec3, angle: f32) Mat4 {
         var mat: Mat4 = IDENTITY;
 
-        const c = trig.fcos(rot);
-        const s = trig.fsin(rot);
+        const c = trig.cos(angle);
+        const s = trig.sin(angle);
         const ic = 1 - c;
 
         mat._.m00 = axis._.x * axis._.x * ic + c;
@@ -156,54 +159,64 @@ pub const Mat4 = extern union {
     pub inline fn addf(a: Mat4, b: f32) Mat4 {
         const broad = @Vector(4, f32){ b, b, b, b };
 
-        return Mat4{ .v = .{
-            a.v[0] + broad,
-            a.v[1] + broad,
-            a.v[2] + broad,
-            a.v[3] + broad,
-        } };
+        return Mat4{
+            .v = .{
+                a.v[0] + broad,
+                a.v[1] + broad,
+                a.v[2] + broad,
+                a.v[3] + broad,
+            },
+        };
     }
 
     pub inline fn subf(a: Mat4, b: f32) Mat4 {
         const broad = @Vector(4, f32){ b, b, b, b };
 
-        return Mat4{ .v = .{
-            a.v[0] - broad,
-            a.v[1] - broad,
-            a.v[2] - broad,
-            a.v[3] - broad,
-        } };
+        return Mat4{
+            .v = .{
+                a.v[0] - broad,
+                a.v[1] - broad,
+                a.v[2] - broad,
+                a.v[3] - broad,
+            },
+        };
     }
 
     pub inline fn mulf(a: Mat4, b: f32) Mat4 {
         const broad = @Vector(4, f32){ b, b, b, b };
 
-        return Mat4{ .v = .{
-            a.v[0] * broad,
-            a.v[1] * broad,
-            a.v[2] * broad,
-            a.v[3] * broad,
-        } };
+        return Mat4{
+            .v = .{
+                a.v[0] * broad,
+                a.v[1] * broad,
+                a.v[2] * broad,
+                a.v[3] * broad,
+            },
+        };
     }
 
     pub inline fn divf(a: Mat4, b: f32) Mat4 {
         const broad = @Vector(4, f32){ b, b, b, b };
 
-        return Mat4{ .v = .{
-            a.v[0] / broad,
-            a.v[1] / broad,
-            a.v[2] / broad,
-            a.v[3] / broad,
-        } };
+        return Mat4{
+            .v = .{
+                a.v[0] / broad,
+                a.v[1] / broad,
+                a.v[2] / broad,
+                a.v[3] / broad,
+            },
+        };
     }
 
     pub inline fn iden() Mat4 {
-        return Mat4{ .v = .{
-            .{ 1, 0, 0, 0 },
-            .{ 0, 1, 0, 0 },
-            .{ 0, 0, 1, 0 },
-            .{ 0, 0, 0, 1 },
-        } };
+        return Mat4{
+            .v = .{
+                .{ 1, 0, 0, 0 },
+                .{ 0, 1, 0, 0 },
+                .{ 0, 0, 1, 0 },
+                .{ 0, 0, 0, 1 },
+            },
+        };
     }
 
     pub inline fn trans(a: Mat4) Mat4 {
@@ -217,12 +230,14 @@ pub const Mat4 = extern union {
         const tr01b = intrinsic.unpackhi(r0, r1);
         const tr23b = intrinsic.unpackhi(r2, r3);
 
-        return Mat4{ .v = .{
-            intrinsic.movelh(tr01a, tr23a),
-            intrinsic.movehl(tr23a, tr01a),
-            intrinsic.movelh(tr01b, tr23b),
-            intrinsic.movehl(tr23b, tr01b),
-        } };
+        return Mat4{
+            .v = .{
+                intrinsic.movelh(tr01a, tr23a),
+                intrinsic.movehl(tr23a, tr01a),
+                intrinsic.movelh(tr01b, tr23b),
+                intrinsic.movehl(tr23b, tr01b),
+            },
+        };
     }
 
     pub inline fn inv(a: Mat4) Mat4 {
@@ -290,24 +305,28 @@ pub const Mat4 = extern union {
         const tr01b = intrinsic.unpackhi(n0, n1);
         const tr23b = intrinsic.unpackhi(n2, n3);
 
-        return Mat4{ .v = {
-            intrinsic.movelh(tr01a, tr23a);
-            intrinsic.movehl(tr23a, tr01a);
-            intrinsic.movelh(tr01b, tr23b);
-            intrinsic.movehl(tr23b, tr01b);
-        } };
+        return Mat4{
+            .v = .{
+                intrinsic.movelh(tr01a, tr23a),
+                intrinsic.movehl(tr23a, tr01a),
+                intrinsic.movelh(tr01b, tr23b),
+                intrinsic.movehl(tr23b, tr01b),
+            },
+        };
     }
 
     pub inline fn add(a: Mat4, b: Mat4) Mat4 {
-        return Mat4{ .v = .{
-            a.v[0] + b.v[0],
-            a.v[1] + b.v[1],
-            a.v[2] + b.v[2],
-            a.v[3] + b.v[3],
-        } };
+        return Mat4{
+            .v = .{
+                a.v[0] + b.v[0],
+                a.v[1] + b.v[1],
+                a.v[2] + b.v[2],
+                a.v[3] + b.v[3],
+            },
+        };
     }
 
-    pub inline fn sub(a: Mat4, b: Mat4) void {
+    pub inline fn sub(a: Mat4, b: Mat4) Mat4 {
         return Mat4{ .v = .{
             a.v[0] - b.v[0],
             a.v[1] - b.v[1],
@@ -316,7 +335,7 @@ pub const Mat4 = extern union {
         } };
     }
 
-    pub inline fn mul(a: Mat4, b: Mat4) void {
+    pub inline fn mul(a: Mat4, b: Mat4) Mat4 {
 
         // load matrix a
         const r0 = a.v[0];
@@ -378,7 +397,7 @@ pub const Mat4 = extern union {
     /// for the boys that don't know how to matrix math
     /// multiply matrix by vector (as a column)
     /// [4x4] * [4x1] = [4x1]
-    pub inline fn mulv(a: Mat4, b: @Vector(4, f32)) @Vector(4, f32) {
+    pub inline fn mulv(a: Mat4, b: Vec4) Vec4 {
         // load matrix a
         const r0 = a.v[0];
         const r1 = a.v[1];

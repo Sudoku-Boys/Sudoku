@@ -55,7 +55,7 @@ PbrMaterial default_pbr_material(
     material.clearcoat_roughness = 0.0;
     material.clearcoat_normal = normal;
 
-    material.thickness = 0.0;
+    material.thickness = 1.0;
 
     material.transmission = 0.0;
     material.index_of_refraction = 1.5;
