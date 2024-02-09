@@ -3,6 +3,8 @@ const Window = @import("engine/Window.zig");
 const Renderer = @import("engine/render/Renderer.zig");
 const vk = @import("vulkan");
 
+const math = @import("math.zig");
+
 pub fn main() !void {
     try Window.initGlfw();
     defer Window.deinitGlfw();

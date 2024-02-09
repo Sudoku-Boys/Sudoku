@@ -1,5 +1,8 @@
 const std = @import("std");
 
+const Mat4 = @import("mat4.zig").Mat4;
+const intrinsic = @import("simd.zig");
+
 pub fn vec2(v0: f32, v1: f32) Vec2 {
     return Vec2.init(v0, v1);
 }
@@ -47,10 +50,6 @@ pub const Vec3 = extern union {
         return Vec3{ .v = .{ v0, v1, v2 } };
     }
 
-    pub fn all(v: f32) Vec3 {
-        return Vec3{ .v = .{ v, v, v } };
-    }
-
     pub fn reflect(vec: Vec3, normal: Vec3) Vec3 {
         return Vec3{ .v = vec.sub(normal.muls(2 * vec.dot(normal))) };
     }
@@ -73,7 +72,36 @@ pub const Vec4 = extern union {
     pub fn init(v0: f32, v1: f32, v2: f32, v3: f32) Vec4 {
         return Vec4{ .v = .{ v0, v1, v2, v3 } };
     }
+
+    /// for the boys that don't know how to matrix math
+    /// multiply vector (as row) by matrix
+    /// [1x4] * [4x4] = [1x4]
+    pub fn mulm(v: Vec4, m: Mat4) Vec4 {
+        // load matrix
+        const r0 = m.v[0];
+        const r1 = m.v[1];
+        const r2 = m.v[2];
+        const r3 = m.v[3];
+
+        // load vector
+        const p0 = intrinsic.permute(v.v, .{ 0, 0, 0, 0 });
+        const p1 = intrinsic.permute(v.v, .{ 1, 1, 1, 1 });
+        const p2 = intrinsic.permute(v.v, .{ 2, 2, 2, 2 });
+        const p3 = intrinsic.permute(v.v, .{ 3, 3, 3, 3 });
+
+        return Vec4{ .v = r0 * p0 + r1 * p1 + r2 * p2 + r3 * p3 };
+    }
 };
+
+test "mulm" {
+    const m: Mat4 = Mat4.init(.{ 1, 2, 3, 4 }, .{ 5, 6, 7, 8 }, .{ 9, 10, 11, 12 }, .{ 13, 14, 15, 16 });
+    const v: Vec4 = Vec4.init(1, 2, 3, 4);
+    const out = v.mulm(m);
+    const expected = Vec4.init(90, 100, 110, 120);
+    for (0..4) |i| {
+        std.debug.assert(out.v[i] == expected.v[i]);
+    }
+}
 
 fn swizzleType(comptime size: usize) type {
     return switch (size) {
@@ -111,6 +139,10 @@ fn VecBase(comptime T: type, comptime size: usize) type {
         }
         pub fn divs(a: T, b: f32) T {
             return .{ .v = a.v / @as(@Vector(size, f32), @splat(b)) };
+        }
+
+        pub fn all(a: f32) T {
+            return .{ .v = @as(@Vector(size, f32), @splat(a)) };
         }
 
         pub fn dot(a: T, b: T) f32 {

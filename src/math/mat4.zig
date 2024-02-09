@@ -375,6 +375,9 @@ pub const Mat4 = extern union {
         return mul(a, inv(b));
     }
 
+    /// for the boys that don't know how to matrix math
+    /// multiply matrix by vector (as a column)
+    /// [4x4] * [4x1] = [4x1]
     pub inline fn mulv(a: Mat4, b: @Vector(4, f32)) @Vector(4, f32) {
         // load matrix a
         const r0 = a.v[0];
