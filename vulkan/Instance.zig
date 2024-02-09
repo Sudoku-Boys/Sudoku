@@ -131,7 +131,7 @@ fn isLayerAvailable(available: []const vk.api.VkLayerProperties, name: [*c]const
     const str = std.mem.span(name);
 
     for (available) |layer| {
-        if (std.mem.count(u8, str, &layer.layerName) == str.len) {
+        if (std.mem.count(u8, str, &layer.layerName) == 0) {
             return true;
         }
     }
@@ -297,6 +297,8 @@ pub fn init(desc: Descriptor) !Instance {
 
     const extensions = try getExtensions(desc.allocator, desc.required_extensions);
     defer desc.allocator.free(extensions);
+
+    std.debug.print("layers: {s}\n", .{layers});
 
     const application_info = desc.applicationInfo();
     const instance_info = instanceInfo(&application_info, layers, extensions);

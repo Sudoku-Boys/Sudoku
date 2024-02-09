@@ -146,6 +146,14 @@ pub fn main() !void {
     if (c.shaderc_result_get_compilation_status(result) != c.shaderc_compilation_status_success) {
         const error_message = c.shaderc_result_get_error_message(result);
         std.debug.print("Compilation error: {s}\n", .{error_message});
+
+        var lines = std.mem.splitScalar(u8, processor.output.items, '\n');
+        var i: u32 = 0;
+        while (lines.next()) |line| {
+            std.debug.print("{}: {s}\n", .{ i, line });
+            i += 1;
+        }
+
         return error.ShadercError;
     }
 

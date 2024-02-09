@@ -145,6 +145,70 @@ pub fn copyBufferToImage(self: CommandBuffer, desc: CopyBufferToImageDescriptor)
     );
 }
 
+pub const ImageCopy = struct {
+    src_aspect: vk.ImageAspects,
+    src_mip_level: u32 = 0,
+    src_base_array_layer: u32 = 0,
+    src_layer_count: u32 = 1,
+    src_offset: vk.Offset3D = .{},
+
+    dst_aspect: vk.ImageAspects,
+    dst_mip_level: u32 = 0,
+    dst_base_array_layer: u32 = 0,
+    dst_layer_count: u32 = 1,
+    dst_offset: vk.Offset3D = .{},
+
+    extent: vk.Extent3D,
+};
+
+pub const CopyImageToImageDescriptor = struct {
+    src: vk.Image,
+    src_layout: vk.ImageLayout,
+    dst: vk.Image,
+    dst_layout: vk.ImageLayout,
+    region: ImageCopy,
+};
+
+pub fn copyImageToImage(self: CommandBuffer, desc: CopyImageToImageDescriptor) void {
+    vk.api.vkCmdCopyImage(
+        self.vk,
+        desc.src.vk,
+        @intFromEnum(desc.src_layout),
+        desc.dst.vk,
+        @intFromEnum(desc.dst_layout),
+        1,
+        &vk.api.VkImageCopy{
+            .srcSubresource = vk.api.VkImageSubresourceLayers{
+                .aspectMask = @bitCast(desc.region.src_aspect),
+                .mipLevel = desc.region.src_mip_level,
+                .baseArrayLayer = desc.region.src_base_array_layer,
+                .layerCount = desc.region.src_layer_count,
+            },
+            .srcOffset = vk.api.VkOffset3D{
+                .x = desc.region.src_offset.x,
+                .y = desc.region.src_offset.y,
+                .z = desc.region.src_offset.z,
+            },
+            .dstSubresource = vk.api.VkImageSubresourceLayers{
+                .aspectMask = @bitCast(desc.region.dst_aspect),
+                .mipLevel = desc.region.dst_mip_level,
+                .baseArrayLayer = desc.region.dst_base_array_layer,
+                .layerCount = desc.region.dst_layer_count,
+            },
+            .dstOffset = vk.api.VkOffset3D{
+                .x = desc.region.dst_offset.x,
+                .y = desc.region.dst_offset.y,
+                .z = desc.region.dst_offset.z,
+            },
+            .extent = vk.api.VkExtent3D{
+                .width = desc.region.extent.width,
+                .height = desc.region.extent.height,
+                .depth = desc.region.extent.depth,
+            },
+        },
+    );
+}
+
 pub const ImageMemoryBarrier = struct {
     src_access: vk.Access,
     dst_access: vk.Access,
@@ -163,17 +227,19 @@ pub const ImageMemoryBarrier = struct {
 pub const PipelineBarrierDescriptor = struct {
     src_stage: vk.PipelineStages = .{},
     dst_stage: vk.PipelineStages = .{},
-    dependency_flags: vk.Dependencies = .{ .by_region = true },
+    dependencies: vk.Dependencies = .{ .by_region = true },
     image_barriers: []const ImageMemoryBarrier = &.{},
+
+    pub const MAX_IMAGE_BARRIERS = 64;
 };
 
 pub fn pipelineBarrier(
     self: CommandBuffer,
     desc: PipelineBarrierDescriptor,
 ) void {
-    std.debug.assert(desc.image_barriers.len <= 64);
+    std.debug.assert(desc.image_barriers.len <= PipelineBarrierDescriptor.MAX_IMAGE_BARRIERS);
 
-    var imageBarriers: [64]vk.api.VkImageMemoryBarrier = undefined;
+    var imageBarriers: [PipelineBarrierDescriptor.MAX_IMAGE_BARRIERS]vk.api.VkImageMemoryBarrier = undefined;
 
     for (desc.image_barriers, 0..) |barrier, i| {
         imageBarriers[i] = vk.api.VkImageMemoryBarrier{
@@ -200,7 +266,7 @@ pub fn pipelineBarrier(
         self.vk,
         @bitCast(desc.src_stage),
         @bitCast(desc.dst_stage),
-        @bitCast(desc.dependency_flags),
+        @bitCast(desc.dependencies),
         0,
         null,
         0,

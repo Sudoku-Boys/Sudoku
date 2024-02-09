@@ -85,6 +85,20 @@ pub const VertexFormat = enum(u32) {
 pub const Extent2D = struct {
     width: u32,
     height: u32,
+
+    pub fn as3D(self: Extent2D) Extent3D {
+        return .{
+            .width = self.width,
+            .height = self.height,
+            .depth = 1,
+        };
+    }
+
+    pub fn aspectRatio(self: Extent2D) f32 {
+        const w: f32 = @floatFromInt(self.width);
+        const h: f32 = @floatFromInt(self.height);
+        return w / h;
+    }
 };
 
 pub const Extent3D = struct {
@@ -97,6 +111,12 @@ pub const Extent3D = struct {
             .width = self.width,
             .height = self.height,
         };
+    }
+
+    pub fn aspectRatio(self: Extent3D) f32 {
+        const w: f32 = @floatFromInt(self.width);
+        const h: f32 = @floatFromInt(self.height);
+        return w / h;
     }
 };
 

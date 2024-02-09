@@ -1,4 +1,4 @@
-#include "pbr_pixel.glsl"
+#include "pbr_light.glsl"
 
 struct PbrMaterial {
     /* Geometry */
@@ -123,4 +123,9 @@ PbrPixel compute_pbr_pixel(PbrMaterial material) {
     pixel.subsurface_color = material.subsurface_color;
 
     return pixel;
+}
+
+vec3 pbr(PbrMaterial material) {
+    PbrPixel pixel = compute_pbr_pixel(material);
+    return pbr_light(pixel);
 }

@@ -16,8 +16,8 @@ pub const Hdr = struct {
     render_pass: vk.RenderPass,
     framebuffer: vk.Framebuffer,
 
-    const COLOR_FORMAT = vk.ImageFormat.R16G16B16A16Sfloat;
-    const DEPTH_FORMAT = vk.ImageFormat.D32Sfloat;
+    pub const COLOR_FORMAT = vk.ImageFormat.R16G16B16A16Sfloat;
+    pub const DEPTH_FORMAT = vk.ImageFormat.D32Sfloat;
 
     fn init(device: vk.Device, extent: vk.Extent3D) !Hdr {
         const color_image = try createColorImage(device, extent);
@@ -73,7 +73,11 @@ pub const Hdr = struct {
         return try device.createImage(.{
             .format = COLOR_FORMAT,
             .extent = extent,
-            .usage = .{ .color_attachment = true, .sampled = true },
+            .usage = .{
+                .color_attachment = true,
+                .transfer_src = true,
+                .sampled = true,
+            },
             .memory = .{ .device_local = true },
         });
     }
@@ -93,8 +97,9 @@ pub const Hdr = struct {
                 .{
                     .format = Hdr.COLOR_FORMAT,
                     .samples = 1,
-                    .load_op = .Clear,
+                    .load_op = .Load,
                     .store_op = .Store,
+                    .initial_layout = .ColorAttachmentOptimal,
                     .final_layout = .ShaderReadOnlyOptimal,
                 },
                 .{
@@ -337,6 +342,7 @@ pub fn init(desc: Descriptor) !Renderer {
         graphics_pool,
         hdr.render_pass,
         0,
+        sdr.swapchain.extent,
     );
     errdefer scene_renderer.deinit();
 
@@ -403,6 +409,23 @@ fn recordCommandBuffer(
     try self.graphics_buffer.reset();
     try self.graphics_buffer.begin(.{});
 
+    self.graphics_buffer.pipelineBarrier(.{
+        .src_stage = .{ .bottom_of_pipe = true },
+        .dst_stage = .{ .color_attachment_output = true },
+        .image_barriers = &.{
+            .{
+                .src_access = .{},
+                .dst_access = .{ .color_attachment_write = true },
+                .old_layout = .Undefined,
+                .new_layout = .ColorAttachmentOptimal,
+                .image = self.hdr.color_image,
+                .aspect = .{ .color = true },
+            },
+        },
+    });
+
+    // ---------- HDR ----------
+
     self.graphics_buffer.setViewport(.{
         .width = @floatFromInt(self.sdr.swapchain.extent.width),
         .height = @floatFromInt(self.sdr.swapchain.extent.height),
@@ -412,21 +435,12 @@ fn recordCommandBuffer(
         .extent = self.sdr.swapchain.extent.as2D(),
     });
 
-    self.graphics_buffer.beginRenderPass(.{
-        .render_pass = self.hdr.render_pass,
-        .framebuffer = self.hdr.framebuffer,
-        .render_area = .{
-            .extent = self.sdr.swapchain.extent.as2D(),
-        },
-    });
-
-    const width: f32 = @floatFromInt(self.sdr.swapchain.extent.width);
-    const height: f32 = @floatFromInt(self.sdr.swapchain.extent.height);
-
-    self.scene_renderer.aspect_ratio = width / height;
-    try self.scene_renderer.draw(self.graphics_buffer, scene);
-
-    self.graphics_buffer.endRenderPass();
+    try self.scene_renderer.draw(
+        self.graphics_buffer,
+        self.hdr.framebuffer,
+        self.hdr.color_image,
+        scene,
+    );
 
     // ---------- SDR ----------
 
@@ -451,6 +465,8 @@ fn recreate(self: *Renderer) !void {
     try self.sdr.recreate(self.device, self.allocator);
     try self.hdr.recreate(self.device, self.sdr.swapchain.extent);
     try self.tonemap.setHdrImage(self.device, self.hdr.color_view);
+
+    try self.scene_renderer.resize(self.sdr.swapchain.extent);
 }
 
 pub fn drawFrame(

@@ -54,6 +54,10 @@ pub fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
     };
 }
 
+pub fn readsTransmissionImage(self: StandardMaterial) bool {
+    return self.transmission > 0.0;
+}
+
 pub const Uniforms = extern struct {
     color: [4]f32,
     metallic: f32,
@@ -68,11 +72,12 @@ pub const Uniforms = extern struct {
     clearcoat_roughness: f32,
 
     thickness: f32,
+    transmission: f32,
+
+    absorption: [4]f32,
+    subsurface_color: [4]f32,
 
     index_of_refraction: f32,
-    absorption: [4]f32,
-
-    subsurface_color: [4]f32,
     subsurface: f32,
 };
 
@@ -131,11 +136,12 @@ pub fn update(
         .clearcoat_roughness = self.clearcoat_roughness,
 
         .thickness = self.thickness,
+        .transmission = self.transmission,
+
+        .absorption = self.absorption.asArray(),
+        .subsurface_color = self.subsurface_color.asArray(),
 
         .index_of_refraction = self.index_of_refraction,
-        .absorption = self.absorption.asArray(),
-
-        .subsurface_color = self.subsurface_color.asArray(),
         .subsurface = self.subsurface,
     };
 

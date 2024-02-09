@@ -1,7 +1,6 @@
 #version 450
 
 #include "camera.glsl"
-#include "pbr_light.glsl"
 #include "pbr.glsl"
 
 layout(location = 0) in vec3 v_position;

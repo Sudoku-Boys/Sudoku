@@ -38,6 +38,7 @@ pub fn main() !void {
 
     const flashing = try materials.add(engine.StandardMaterial{
         .color = .{ .r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0 },
+        .transmission = 0.9,
     });
 
     var meshes = engine.Meshes.init(allocator);
@@ -71,7 +72,7 @@ pub fn main() !void {
         .allocator = allocator,
         .device = device,
         .surface = window.surface,
-        .present_mode = .Fifo,
+        .present_mode = .Immediate,
     });
     defer renderer.deinit();
 

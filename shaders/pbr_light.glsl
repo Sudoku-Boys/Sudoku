@@ -1,5 +1,7 @@
-#include "pbr_pixel.glsl"
 #include "light.glsl"
+#include "transmission.glsl"
+#include "camera.glsl"
+#include "pbr_pixel.glsl"
 
 const float PI = 3.1415926535897932384626433832795;
 
@@ -152,4 +154,45 @@ vec3 pbr_light_directional(
     light.occlusion = 1.0;
 
     return pbr_light_surface(pixel, light);
+}
+
+struct PbrRefractionRay {
+    vec3 position;
+    vec3 direction;
+    float distance;
+};
+
+PbrRefractionRay pbr_refract_solid_sphere(PbrPixel pixel) {
+    PbrRefractionRay ray;
+
+    vec3 r = refract(-pixel.view, pixel.normal, pixel.eta_ir);    
+    float nor = dot(pixel.normal, r);
+    float d = pixel.thickness * -nor;
+    ray.position = pixel.position + r * d;
+    ray.distance = d;
+
+    vec3 n = normalize(nor * r - pixel.normal * 0.5);
+    ray.direction = refract(r, n, pixel.eta_ri);
+
+    return ray;
+}
+
+vec3 pbr_refraction(PbrPixel pixel, vec3 e) {
+    PbrRefractionRay ray = pbr_refract_solid_sphere(pixel);
+    vec3 t = min(vec3(1.0), exp(-pixel.absorption * ray.distance));
+
+    vec4 position = camera.view_proj * vec4(ray.position, 1.0);
+    vec2 uv = position.xy / position.w * 0.5 + 0.5;
+
+    vec3 color = textureLod(transmission_sampler, uv, 0.0).rgb;
+
+    color *= pixel.diffuse;
+    color *= 1.0 - e;
+    color *= t;
+
+    return color * pixel.transmission;
+}
+
+vec3 pbr_light(PbrPixel pixel) {
+    return vec3(1.0);
 }

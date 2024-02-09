@@ -8,8 +8,9 @@ const Mesh = @import("Mesh.zig");
 const Meshes = @import("Meshes.zig").Meshes;
 const Object = @import("Object.zig");
 const OpaqueMaterial = @import("OpagueWrapper.zig");
-const Sky = @import("Sky.zig");
+const Renderer = @import("Renderer.zig");
 const Scene = @import("Scene.zig");
+const Sky = @import("Sky.zig");
 const math = @import("../math.zig");
 
 const TypeId = std.builtin.TypeId;
@@ -25,7 +26,7 @@ const ObjectState = struct {
     bind_group: vk.BindGroup,
     model_buffer: vk.Buffer,
 
-    fn deinit(self: ObjectState) void {
+    pub fn deinit(self: ObjectState) void {
         self.bind_group_pool.deinit();
         self.model_buffer.deinit();
     }
@@ -43,7 +44,7 @@ const MeshState = struct {
     generation: u64,
     version: u64,
 
-    fn deinit(self: MeshState, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: MeshState, allocator: std.mem.Allocator) void {
         for (self.vertex_buffers) |buffer| {
             buffer.buffer.deinit();
         }
@@ -66,10 +67,11 @@ const MaterialState = struct {
     bind_group_pool: vk.BindGroupPool,
     bind_group: vk.BindGroup,
     opaque_state: *anyopaque,
+    reads_transmission: bool,
     generation: u64,
     version: u64,
 
-    fn deinit(
+    pub fn deinit(
         self: MaterialState,
         allocator: std.mem.Allocator,
         material: Material,
@@ -82,13 +84,141 @@ const MaterialState = struct {
 };
 
 const MaterialPipeline = struct {
-    material: Material,
-    pipeline: vk.GraphicsPipeline,
     bind_group_layout: vk.BindGroupLayout,
+    pipeline: vk.GraphicsPipeline,
+    material: Material,
 
     pub fn deinit(self: MaterialPipeline) void {
         self.pipeline.deinit();
         self.bind_group_layout.deinit();
+    }
+};
+
+const LightState = struct {
+    bind_group_layout: vk.BindGroupLayout,
+    bind_group_pool: vk.BindGroupPool,
+    bind_group: vk.BindGroup,
+
+    transmission_image: vk.Image,
+    transmission_image_view: vk.ImageView,
+    transmission_sampler: vk.Sampler,
+
+    fn init(device: vk.Device, extent: vk.Extent3D) !LightState {
+        const bind_group_layout = try device.createBindGroupLayout(.{
+            .entries = &.{
+                .{
+                    .binding = 0,
+                    .stages = .{ .fragment = true },
+                    .type = .CombinedImageSampler,
+                },
+            },
+        });
+        errdefer bind_group_layout.deinit();
+
+        const bind_group_pool = try device.createBindGroupPool(.{
+            .pool_sizes = &.{
+                .{
+                    .type = .CombinedImageSampler,
+                    .count = 1,
+                },
+            },
+            .max_groups = 1,
+        });
+        errdefer bind_group_pool.deinit();
+
+        const bind_group = try bind_group_pool.alloc(bind_group_layout);
+
+        const transmission_image = try createTransmissionImage(device, extent);
+        errdefer transmission_image.deinit();
+
+        const transmission_image_view = try transmission_image.createView(.{
+            .format = Renderer.Hdr.COLOR_FORMAT,
+            .aspect = .{ .color = true },
+        });
+        errdefer transmission_image_view.deinit();
+
+        const transmission_sampler = try device.createSampler(.{
+            .min_filter = .Linear,
+            .mag_filter = .Linear,
+            .address_mode_u = .ClampToEdge,
+            .address_mode_v = .ClampToEdge,
+            .address_mode_w = .ClampToEdge,
+        });
+        errdefer transmission_sampler.deinit();
+
+        device.updateBindGroups(.{
+            .writes = &.{
+                .{
+                    .dst = bind_group,
+                    .binding = 0,
+                    .resource = .{
+                        .combined_image = .{
+                            .layout = .ShaderReadOnlyOptimal,
+                            .view = transmission_image_view,
+                            .sampler = transmission_sampler,
+                        },
+                    },
+                },
+            },
+        });
+
+        return .{
+            .bind_group_layout = bind_group_layout,
+            .bind_group_pool = bind_group_pool,
+            .bind_group = bind_group,
+
+            .transmission_image = transmission_image,
+            .transmission_image_view = transmission_image_view,
+            .transmission_sampler = transmission_sampler,
+        };
+    }
+
+    pub fn deinit(self: LightState) void {
+        self.transmission_image_view.deinit();
+        self.transmission_image.deinit();
+        self.transmission_sampler.deinit();
+
+        self.bind_group_pool.deinit();
+        self.bind_group_layout.deinit();
+    }
+
+    fn createTransmissionImage(device: vk.Device, extent: vk.Extent3D) !vk.Image {
+        return try device.createImage(.{
+            .format = Renderer.Hdr.COLOR_FORMAT,
+            .extent = extent,
+            .usage = .{
+                .transfer_dst = true,
+                .sampled = true,
+            },
+            .memory = .{ .device_local = true },
+        });
+    }
+
+    fn resize(self: *LightState, device: vk.Device, extent: vk.Extent3D) !void {
+        self.transmission_image.deinit();
+        self.transmission_image = try createTransmissionImage(device, extent);
+
+        self.transmission_image_view.deinit();
+        self.transmission_image_view = try self.transmission_image.createView(.{
+            .format = Renderer.Hdr.COLOR_FORMAT,
+            .aspect = .{ .color = true },
+        });
+
+        device.updateBindGroups(.{
+            .writes = &.{
+                .{
+                    .dst = self.bind_group,
+                    .binding = 0,
+                    .resource = .{
+                        .combined_image = .{
+                            .layout = .ShaderReadOnlyOptimal,
+                            .view = self.transmission_image_view,
+                            .sampler = self.transmission_sampler,
+                        },
+                    },
+                },
+            },
+        });
     }
 };
 
@@ -98,7 +228,7 @@ device: vk.Device,
 hdr_render_pass: vk.RenderPass,
 hdr_subpass: u32,
 
-aspect_ratio: f32,
+extent: vk.Extent3D,
 
 object_bind_group_layout: vk.BindGroupLayout,
 
@@ -111,6 +241,7 @@ sky: Sky,
 
 staging_buffer: vk.StagingBuffer,
 
+light: LightState,
 camera: Camera.RenderState,
 
 pub fn init(
@@ -119,10 +250,8 @@ pub fn init(
     command_pool: vk.CommandPool,
     hdr_render_pass: vk.RenderPass,
     hdr_subpass: u32,
+    extent: vk.Extent3D,
 ) !SceneRenderer {
-    const camera = try Camera.RenderState.init(device);
-    errdefer camera.deinit();
-
     const object_bind_group_layout = try createObjectBindGroupLayout(device);
     errdefer object_bind_group_layout.deinit();
 
@@ -130,6 +259,11 @@ pub fn init(
     const meshes = std.ArrayList(?MeshState).init(allocator);
     const materials = std.ArrayList(?MaterialState).init(allocator);
     const pipelines = std.AutoHashMap(TypeId, MaterialPipeline).init(allocator);
+
+    const light = try LightState.init(device, extent);
+    errdefer light.deinit();
+    const camera = try Camera.RenderState.init(device);
+    errdefer camera.deinit();
 
     const sky = try Sky.init(
         device,
@@ -149,7 +283,7 @@ pub fn init(
         .hdr_render_pass = hdr_render_pass,
         .hdr_subpass = hdr_subpass,
 
-        .aspect_ratio = 1.0,
+        .extent = extent,
 
         .object_bind_group_layout = object_bind_group_layout,
 
@@ -162,6 +296,7 @@ pub fn init(
 
         .staging_buffer = staging_buffer,
 
+        .light = light,
         .camera = camera,
     };
 }
@@ -202,6 +337,7 @@ pub fn deinit(self: *SceneRenderer) void {
     self.object_bind_group_layout.deinit();
 
     self.camera.deinit();
+    self.light.deinit();
 }
 
 pub fn addMaterial(self: *SceneRenderer, comptime T: type) !void {
@@ -212,6 +348,11 @@ pub fn addMaterial(self: *SceneRenderer, comptime T: type) !void {
     const pipeline = try self.createMaterialPipeline(material);
 
     try self.pipelines.put(type_id, pipeline);
+}
+
+pub fn resize(self: *SceneRenderer, extent: vk.Extent3D) !void {
+    self.extent = extent;
+    try self.light.resize(self.device, extent);
 }
 
 fn createObjectBindGroupLayout(device: vk.Device) !vk.BindGroupLayout {
@@ -298,6 +439,7 @@ fn createMaterialPipeline(
             bind_group_layout,
             self.object_bind_group_layout,
             self.camera.bind_group_layout,
+            self.light.bind_group_layout,
         },
         .render_pass = self.hdr_render_pass,
         .subpass = self.hdr_subpass,
@@ -466,6 +608,7 @@ fn createMaterialState(
         .bind_group_pool = bind_group_pool,
         .bind_group = bind_group,
         .opaque_state = opaque_data,
+        .reads_transmission = false,
         .generation = material_entry.generation,
         .version = material_entry.version,
     };
@@ -536,7 +679,7 @@ fn prepareCameraState(
     self: *SceneRenderer,
     camera: Camera,
 ) !void {
-    const camera_uniforms = camera.uniforms(self.aspect_ratio);
+    const camera_uniforms = camera.uniforms(self.extent.aspectRatio());
     try self.staging_buffer.write(&camera_uniforms);
     try self.staging_buffer.copyBuffer(.{
         .dst = self.camera.buffer,
@@ -555,6 +698,10 @@ fn updateMaterialState(
         material_state.opaque_state,
         self.materialContext(),
         material_state.bind_group,
+    );
+
+    material_state.reads_transmission = pipeline.material.readsTransmissionImage(
+        opaque_material.data.ptr,
     );
 }
 
@@ -622,12 +769,14 @@ pub fn prepare(
     }
 }
 
-pub fn draw(
+fn recordObjects(
     self: *SceneRenderer,
     command_buffer: vk.CommandBuffer,
+    framebuffer: vk.Framebuffer,
     scene: Scene,
-) !void {
-    try self.sky.record(command_buffer, self.camera);
+    read_transmission: bool,
+) void {
+    _ = framebuffer;
 
     for (scene.objects.items, 0..) |object, i| {
         const object_state = self.objects.items[i] orelse continue;
@@ -635,10 +784,13 @@ pub fn draw(
         const material_state = self.materials.items[object.material.index] orelse continue;
         const pipeline = self.pipelines.get(material_state.type_id) orelse continue;
 
+        if (material_state.reads_transmission != read_transmission) continue;
+
         command_buffer.bindGraphicsPipeline(pipeline.pipeline);
         command_buffer.bindBindGroup(pipeline.pipeline, 0, material_state.bind_group, &.{});
         command_buffer.bindBindGroup(pipeline.pipeline, 1, object_state.bind_group, &.{});
         command_buffer.bindBindGroup(pipeline.pipeline, 2, self.camera.bind_group, &.{});
+        command_buffer.bindBindGroup(pipeline.pipeline, 3, self.light.bind_group, &.{});
 
         for (pipeline.material.vertexAttributes(), 0..) |attribute, j| {
             const buffer = mesh_state.getBuffer(attribute.name) orelse continue;
@@ -651,4 +803,96 @@ pub fn draw(
             .index_count = mesh_state.index_count,
         });
     }
+}
+
+pub fn draw(
+    self: *SceneRenderer,
+    command_buffer: vk.CommandBuffer,
+    framebuffer: vk.Framebuffer,
+    hdr_image: vk.Image,
+    scene: Scene,
+) !void {
+    command_buffer.beginRenderPass(.{
+        .render_pass = self.hdr_render_pass,
+        .framebuffer = framebuffer,
+        .render_area = .{
+            .extent = self.extent.as2D(),
+        },
+    });
+
+    try self.sky.record(command_buffer, self.camera);
+
+    self.recordObjects(command_buffer, framebuffer, scene, false);
+
+    command_buffer.endRenderPass();
+
+    command_buffer.pipelineBarrier(.{
+        .src_stage = .{ .bottom_of_pipe = true },
+        .dst_stage = .{ .top_of_pipe = true },
+        .image_barriers = &.{
+            .{
+                .src_access = .{},
+                .dst_access = .{},
+                .old_layout = .ShaderReadOnlyOptimal,
+                .new_layout = .TransferSrcOptimal,
+                .image = hdr_image,
+                .aspect = .{ .color = true },
+            },
+            .{
+                .src_access = .{},
+                .dst_access = .{},
+                .old_layout = .Undefined,
+                .new_layout = .TransferDstOptimal,
+                .image = self.light.transmission_image,
+                .aspect = .{ .color = true },
+            },
+        },
+    });
+
+    command_buffer.copyImageToImage(.{
+        .src = hdr_image,
+        .src_layout = .TransferSrcOptimal,
+        .dst = self.light.transmission_image,
+        .dst_layout = .TransferDstOptimal,
+        .region = .{
+            .src_aspect = .{ .color = true },
+            .dst_aspect = .{ .color = true },
+            .extent = self.extent,
+        },
+    });
+
+    command_buffer.pipelineBarrier(.{
+        .src_stage = .{ .bottom_of_pipe = true },
+        .dst_stage = .{ .top_of_pipe = true },
+        .image_barriers = &.{
+            .{
+                .src_access = .{},
+                .dst_access = .{},
+                .old_layout = .TransferSrcOptimal,
+                .new_layout = .ColorAttachmentOptimal,
+                .image = hdr_image,
+                .aspect = .{ .color = true },
+            },
+            .{
+                .src_access = .{},
+                .dst_access = .{},
+                .old_layout = .TransferDstOptimal,
+                .new_layout = .ShaderReadOnlyOptimal,
+                .image = self.light.transmission_image,
+                .aspect = .{ .color = true },
+            },
+        },
+    });
+
+    command_buffer.beginRenderPass(.{
+        .render_pass = self.hdr_render_pass,
+        .framebuffer = framebuffer,
+        .render_area = .{
+            .extent = self.extent.as2D(),
+        },
+    });
+
+    self.recordObjects(command_buffer, framebuffer, scene, true);
+
+    command_buffer.endRenderPass();
 }

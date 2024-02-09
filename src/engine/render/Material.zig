@@ -33,6 +33,8 @@ pub const VTable = struct {
     pipeline: *const fn () Pipeline,
     bind_group_layout_entries: *const fn () []const vk.BindGroupLayout.Entry,
 
+    reads_transmission_image: *const fn (*anyopaque) bool,
+
     alloc_state: *const fn (std.mem.Allocator) anyerror!*anyopaque,
     free_state: *const fn (std.mem.Allocator, *anyopaque) void,
 
@@ -52,6 +54,8 @@ pub fn init(comptime T: type) Material {
             .vertex_attributes = Opaque(T).vertexAttributes,
             .pipeline = Opaque(T).pipeline,
             .bind_group_layout_entries = Opaque(T).bindGroupLayoutEntries,
+
+            .reads_transmission_image = Opaque(T).readsTransmissionImage,
 
             .alloc_state = Opaque(T).allocState,
             .free_state = Opaque(T).freeState,
@@ -112,6 +116,15 @@ fn Opaque(comptime T: type) type {
 
         fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
             return T.bindGroupLayoutEntries();
+        }
+
+        fn readsTransmissionImage(material: *anyopaque) bool {
+            if (@hasDecl(T, "readsTransmissionImage")) {
+                const material_ptr: *T = @ptrCast(@alignCast(material));
+                return material_ptr.readsTransmissionImage();
+            } else {
+                return false;
+            }
         }
 
         fn allocState(allocator: std.mem.Allocator) !*anyopaque {
@@ -180,6 +193,10 @@ pub fn pipeline(self: Material) Pipeline {
 
 pub fn bindGroupLayoutEntries(self: Material) []const vk.BindGroupLayout.Entry {
     return self.vtable.bind_group_layout_entries();
+}
+
+pub fn readsTransmissionImage(self: Material, material: *anyopaque) bool {
+    return self.vtable.reads_transmission_image(material);
 }
 
 pub fn allocState(self: Material, allocator: std.mem.Allocator) !*anyopaque {
