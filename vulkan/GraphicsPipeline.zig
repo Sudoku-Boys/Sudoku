@@ -378,11 +378,14 @@ pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
     const bind_groups = try device.allocator.alloc(vk.api.VkDescriptorSetLayout, desc.layouts.len);
     defer device.allocator.free(bind_groups);
 
+    // TODO :: proper fix
+    const null_layout = try vk.BindGroupLayout.empty(device);
+
     for (desc.layouts, 0..) |optional_group, i| {
         if (optional_group) |group| {
             bind_groups[i] = group.vk;
         } else {
-            bind_groups[i] = null;
+            bind_groups[i] = null_layout.vk;
         }
     }
 
