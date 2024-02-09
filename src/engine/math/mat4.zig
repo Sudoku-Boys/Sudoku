@@ -394,6 +394,9 @@ pub const Mat4 = extern union {
         return mul(a, inv(b));
     }
 
+    /// for the boys that don't know how to matrix math
+    /// multiply matrix by vector (as a column)
+    /// [4x4] * [4x1] = [4x1]
     pub inline fn mulv(a: Mat4, b: Vec4) Vec4 {
         // load matrix a
         const r0 = a.v[0];
@@ -401,14 +404,24 @@ pub const Mat4 = extern union {
         const r2 = a.v[2];
         const r3 = a.v[3];
 
+        // transpose matrix a
+        const tr01a = intrinsic.unpacklo(r0, r1);
+        const tr23a = intrinsic.unpacklo(r2, r3);
+        const tr01b = intrinsic.unpackhi(r0, r1);
+        const tr23b = intrinsic.unpackhi(r2, r3);
+
+        const t0 = intrinsic.movelh(tr01a, tr23a);
+        const t1 = intrinsic.movehl(tr23a, tr01a);
+        const t2 = intrinsic.movelh(tr01b, tr23b);
+        const t3 = intrinsic.movehl(tr23b, tr01b);
+
         // permute column vector into rows
-        const p0 = intrinsic.permute(b.v, .{ 0, 0, 0, 0 });
-        const p1 = intrinsic.permute(b.v, .{ 1, 1, 1, 1 });
-        const p2 = intrinsic.permute(b.v, .{ 2, 2, 2, 2 });
-        const p3 = intrinsic.permute(b.v, .{ 3, 3, 3, 3 });
+        const p0 = intrinsic.permute(b, .{ 0, 0, 0, 0 });
+        const p1 = intrinsic.permute(b, .{ 1, 1, 1, 1 });
+        const p2 = intrinsic.permute(b, .{ 2, 2, 2, 2 });
+        const p3 = intrinsic.permute(b, .{ 3, 3, 3, 3 });
 
         // mathimus maximus
-        const v = (p0 * r0) + (p1 * r1) + (p2 * r2) + (p3 * r3);
-        return .{ .v = v };
+        return (p0 * t0) + (p1 * t1) + (p2 * t2) + (p3 * t3);
     }
 };
