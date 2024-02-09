@@ -16,56 +16,44 @@ pub const Quat = extern struct {
 
     pub fn rotateX(angle: f32) Quat {
         const halfAngle = angle / 2.0;
-        const sinHalfAngle = trig.sin(halfAngle);
-        const cosHalfAngle = trig.cos(halfAngle);
+        const sincos = trig.fsincos(halfAngle);
 
-        const quat: Quat = .{
-            .x = sinHalfAngle,
+        return .{
+            .x = sincos.sin,
             .y = 0.0,
             .z = 0.0,
-            .w = cosHalfAngle,
+            .w = sincos.cos,
         };
-
-        // trig is not very precise, so we need to normalize the result
-        return quat.normalize();
     }
 
     pub fn rotateY(angle: f32) Quat {
         const halfAngle = angle / 2.0;
-        const sinHalfAngle = trig.sin(halfAngle);
-        const cosHalfAngle = trig.cos(halfAngle);
+        const sincos = trig.fsincos(halfAngle);
 
-        const quat: Quat = .{
+        return .{
             .x = 0.0,
-            .y = sinHalfAngle,
+            .y = sincos.sin,
             .z = 0.0,
-            .w = cosHalfAngle,
+            .w = sincos.cos,
         };
-
-        // trig is not very precise, so we need to normalize the result
-        return quat.normalize();
     }
 
     pub fn rotateZ(angle: f32) Quat {
         const halfAngle = angle / 2.0;
-        const sinHalfAngle = trig.sin(halfAngle);
-        const cosHalfAngle = trig.cos(halfAngle);
+        const sincos = trig.fsincos(halfAngle);
 
-        const quat: Quat = .{
+        return .{
             .x = 0.0,
             .y = 0.0,
-            .z = sinHalfAngle,
-            .w = cosHalfAngle,
+            .z = sincos.sin,
+            .w = sincos.cos,
         };
-
-        // trig is not very precise, so we need to normalize the result
-        return quat.normalize();
     }
 
     pub fn rotate(axis: Vec3, angle: f32) Quat {
         const halfAngle = angle / 2.0;
-        const sinHalfAngle = trig.sin(halfAngle);
-        const cosHalfAngle = trig.cos(halfAngle);
+        const sinHalfAngle = trig.fsin(halfAngle);
+        const cosHalfAngle = trig.fcos(halfAngle);
 
         const quat: Quat = .{
             .x = axis._.x * sinHalfAngle,
