@@ -361,7 +361,10 @@ pub fn createBindGroupLayout(
     return vk.BindGroupLayout.init(self, desc);
 }
 
-pub fn createBuffer(self: Device, desc: vk.Buffer.Descriptor) !vk.Buffer {
+pub fn createBuffer(
+    self: Device,
+    desc: vk.Buffer.Descriptor,
+) !vk.Buffer {
     return vk.Buffer.init(self, desc);
 }
 
@@ -372,7 +375,17 @@ pub fn createCommandPool(
     return vk.CommandPool.init(self, kind);
 }
 
-pub fn createFence(self: Device, signalled: bool) !vk.Fence {
+pub fn createComputePipeline(
+    self: Device,
+    desc: vk.ComputePipeline.Descriptor,
+) !vk.ComputePipeline {
+    return vk.ComputePipeline.init(self, desc);
+}
+
+pub fn createFence(
+    self: Device,
+    signalled: bool,
+) !vk.Fence {
     return vk.Fence.init(self, signalled);
 }
 
@@ -390,7 +403,10 @@ pub fn createGraphicsPipeline(
     return vk.GraphicsPipeline.init(self, desc);
 }
 
-pub fn createImage(self: Device, desc: vk.Image.Descriptor) !vk.Image {
+pub fn createImage(
+    self: Device,
+    desc: vk.Image.Descriptor,
+) !vk.Image {
     return vk.Image.init(self, desc);
 }
 
@@ -442,6 +458,7 @@ pub const CombinedImageResource = struct {
 
 pub const BindingResource = union(enum) {
     buffer: BufferResource,
+    storage_image: ImageResource,
     image: ImageResource,
     sampler: SamplerResource,
     combined_image: CombinedImageResource,
@@ -449,6 +466,7 @@ pub const BindingResource = union(enum) {
     fn asVk(self: BindingResource) vk.api.VkDescriptorType {
         switch (self) {
             .buffer => return vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .storage_image => return vk.api.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .image => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
             .sampler => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLER,
             .combined_image => return vk.api.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -496,7 +514,7 @@ pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) void {
                     .range = resource.size,
                 };
             },
-            .image => |resource| {
+            .image, .storage_image => |resource| {
                 writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
                     .sampler = null,
                     .imageView = resource.view.vk,

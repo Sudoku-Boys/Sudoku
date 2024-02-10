@@ -2,6 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Camera = @import("Camera.zig");
+const Downsample = @import("Downsample.zig");
 const Material = @import("Material.zig");
 const Materials = @import("Materials.zig").Materials;
 const Mesh = @import("Mesh.zig");
@@ -99,6 +100,7 @@ const LightState = struct {
     bind_group_pool: vk.BindGroupPool,
     bind_group: vk.BindGroup,
 
+    transmission_downsample: Downsample,
     transmission_image: vk.Image,
     transmission_image_view: vk.ImageView,
     transmission_sampler: vk.Sampler,
@@ -162,11 +164,14 @@ const LightState = struct {
             },
         });
 
+        const transmission_downsample = try Downsample.init(device);
+
         return .{
             .bind_group_layout = bind_group_layout,
             .bind_group_pool = bind_group_pool,
             .bind_group = bind_group,
 
+            .transmission_downsample = transmission_downsample,
             .transmission_image = transmission_image,
             .transmission_image_view = transmission_image_view,
             .transmission_sampler = transmission_sampler,
@@ -174,6 +179,7 @@ const LightState = struct {
     }
 
     pub fn deinit(self: LightState) void {
+        self.transmission_downsample.deinit();
         self.transmission_image_view.deinit();
         self.transmission_image.deinit();
         self.transmission_sampler.deinit();
@@ -183,12 +189,17 @@ const LightState = struct {
     }
 
     fn createTransmissionImage(device: vk.Device, extent: vk.Extent3D) !vk.Image {
+        const min_extent = @min(extent.width, extent.height);
+        const mip_level = std.math.log2(min_extent) + 1;
+
         return try device.createImage(.{
             .format = Renderer.Hdr.COLOR_FORMAT,
             .extent = extent,
+            .mip_levels = mip_level,
             .usage = .{
                 .transfer_dst = true,
                 .sampled = true,
+                .storage = true,
             },
             .memory = .{ .device_local = true },
         });
@@ -812,6 +823,21 @@ pub fn draw(
     hdr_image: vk.Image,
     scene: Scene,
 ) !void {
+    command_buffer.pipelineBarrier(.{
+        .src_stage = .{ .bottom_of_pipe = true },
+        .dst_stage = .{ .top_of_pipe = true },
+        .image_barriers = &.{
+            .{
+                .src_access = .{},
+                .dst_access = .{},
+                .old_layout = .Undefined,
+                .new_layout = .ShaderReadOnlyOptimal,
+                .image = self.light.transmission_image,
+                .aspect = .{ .color = true },
+            },
+        },
+    });
+
     command_buffer.beginRenderPass(.{
         .render_pass = self.hdr_render_pass,
         .framebuffer = framebuffer,
@@ -868,6 +894,31 @@ pub fn draw(
             .{
                 .src_access = .{},
                 .dst_access = .{},
+                .old_layout = .TransferDstOptimal,
+                .new_layout = .General,
+                .image = self.light.transmission_image,
+                .aspect = .{ .color = true },
+            },
+        },
+    });
+
+    try self.light.transmission_downsample.setImage(
+        self.device,
+        self.light.transmission_image,
+    );
+
+    self.light.transmission_downsample.dispatch(
+        command_buffer,
+        self.light.transmission_image,
+    );
+
+    command_buffer.pipelineBarrier(.{
+        .src_stage = .{ .bottom_of_pipe = true },
+        .dst_stage = .{ .top_of_pipe = true },
+        .image_barriers = &.{
+            .{
+                .src_access = .{},
+                .dst_access = .{},
                 .old_layout = .TransferSrcOptimal,
                 .new_layout = .ColorAttachmentOptimal,
                 .image = hdr_image,
@@ -876,7 +927,7 @@ pub fn draw(
             .{
                 .src_access = .{},
                 .dst_access = .{},
-                .old_layout = .TransferDstOptimal,
+                .old_layout = .General,
                 .new_layout = .ShaderReadOnlyOptimal,
                 .image = self.light.transmission_image,
                 .aspect = .{ .color = true },

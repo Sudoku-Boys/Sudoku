@@ -411,11 +411,11 @@ fn recordCommandBuffer(
 
     self.graphics_buffer.pipelineBarrier(.{
         .src_stage = .{ .bottom_of_pipe = true },
-        .dst_stage = .{ .color_attachment_output = true },
+        .dst_stage = .{ .top_of_pipe = true },
         .image_barriers = &.{
             .{
                 .src_access = .{},
-                .dst_access = .{ .color_attachment_write = true },
+                .dst_access = .{},
                 .old_layout = .Undefined,
                 .new_layout = .ColorAttachmentOptimal,
                 .image = self.hdr.color_image,

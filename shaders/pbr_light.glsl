@@ -178,6 +178,8 @@ PbrRefractionRay pbr_refract_solid_sphere(PbrPixel pixel) {
 }
 
 vec3 pbr_refraction(PbrPixel pixel, vec3 e) {
+    if (pixel.transmission == 0.0) return vec3(0.0);
+
     PbrRefractionRay ray = pbr_refract_solid_sphere(pixel);
     vec3 t = min(vec3(1.0), exp(-pixel.absorption * ray.distance));
 

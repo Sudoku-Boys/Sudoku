@@ -1,0 +1,12 @@
+#version 450
+
+layout(binding = 0, rgba16f) uniform image2D image;
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(image).xy;
+
+    int mip_level = 0;
+
+    if (coord.x >= size.x) mip_level += 1;
+}

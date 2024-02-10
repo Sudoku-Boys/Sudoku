@@ -276,6 +276,14 @@ pub fn pipelineBarrier(
     );
 }
 
+pub fn bindComputePipeline(self: CommandBuffer, pipeline: vk.ComputePipeline) void {
+    vk.api.vkCmdBindPipeline(self.vk, vk.api.VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.vk);
+}
+
+pub fn dispatch(self: CommandBuffer, x: u32, y: u32, z: u32) void {
+    vk.api.vkCmdDispatch(self.vk, x, y, z);
+}
+
 pub const RenderArea = struct {
     offset: vk.Offset2D = .{},
     extent: vk.Extent2D,
@@ -334,14 +342,23 @@ pub fn bindGraphicsPipeline(self: CommandBuffer, pipeline: vk.GraphicsPipeline) 
 
 pub fn bindBindGroup(
     self: CommandBuffer,
-    pipeline: vk.GraphicsPipeline,
+    pipeline: anytype,
     index: u32,
     bind_group: vk.BindGroup,
     dynamic_offsets: []u32,
 ) void {
+    var bind_point: vk.api.VkPipelineBindPoint = undefined;
+    if (@TypeOf(pipeline) == vk.GraphicsPipeline) {
+        bind_point = vk.api.VK_PIPELINE_BIND_POINT_GRAPHICS;
+    } else if (@TypeOf(pipeline) == vk.ComputePipeline) {
+        bind_point = vk.api.VK_PIPELINE_BIND_POINT_COMPUTE;
+    } else {
+        @compileError("Unsupported pipeline type");
+    }
+
     vk.api.vkCmdBindDescriptorSets(
         self.vk,
-        vk.api.VK_PIPELINE_BIND_POINT_GRAPHICS,
+        bind_point,
         pipeline.layout,
         index,
         1,

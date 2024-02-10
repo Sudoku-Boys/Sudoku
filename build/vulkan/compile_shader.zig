@@ -132,6 +132,10 @@ pub fn main() !void {
         kind = c.shaderc_glsl_fragment_shader;
     }
 
+    if (std.mem.eql(u8, args[2], "compute")) {
+        kind = c.shaderc_glsl_compute_shader;
+    }
+
     const result = c.shaderc_compile_into_spv(
         compiler,
         processor.output.items.ptr,

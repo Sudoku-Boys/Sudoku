@@ -9,6 +9,7 @@ pub const BindGroupPool = @import("BindGroupPool.zig");
 pub const Buffer = @import("Buffer.zig");
 pub const CommandBuffer = @import("CommandBuffer.zig");
 pub const CommandPool = @import("CommandPool.zig");
+pub const ComputePipeline = @import("ComputePipeline.zig");
 pub const Device = @import("Device.zig");
 pub const Fence = @import("Fence.zig");
 pub const Framebuffer = @import("Framebuffer.zig");
