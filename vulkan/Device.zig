@@ -459,7 +459,7 @@ pub const CombinedImageResource = struct {
 pub const BindingResource = union(enum) {
     buffer: BufferResource,
     storage_image: ImageResource,
-    image: ImageResource,
+    sampled_image: ImageResource,
     sampler: SamplerResource,
     combined_image: CombinedImageResource,
 
@@ -467,7 +467,7 @@ pub const BindingResource = union(enum) {
         switch (self) {
             .buffer => return vk.api.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .storage_image => return vk.api.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .image => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .sampled_image => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
             .sampler => return vk.api.VK_DESCRIPTOR_TYPE_SAMPLER,
             .combined_image => return vk.api.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         }
@@ -514,7 +514,7 @@ pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) void {
                     .range = resource.size,
                 };
             },
-            .image, .storage_image => |resource| {
+            .sampled_image, .storage_image => |resource| {
                 writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
                     .sampler = null,
                     .imageView = resource.view.vk,

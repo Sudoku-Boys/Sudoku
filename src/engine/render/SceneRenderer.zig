@@ -136,6 +136,7 @@ const LightState = struct {
         const transmission_image_view = try transmission_image.createView(.{
             .format = Renderer.Hdr.COLOR_FORMAT,
             .aspect = .{ .color = true },
+            .mip_levels = transmission_image.mip_levels,
         });
         errdefer transmission_image_view.deinit();
 
@@ -145,6 +146,9 @@ const LightState = struct {
             .address_mode_u = .ClampToEdge,
             .address_mode_v = .ClampToEdge,
             .address_mode_w = .ClampToEdge,
+            .mipmap_mode = .Linear,
+            .min_lod = 0.0,
+            .max_lod = 100.0,
         });
         errdefer transmission_sampler.deinit();
 
@@ -213,6 +217,7 @@ const LightState = struct {
         self.transmission_image_view = try self.transmission_image.createView(.{
             .format = Renderer.Hdr.COLOR_FORMAT,
             .aspect = .{ .color = true },
+            .mip_levels = self.transmission_image.mip_levels,
         });
 
         device.updateBindGroups(.{
@@ -834,6 +839,7 @@ pub fn draw(
                 .new_layout = .ShaderReadOnlyOptimal,
                 .image = self.light.transmission_image,
                 .aspect = .{ .color = true },
+                .level_count = self.light.transmission_image.mip_levels,
             },
         },
     });
@@ -871,6 +877,7 @@ pub fn draw(
                 .new_layout = .TransferDstOptimal,
                 .image = self.light.transmission_image,
                 .aspect = .{ .color = true },
+                .level_count = self.light.transmission_image.mip_levels,
             },
         },
     });
@@ -898,6 +905,7 @@ pub fn draw(
                 .new_layout = .General,
                 .image = self.light.transmission_image,
                 .aspect = .{ .color = true },
+                .level_count = self.light.transmission_image.mip_levels,
             },
         },
     });
@@ -931,6 +939,7 @@ pub fn draw(
                 .new_layout = .ShaderReadOnlyOptimal,
                 .image = self.light.transmission_image,
                 .aspect = .{ .color = true },
+                .level_count = self.light.transmission_image.mip_levels,
             },
         },
     });

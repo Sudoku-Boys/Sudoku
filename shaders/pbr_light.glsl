@@ -183,10 +183,15 @@ vec3 pbr_refraction(PbrPixel pixel, vec3 e) {
     PbrRefractionRay ray = pbr_refract_solid_sphere(pixel);
     vec3 t = min(vec3(1.0), exp(-pixel.absorption * ray.distance));
 
+    float s = saturate(pixel.eta_ir * 3.0 - 2.0);
+    float perceptual_roughness = mix(pixel.perceptual_roughness, 0.0, s);
+
     vec4 position = camera.view_proj * vec4(ray.position, 1.0);
     vec2 uv = position.xy / position.w * 0.5 + 0.5;
 
-    vec3 color = textureLod(transmission_sampler, uv, 0.0).rgb;
+    float levels = textureQueryLevels(transmission_sampler);
+    float lod = perceptual_roughness * perceptual_roughness * levels;
+    vec3 color = textureLod(transmission_sampler, uv, lod).rgb;
 
     color *= pixel.diffuse;
     color *= 1.0 - e;
