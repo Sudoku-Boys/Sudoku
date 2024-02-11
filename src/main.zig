@@ -16,7 +16,6 @@ pub fn main() !void {
         .allocator = allocator,
         .required_extensions = engine.Window.requiredVulkanExtensions(),
     });
-
     defer instance.deinit();
 
     const window = try engine.Window.init(.{
@@ -37,8 +36,15 @@ pub fn main() !void {
         .color = engine.Color.WHITE,
     });
 
-    const flashing = try materials.add(engine.StandardMaterial{
+    const left = try materials.add(engine.StandardMaterial{
         .color = .{ .r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0 },
+        .transmission = 0.9,
+        .roughness = 0.25,
+    });
+
+    const right = try materials.add(engine.StandardMaterial{
+        .color = .{ .r = 0.9, .g = 0.7, .b = 0.6, .a = 1.0 },
+        .roughness = 0.5,
     });
 
     var meshes = engine.Meshes.init(allocator);
@@ -58,13 +64,13 @@ pub fn main() !void {
 
     try scene.objects.append(.{
         .mesh = cube,
-        .material = flashing,
+        .material = left,
         .transform = engine.Transform.xyz(-2, 0, 0),
     });
 
     try scene.objects.append(.{
         .mesh = cube,
-        .material = flashing,
+        .material = right,
         .transform = engine.Transform.xyz(2, 0, 0),
     });
 
@@ -72,7 +78,7 @@ pub fn main() !void {
         .allocator = allocator,
         .device = device,
         .surface = window.surface,
-        .present_mode = .Fifo,
+        .present_mode = .Immediate,
     });
     defer renderer.deinit();
 
@@ -132,7 +138,7 @@ pub fn main() !void {
             scene.camera.transform.rotation = rotY.mul(rotX);
         }
 
-        materials.getPtr(engine.StandardMaterial, flashing).?.color = .{
+        materials.getPtr(engine.StandardMaterial, left).?.color = .{
             .r = (engine.sin(time) + 1.0) / 2.0,
             .g = (engine.cos(time) + 1.0) / 2.0,
             .b = (engine.sin(time) * engine.cos(time) + 1.0) / 2.0,

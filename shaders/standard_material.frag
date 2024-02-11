@@ -1,8 +1,7 @@
 #version 450
 
-#include "camera.glsl"
-#include "pbr_light.glsl"
 #include "pbr.glsl"
+#include "camera.glsl"
 
 layout(location = 0) in vec3 v_position;
 layout(location = 1) in vec3 v_normal;
@@ -22,11 +21,12 @@ layout(set = 0, binding = 0) uniform StandardMaterial {
     float clearcoat_roughness;
 
     float thickness;
+    float transmission;
+
+    vec4 absorption;
+    vec4 subsurface_color;
 
     float index_of_refraction;
-    vec4 absorption;
-
-    vec4 subsurface_color;
     float subsurface_power;
 } standard_material;
 
@@ -50,6 +50,7 @@ void main() {
 
     material.thickness = standard_material.thickness;
 
+    material.transmission = standard_material.transmission;
     material.index_of_refraction = standard_material.index_of_refraction;
     material.absorption = standard_material.absorption.rgb;
 
@@ -64,5 +65,6 @@ void main() {
     light.intensity = 1.0;
     
     vec3 color = pbr_light_directional(pixel, light);
+    color += pbr_refraction(pixel, vec3(0.0));
     o_color = vec4(color, 1.0);
 }
