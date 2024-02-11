@@ -49,6 +49,26 @@ pub fn init(device: vk.Device, desc: Descriptor) !BindGroupLayout {
     };
 }
 
+/// TODO :: remove me
+// TODO :: remove me
+pub fn empty(device: vk.Device) !BindGroupLayout {
+    const layout_info = vk.api.VkDescriptorSetLayoutCreateInfo{
+        .sType = vk.api.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = null,
+        .flags = 0,
+        .bindingCount = 0,
+        .pBindings = null,
+    };
+
+    var layout: vk.api.VkDescriptorSetLayout = undefined;
+    try vk.check(vk.api.vkCreateDescriptorSetLayout(device.vk, &layout_info, null, &layout));
+
+    return .{
+        .vk = layout,
+        .device = device.vk,
+    };
+}
+
 pub fn deinit(self: BindGroupLayout) void {
     vk.api.vkDestroyDescriptorSetLayout(self.device, self.vk, null);
 }

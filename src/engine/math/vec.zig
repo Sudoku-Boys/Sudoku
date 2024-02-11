@@ -1,5 +1,8 @@
 const std = @import("std");
 
+const Mat4 = @import("mat4.zig").Mat4;
+const intrinsic = @import("simd.zig");
+
 pub fn vec2(v0: f32, v1: f32) Vec2 {
     return Vec2.init(v0, v1);
 }
@@ -59,15 +62,6 @@ pub const Vec3 = extern union {
         return Vec3{ .v = .{ v0, v1, v2 } };
     }
 
-    pub fn all(v: anytype) Vec3 {
-        if (@TypeOf(v) == Vec3) return v;
-        if (@TypeOf(v) == f32 or @TypeOf(v) == comptime_float) {
-            return Vec3{ .v = .{ v, v, v } };
-        }
-
-        @compileError("Invalid type for all");
-    }
-
     pub fn reflect(vec: Vec3, normal: Vec3) Vec3 {
         return Vec3{ .v = vec.sub(normal.muls(2 * vec.dot(normal))) };
     }
@@ -92,15 +86,35 @@ pub const Vec4 = extern union {
         return Vec4{ .v = .{ v0, v1, v2, v3 } };
     }
 
-    pub fn all(v: anytype) Vec4 {
-        if (@TypeOf(v) == Vec4) return v;
-        if (@TypeOf(v) == f32 or @TypeOf(v) == comptime_float) {
-            return Vec4{ .v = .{ v, v, v, v } };
-        }
+    /// for the boys that don't know how to matrix math
+    /// multiply vector (as row) by matrix
+    /// [1x4] * [4x4] = [1x4]
+    pub fn mulm(v: Vec4, m: Mat4) Vec4 {
+        // load matrix
+        const r0 = m.v[0];
+        const r1 = m.v[1];
+        const r2 = m.v[2];
+        const r3 = m.v[3];
 
-        @compileError("Invalid type for all");
+        // load vector
+        const p0 = intrinsic.permute(v.v, .{ 0, 0, 0, 0 });
+        const p1 = intrinsic.permute(v.v, .{ 1, 1, 1, 1 });
+        const p2 = intrinsic.permute(v.v, .{ 2, 2, 2, 2 });
+        const p3 = intrinsic.permute(v.v, .{ 3, 3, 3, 3 });
+
+        return Vec4{ .v = r0 * p0 + r1 * p1 + r2 * p2 + r3 * p3 };
     }
 };
+
+test "mulm" {
+    const m: Mat4 = Mat4.init(.{ 1, 2, 3, 4 }, .{ 5, 6, 7, 8 }, .{ 9, 10, 11, 12 }, .{ 13, 14, 15, 16 });
+    const v: Vec4 = Vec4.init(1, 2, 3, 4);
+    const out = v.mulm(m);
+    const expected = Vec4.init(90, 100, 110, 120);
+    for (0..4) |i| {
+        std.debug.assert(out.v[i] == expected.v[i]);
+    }
+}
 
 fn swizzleType(comptime size: usize) type {
     return switch (size) {
@@ -187,6 +201,21 @@ fn VecBase(comptime T: type, comptime size: usize) type {
 
         pub fn neg(a: T) T {
             return .{ .v = -a.v };
+        }
+
+        pub fn all(a: f32) T {
+            return .{ .v = @as(@Vector(size, f32), @splat(a)) };
+        }
+
+        pub fn clone(a: T) T {
+            return a;
+        }
+
+        pub fn from(a: anytype) T {
+            if (@TypeOf(a) == T) return a;
+            if (@TypeOf(a) == f32 or @TypeOf(a) == comptime_float) return T{ .v = @as(@Vector(size, f32), @splat(a)) };
+            if (@TypeOf(a) == @Vector(size, f32)) return T{ .v = a };
+            @compileError("Vector cannot be created from given type");
         }
 
         pub fn dot(a: T, b: T) f32 {

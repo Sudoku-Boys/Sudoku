@@ -79,6 +79,63 @@ pub inline fn cos(f: f32) f32 {
     return x2 * (x2 * (-64.0 * x + 80.0) - 20.0) + 1.0;
 }
 
+test "cos error" {
+    var max_aerror: f32 = 0;
+    var aerror_idx: f32 = 0;
+    var max_perror: f32 = 0;
+    var perror_idx: f32 = 0;
+
+    for (0..65536) |i| {
+        const f: f32 = @as(f32, @floatFromInt(i)) / (2 * 65536.0);
+        const tc = cos(f);
+        const sc = std.math.cos(f * std.math.pi * 2);
+
+        if (@fabs(tc - sc) > max_aerror) {
+            max_aerror = @fabs(tc - sc);
+            aerror_idx = f;
+        }
+        if (@fabs(sc) > 0.000001 and @fabs((tc - sc) / sc) > max_perror) {
+            max_perror = @fabs((tc - sc) / sc);
+            perror_idx = f;
+        }
+    }
+
+    std.debug.print("\nmax absolute error fcos({d}) e={d}\n\tfcos = {d}\n\t cos = {d}\n", .{
+        aerror_idx,
+        max_aerror,
+        cos(aerror_idx),
+        std.math.cos(aerror_idx * 2 * std.math.pi),
+    });
+    std.debug.print("max percent error fcos({d}) e={d}%\n\tfcos = {d}\n\t cos = {d}\n", .{
+        perror_idx,
+        max_perror * 100.0,
+        cos(perror_idx),
+        std.math.cos(perror_idx * 2 * std.math.pi),
+    });
+}
+
+test "idiot rule" {
+    var max_error: f32 = 0;
+    var error_idx: f32 = 0;
+
+    for (0..65536) |i| {
+        const f: f32 = @as(f32, @floatFromInt(i)) / (65536.0);
+        const tc = fcos(f);
+        const ts = fsin(f);
+
+        if (@fabs(tc * tc + ts * ts - 1) > max_error) {
+            max_error = @fabs(tc * tc + ts * ts - 1);
+            error_idx = f;
+        }
+    }
+
+    std.debug.print("\nmax absolute error ({d}) e={d}\n\tfcos**2 + fsin**2 = {d}\n", .{
+        error_idx,
+        max_error,
+        fcos(error_idx) * fcos(error_idx) + fsin(error_idx) * fsin(error_idx),
+    });
+}
+
 pub inline fn sin(f: f32) f32 {
     const s0: f32 = @fabs(f - 0.25) + 0.5;
     const s1: f32 = s0 - @trunc(s0) - 0.5;

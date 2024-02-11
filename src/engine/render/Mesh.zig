@@ -152,7 +152,7 @@ pub fn indexBytes(mesh: Mesh) []const u8 {
 pub fn plane(allocator: std.mem.Allocator, size: anytype, color: u32) !Mesh {
     var mesh = init(allocator);
 
-    const s = math.Vec2.all(size);
+    const s = math.Vec2.from(size);
 
     const positions = try mesh.addAttribute([3]f32, POSITION);
     try positions.append(math.vec3(-s._.x, 0.0, -s._.y).f);
