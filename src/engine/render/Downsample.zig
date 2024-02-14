@@ -30,8 +30,12 @@ pub fn init(device: vk.Device) !Downsample {
     const bind_group_pool = try device.createBindGroupPool(.{
         .pool_sizes = &.{
             .{
+                .type = .CombinedImageSampler,
+                .count = 16,
+            },
+            .{
                 .type = .StorageImage,
-                .count = 2,
+                .count = 16,
             },
         },
         .max_groups = 16,
