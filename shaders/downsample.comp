@@ -1,0 +1,52 @@
+#version 450
+
+layout(binding = 0) uniform sampler2D src;
+layout(binding = 1, rgba16f) uniform image2D dst;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+vec4 sample_one(vec2 coord) {
+    ivec2 size = textureSize(src, 0);
+    vec2 uv = (coord + 0.5) / vec2(size);
+    return texture(src, uv);
+}
+
+// NOTE: this is a lot of samples, but it's a very nice filter
+vec4 sample_src(ivec2 coord) {
+    vec4 a = sample_one(coord + vec2(-1.0, -1.0));
+    vec4 b = sample_one(coord + vec2(-1.0,  0.0));
+    vec4 c = sample_one(coord + vec2(-1.0,  1.0));
+
+    vec4 d = sample_one(coord + vec2( 0.0, -1.0));
+    vec4 e = sample_one(coord + vec2( 0.0,  0.0));
+    vec4 f = sample_one(coord + vec2( 0.0,  1.0));
+
+    vec4 g = sample_one(coord + vec2( 1.0, -1.0));
+    vec4 h = sample_one(coord + vec2( 1.0,  0.0));
+    vec4 i = sample_one(coord + vec2( 1.0,  1.0));
+
+    vec4 j = sample_one(coord + vec2(-0.5,  0.0));
+    vec4 k = sample_one(coord + vec2( 0.5,  0.0));
+    vec4 l = sample_one(coord + vec2( 0.0, -0.5));
+    vec4 m = sample_one(coord + vec2( 0.0,  0.5));
+
+    vec2 div = vec2(0.5, 0.125) / 4.0;
+
+    vec4 s = (j + k + l + m) * div.x;
+    s += (e + e + e + e) * div.y;
+    s += (b + b + d + d) * div.y;
+    s += (f + f + h + h) * div.y;
+    s += (a + c + g + i) * div.y; 
+
+    return s;
+}
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 size = imageSize(dst).xy;
+    if (coord.x >= size.x || coord.y >= size.y) return;
+
+    vec4 s = sample_src(coord * 2);
+    imageStore(dst, coord, s);
+}

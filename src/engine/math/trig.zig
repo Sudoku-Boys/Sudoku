@@ -47,6 +47,22 @@ pub inline fn fsin(f: f32) f32 {
     return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
 }
 
+pub const SinCos = struct {
+    sin: f32,
+    cos: f32,
+};
+
+pub inline fn fsincos(f: f32) SinCos {
+    const _cos = fcos(f);
+    var _sin = @sqrt(1.0 - _cos * _cos);
+    if (@mod(f, 1.0) >= 0.5) _sin = -_sin;
+
+    return .{
+        .sin = _sin,
+        .cos = _cos,
+    };
+}
+
 pub inline fn cos(f: f32) f32 {
     // get abs cos(-x) = cos(x)
     // divide by 2PI, cos(1/2) = 0

@@ -41,6 +41,7 @@ pub const SubpassDependency = struct {
     dst_stage_mask: vk.PipelineStages = .{},
     src_access_mask: vk.Access = .{},
     dst_access_mask: vk.Access = .{},
+    dependencies: vk.Dependencies = .{},
 };
 
 pub const Descriptor = struct {
@@ -147,7 +148,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !RenderPass {
             .dstStageMask = @bitCast(dependency.dst_stage_mask),
             .srcAccessMask = @bitCast(dependency.src_access_mask),
             .dstAccessMask = @bitCast(dependency.dst_access_mask),
-            .dependencyFlags = 0,
+            .dependencyFlags = @bitCast(dependency.dependencies),
         };
     }
 

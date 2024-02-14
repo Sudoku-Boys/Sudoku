@@ -26,6 +26,14 @@ vk: vk.api.VkImage,
 memory: vk.api.VkDeviceMemory,
 
 format: vk.ImageFormat,
+extent: vk.Extent3D,
+type: vk.ImageType,
+mip_levels: u32,
+array_layers: u32,
+samples: u32,
+tiling: vk.ImageTiling,
+usage: vk.ImageUsages,
+sharing_mode: vk.SharingMode,
 
 device: vk.api.VkDevice,
 
@@ -82,6 +90,14 @@ pub fn init(device: vk.Device, desc: Descriptor) !Image {
         .memory = memory,
 
         .format = desc.format,
+        .extent = desc.extent,
+        .type = desc.type,
+        .mip_levels = desc.mip_levels,
+        .array_layers = desc.array_layers,
+        .samples = desc.samples,
+        .tiling = desc.tiling,
+        .usage = desc.usage,
+        .sharing_mode = desc.sharing_mode,
 
         .device = device.vk,
     };
