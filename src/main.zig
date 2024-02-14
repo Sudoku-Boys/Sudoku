@@ -90,6 +90,8 @@ pub fn main() !void {
     var mouse_position = window.mousePosition();
     var camera_direction = engine.Vec2.ZERO;
 
+    var grabbed: bool = false;
+
     while (!window.shouldClose()) {
         engine.Window.pollEvents();
         try renderer.drawFrame(
@@ -130,6 +132,14 @@ pub fn main() !void {
         mouse_position = window.mousePosition();
 
         if (window.isMouseDown(0)) {
+            grabbed = true;
+            window.cursorDisabled();
+        } else if (window.isMouseDown(1)) {
+            grabbed = false;
+            window.cursorNormal();
+        }
+
+        if (grabbed) {
             camera_direction = camera_direction.add(mouse_delta.mul(0.001));
 
             const rotX = engine.Quat.rotateY(camera_direction._.x);
