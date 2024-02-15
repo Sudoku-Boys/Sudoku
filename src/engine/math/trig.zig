@@ -1,59 +1,12 @@
 const std = @import("std");
 
-pub inline fn fcos(f: f32) f32 {
-    @setRuntimeSafety(false); // shutup
-    @setFloatMode(.Optimized);
-    // from float to int
-    const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)));
-    //
-    //	abs(0x40000000 - source) = diff
-    //	0.5 - diff;
-    //
-    // shift right to switch to 31 bit fixed point
-    var it: i32 = @as(i32, @bitCast(source >> 1));
-    // do this to make range between [0, 0.5]
-    it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
-
-    const x: i64 = it;
-
-    //
-    //	1 - 20(x^2) + 80(x^4) - 64(x^5)
-    //	1 - 5(2x)^2 + 5(2x)^4 - 2(2x)^5
-    //	1 + 5((2x)^4 - (2x)^2) - 2(2x)^5
-    //
-
-    const x2: i64 = (x * x) >> 29;
-    const x4: i64 = x2 * x2 >> 31;
-    const c: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
-
-    return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
-}
-
-pub inline fn fsin(f: f32) f32 {
-    @setRuntimeSafety(false); // shutup
-    @setFloatMode(.Optimized);
-    // from float to int
-    const source: u32 = @intFromFloat((f - 0.25) * @as(f32, @floatFromInt(0x100000000)));
-
-    var it: i32 = @as(i32, @bitCast(source >> 1));
-    it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
-
-    const x: i64 = it;
-
-    const x2: i64 = (x * x) >> 29;
-    const x4: i64 = x2 * x2 >> 31;
-    const c: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
-
-    return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
-}
-
 pub const SinCos = struct {
     sin: f32,
     cos: f32,
 };
 
 pub inline fn fsincos(f: f32) SinCos {
-    const _cos = fcos(f);
+    const _cos = cos(f);
     var _sin = @sqrt(1.0 - _cos * _cos);
     if (@mod(f, 1.0) >= 0.5) _sin = -_sin;
 
