@@ -209,6 +209,21 @@ pub fn copyImageToImage(self: CommandBuffer, desc: CopyImageToImageDescriptor) v
     );
 }
 
+pub const MemoryBarrier = struct {
+    src_access: vk.Access,
+    dst_access: vk.Access,
+};
+
+pub const BufferMemoryBarrier = struct {
+    src_access: vk.Access,
+    dst_access: vk.Access,
+    src_queue_family: u32 = vk.api.VK_QUEUE_FAMILY_IGNORED,
+    dst_queue_family: u32 = vk.api.VK_QUEUE_FAMILY_IGNORED,
+    buffer: vk.Buffer,
+    offset: u64,
+    size: u64,
+};
+
 pub const ImageMemoryBarrier = struct {
     src_access: vk.Access,
     dst_access: vk.Access,
@@ -228,18 +243,48 @@ pub const PipelineBarrierDescriptor = struct {
     src_stage: vk.PipelineStages = .{},
     dst_stage: vk.PipelineStages = .{},
     dependencies: vk.Dependencies = .{ .by_region = true },
+    memory_barriers: []const MemoryBarrier = &.{},
+    buffer_barriers: []const BufferMemoryBarrier = &.{},
     image_barriers: []const ImageMemoryBarrier = &.{},
 
-    pub const MAX_IMAGE_BARRIERS = 64;
+    pub const MAX_BARRIERS = 32;
 };
 
 pub fn pipelineBarrier(
     self: CommandBuffer,
     desc: PipelineBarrierDescriptor,
 ) void {
-    std.debug.assert(desc.image_barriers.len <= PipelineBarrierDescriptor.MAX_IMAGE_BARRIERS);
+    std.debug.assert(desc.memory_barriers.len + desc.buffer_barriers.len + desc.image_barriers.len <= PipelineBarrierDescriptor.MAX_BARRIERS);
+    var barrierBuffer: [PipelineBarrierDescriptor.MAX_BARRIERS * @sizeOf(ImageMemoryBarrier)]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&barrierBuffer);
+    const allocator = fba.allocator();
 
-    var imageBarriers: [PipelineBarrierDescriptor.MAX_IMAGE_BARRIERS]vk.api.VkImageMemoryBarrier = undefined;
+    var memoryBarriers: [*c]vk.api.VkMemoryBarrier = @ptrCast(allocator.alloc(vk.api.VkMemoryBarrier, desc.memory_barriers.len) catch unreachable);
+    var bufferBarriers: [*c]vk.api.VkBufferMemoryBarrier = @ptrCast(allocator.alloc(vk.api.VkBufferMemoryBarrier, desc.buffer_barriers.len) catch unreachable);
+    var imageBarriers: [*c]vk.api.VkImageMemoryBarrier = @ptrCast(allocator.alloc(vk.api.VkImageMemoryBarrier, desc.image_barriers.len) catch unreachable);
+
+    for (desc.memory_barriers, 0..) |barrier, i| {
+        memoryBarriers[i] = vk.api.VkMemoryBarrier{
+            .sType = vk.api.VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = null,
+            .srcAccessMask = @bitCast(barrier.src_access),
+            .dstAccessMask = @bitCast(barrier.dst_access),
+        };
+    }
+
+    for (desc.buffer_barriers, 0..) |barrier, i| {
+        bufferBarriers[i] = vk.api.VkBufferMemoryBarrier{
+            .sType = vk.api.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .pNext = null,
+            .srcAccessMask = @bitCast(barrier.src_access),
+            .dstAccessMask = @bitCast(barrier.dst_access),
+            .srcQueueFamilyIndex = barrier.src_queue_family,
+            .dstQueueFamilyIndex = barrier.dst_queue_family,
+            .buffer = barrier.buffer.vk,
+            .offset = barrier.offset,
+            .size = barrier.size,
+        };
+    }
 
     for (desc.image_barriers, 0..) |barrier, i| {
         imageBarriers[i] = vk.api.VkImageMemoryBarrier{
@@ -267,12 +312,12 @@ pub fn pipelineBarrier(
         @bitCast(desc.src_stage),
         @bitCast(desc.dst_stage),
         @bitCast(desc.dependencies),
-        0,
-        null,
-        0,
-        null,
+        @intCast(desc.memory_barriers.len),
+        memoryBarriers,
+        @intCast(desc.buffer_barriers.len),
+        bufferBarriers,
         @intCast(desc.image_barriers.len),
-        &imageBarriers,
+        imageBarriers,
     );
 }
 
