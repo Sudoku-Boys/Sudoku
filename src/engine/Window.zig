@@ -61,7 +61,7 @@ pub fn isKeyDown(window: Window, key: u32) bool {
     if (key < 128) {
         return glfw.glfwGetKey(window.window, std.ascii.toUpper(@truncate(key))) == glfw.GLFW_PRESS;
     }
-    
+
     return glfw.glfwGetKey(window.window, @as(i32, @bitCast(key))) == glfw.GLFW_PRESS;
 }
 

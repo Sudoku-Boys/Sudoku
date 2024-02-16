@@ -107,7 +107,7 @@ pub fn main() !void {
         const currentTime = std.time.milliTimestamp();
         if (currentTime - lastTime > 1000) {
             lastTime = currentTime;
-            var buffer : [128:0]u8 = undefined;
+            var buffer: [128:0]u8 = undefined;
             const tit = try std.fmt.bufPrint(&buffer, "Sudoku Engine | FPS: {d}", .{frames});
             buffer[tit.len] = 0;
             window.setTitle(tit);
