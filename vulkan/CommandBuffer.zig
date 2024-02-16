@@ -255,7 +255,7 @@ pub fn pipelineBarrier(
     desc: PipelineBarrierDescriptor,
 ) void {
     std.debug.assert(desc.memory_barriers.len + desc.buffer_barriers.len + desc.image_barriers.len <= PipelineBarrierDescriptor.MAX_BARRIERS);
-    var barrierBuffer: [PipelineBarrierDescriptor.MAX_BARRIERS * @sizeOf(ImageMemoryBarrier)]u8 = undefined;
+    var barrierBuffer: [PipelineBarrierDescriptor.MAX_BARRIERS * @sizeOf(vk.api.VkImageMemoryBarrier)]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&barrierBuffer);
     const allocator = fba.allocator();
 
