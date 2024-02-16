@@ -3,12 +3,14 @@ const std = @import("std");
 const ShaderStage = enum {
     Vertex,
     Fragment,
+    Compute,
 
     fn fromPath(name: []const u8) ?ShaderStage {
         const ext = std.fs.path.extension(name);
 
         if (std.mem.eql(u8, ext, ".vert")) return .Vertex;
         if (std.mem.eql(u8, ext, ".frag")) return .Fragment;
+        if (std.mem.eql(u8, ext, ".comp")) return .Compute;
 
         return null;
     }
@@ -17,6 +19,7 @@ const ShaderStage = enum {
         switch (self) {
             .Vertex => return "vertex",
             .Fragment => return "fragment",
+            .Compute => return "compute",
         }
     }
 };

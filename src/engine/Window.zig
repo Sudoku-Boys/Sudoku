@@ -158,6 +158,21 @@ pub fn setTitle(self: *const Window, title: []const u8) void {
     glfw.glfwSetWindowTitle(self.window, title.ptr);
 }
 
+pub fn cursorNormal(self: *const Window) void {
+    if (glfw.glfwGetInputMode(self.window, glfw.GLFW_CURSOR) != glfw.GLFW_CURSOR_NORMAL)
+        glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, glfw.GLFW_CURSOR_NORMAL);
+}
+
+pub fn cursorHidden(self: *const Window) void {
+    if (glfw.glfwGetInputMode(self.window, glfw.GLFW_CURSOR) != glfw.GLFW_CURSOR_HIDDEN)
+        glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, glfw.GLFW_CURSOR_HIDDEN);
+}
+
+pub fn cursorDisabled(self: *const Window) void {
+    if (glfw.glfwGetInputMode(self.window, glfw.GLFW_CURSOR) != glfw.GLFW_CURSOR_DISABLED)
+        glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, glfw.GLFW_CURSOR_DISABLED);
+}
+
 pub fn deinit(self: *const Window) void {
     // destroy the surface first
     self.surface.deinit();

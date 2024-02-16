@@ -36,8 +36,15 @@ pub fn main() !void {
         .color = engine.Color.WHITE,
     });
 
-    const flashing = try materials.add(engine.StandardMaterial{
+    const left = try materials.add(engine.StandardMaterial{
         .color = .{ .r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0 },
+        .transmission = 0.9,
+        .roughness = 0.25,
+    });
+
+    const right = try materials.add(engine.StandardMaterial{
+        .color = .{ .r = 0.9, .g = 0.7, .b = 0.6, .a = 1.0 },
+        .roughness = 0.5,
     });
 
     var meshes = engine.Meshes.init(allocator);
@@ -57,13 +64,13 @@ pub fn main() !void {
 
     try scene.objects.append(.{
         .mesh = cube,
-        .material = flashing,
+        .material = left,
         .transform = engine.Transform.xyz(-2, 0, 0),
     });
 
     try scene.objects.append(.{
         .mesh = cube,
-        .material = flashing,
+        .material = right,
         .transform = engine.Transform.xyz(2, 0, 0),
     });
 
@@ -71,7 +78,7 @@ pub fn main() !void {
         .allocator = allocator,
         .device = device,
         .surface = window.surface,
-        .present_mode = .Fifo,
+        .present_mode = .Immediate,
     });
     defer renderer.deinit();
 
@@ -82,6 +89,8 @@ pub fn main() !void {
 
     var mouse_position = window.mousePosition();
     var camera_direction = engine.Vec2.ZERO;
+
+    var grabbed: bool = false;
 
     while (!window.shouldClose()) {
         engine.Window.pollEvents();
@@ -123,6 +132,14 @@ pub fn main() !void {
         mouse_position = window.mousePosition();
 
         if (window.isMouseDown(0)) {
+            grabbed = true;
+            window.cursorDisabled();
+        } else if (window.isMouseDown(1)) {
+            grabbed = false;
+            window.cursorNormal();
+        }
+
+        if (grabbed) {
             camera_direction = camera_direction.add(mouse_delta.mul(0.001));
 
             const rotX = engine.Quat.rotateY(camera_direction._.x);
@@ -131,7 +148,7 @@ pub fn main() !void {
             scene.camera.transform.rotation = rotY.mul(rotX);
         }
 
-        materials.getPtr(engine.StandardMaterial, flashing).?.color = .{
+        materials.getPtr(engine.StandardMaterial, left).?.color = .{
             .r = (engine.sin(time) + 1.0) / 2.0,
             .g = (engine.cos(time) + 1.0) / 2.0,
             .b = (engine.sin(time) * engine.cos(time) + 1.0) / 2.0,

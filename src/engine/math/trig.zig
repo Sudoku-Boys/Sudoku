@@ -54,7 +54,8 @@ pub const SinCos = struct {
 
 pub inline fn fsincos(f: f32) SinCos {
     const _cos = fcos(f);
-    const _sin = @sqrt(1.0 - _cos * _cos);
+    var _sin = @sqrt(1.0 - _cos * _cos);
+    if (@mod(f, 1.0) >= 0.5) _sin = -_sin;
 
     return .{
         .sin = _sin,
