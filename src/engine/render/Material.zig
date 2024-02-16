@@ -2,18 +2,84 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Mesh = @import("Mesh.zig");
+const OpaqueMaterial = @import("OpaqueMaterial.zig");
 
 const Material = @This();
 
 pub const Context = struct {
     allocator: *std.mem.Allocator,
-    device: *vk.Device,
+    device: *const vk.Device,
     staging_buffer: *vk.StagingBuffer,
 };
 
 pub const VertexAttribute = struct {
     name: []const u8,
     format: vk.VertexFormat,
+};
+
+pub const BindGroupLayouts = struct {
+    model: vk.BindGroupLayout,
+    camera: vk.BindGroupLayout,
+    light: vk.BindGroupLayout,
+
+    pub fn init(device: vk.Device) !BindGroupLayouts {
+        const model = try createModel(device);
+        errdefer model.deinit();
+
+        const camera = try createCamera(device);
+        errdefer camera.deinit();
+
+        const light = try createLight(device);
+        errdefer light.deinit();
+
+        return .{
+            .model = model,
+            .camera = camera,
+            .light = light,
+        };
+    }
+
+    pub fn deinit(self: BindGroupLayouts) void {
+        self.model.deinit();
+        self.camera.deinit();
+        self.light.deinit();
+    }
+
+    fn createModel(device: vk.Device) !vk.BindGroupLayout {
+        return try device.createBindGroupLayout(.{
+            .entries = &.{
+                .{
+                    .binding = 0,
+                    .stages = .{ .vertex = true },
+                    .type = .UniformBuffer,
+                },
+            },
+        });
+    }
+
+    fn createCamera(device: vk.Device) !vk.BindGroupLayout {
+        return try device.createBindGroupLayout(.{
+            .entries = &.{
+                .{
+                    .binding = 0,
+                    .type = .UniformBuffer,
+                    .stages = .{ .vertex = true, .fragment = true },
+                },
+            },
+        });
+    }
+
+    fn createLight(device: vk.Device) !vk.BindGroupLayout {
+        return try device.createBindGroupLayout(.{
+            .entries = &.{
+                .{
+                    .binding = 0,
+                    .stages = .{ .fragment = true },
+                    .type = .CombinedImageSampler,
+                },
+            },
+        });
+    }
 };
 
 pub const Pipeline = struct {
@@ -195,15 +261,25 @@ pub fn bindGroupLayoutEntries(self: Material) []const vk.BindGroupLayout.Entry {
     return self.vtable.bind_group_layout_entries();
 }
 
-pub fn readsTransmissionImage(self: Material, material: *anyopaque) bool {
-    return self.vtable.reads_transmission_image(material);
+pub fn readsTransmissionImage(
+    self: Material,
+    material: OpaqueMaterial,
+) bool {
+    return self.vtable.reads_transmission_image(material.data.ptr);
 }
 
-pub fn allocState(self: Material, allocator: std.mem.Allocator) !*anyopaque {
+pub fn allocState(
+    self: Material,
+    allocator: std.mem.Allocator,
+) !*anyopaque {
     return self.vtable.alloc_state(allocator);
 }
 
-pub fn freeState(self: Material, allocator: std.mem.Allocator, state: *anyopaque) void {
+pub fn freeState(
+    self: Material,
+    allocator: std.mem.Allocator,
+    state: *anyopaque,
+) void {
     self.vtable.free_state(allocator, state);
 }
 
@@ -216,17 +292,18 @@ pub fn initState(
     try self.vtable.init_state(state, cx, bind_group);
 }
 
-pub fn deinitState(self: Material, state: *anyopaque) void {
+pub fn deinitState(
+    self: Material,
+    state: *anyopaque,
+) void {
     self.vtable.deinit_state(state);
 }
 
 pub fn update(
     self: Material,
-    material: *anyopaque,
+    material: OpaqueMaterial,
     state: *anyopaque,
     cx: Context,
-    bind_group: vk.BindGroup,
 ) anyerror!void {
-    _ = bind_group;
-    try self.vtable.update(material, state, cx);
+    try self.vtable.update(material.data.ptr, state, cx);
 }

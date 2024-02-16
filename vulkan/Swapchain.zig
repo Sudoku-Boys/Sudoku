@@ -31,6 +31,7 @@ fn pickPresentMode(
 
 fn createImageViews(
     device: vk.api.VkDevice,
+    extent: vk.Extent3D,
     format: vk.ImageFormat,
     images: []const vk.api.VkImage,
     views: []vk.ImageView,
@@ -65,6 +66,13 @@ fn createImageViews(
         views[i] = .{
             .vk = image_view,
             .device = device,
+
+            .format = format,
+            .extent = extent,
+            .type = .Image2D,
+            .mip_levels = 1,
+            .array_layers = 1,
+            .samples = 1,
         };
     }
 }
@@ -266,7 +274,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Swapchain {
     errdefer device.allocator.free(views);
 
     // create the image views
-    try createImageViews(device.vk, result.format, images, views);
+    try createImageViews(device.vk, result.extent, result.format, images, views);
 
     return .{
         .vk = result.swapchain,
@@ -330,7 +338,7 @@ pub fn recreate(self: *Swapchain) !void {
 
     // re-allocate memory for the views and framebuffers
     self.views = try self.device.allocator.realloc(self.views, images_count);
-    try createImageViews(self.device.vk, result.format, self.images, self.views);
+    try createImageViews(self.device.vk, result.extent, result.format, self.images, self.views);
 }
 
 pub fn acquireNextImage(

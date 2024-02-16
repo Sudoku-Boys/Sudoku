@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const Meshes = @import("Meshes.zig").Meshes;
-const Materials = @import("Materials.zig").Materials;
+const Meshes = @import("Meshes.zig");
+const Materials = @import("Materials.zig");
 const Transform = @import("../Transform.zig");
 
 const Object = @This();

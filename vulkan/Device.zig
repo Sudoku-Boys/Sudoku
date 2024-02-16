@@ -389,13 +389,6 @@ pub fn createFence(
     return vk.Fence.init(self, signalled);
 }
 
-pub fn createFramebuffer(
-    self: Device,
-    desc: vk.Framebuffer.Descriptor,
-) !vk.Framebuffer {
-    return vk.Framebuffer.init(self, desc);
-}
-
 pub fn createGraphicsPipeline(
     self: Device,
     desc: vk.GraphicsPipeline.Descriptor,

@@ -9,6 +9,8 @@ bind_groups: [16]vk.BindGroup,
 views: [32]?vk.ImageView,
 sampler: vk.Sampler,
 pipeline: vk.ComputePipeline,
+extent: vk.Extent2D,
+mip_levels: u32,
 
 pub fn init(device: vk.Device) !Downsample {
     const bind_group_layout = try device.createBindGroupLayout(.{
@@ -72,6 +74,8 @@ pub fn init(device: vk.Device) !Downsample {
         .views = .{null} ** 32,
         .sampler = sampler,
         .pipeline = pipeline,
+        .extent = undefined,
+        .mip_levels = 0,
     };
 }
 
@@ -87,6 +91,9 @@ pub fn deinit(self: Downsample) void {
 }
 
 pub fn setImage(self: *Downsample, device: vk.Device, image: vk.Image) !void {
+    self.extent = image.extent.as2D();
+    self.mip_levels = image.mip_levels;
+
     for (0..image.mip_levels - 1) |i| {
         if (self.views[i * 2] != null) {
             self.views[i * 2 + 0].?.deinit();
@@ -138,14 +145,14 @@ pub fn setImage(self: *Downsample, device: vk.Device, image: vk.Image) !void {
     }
 }
 
-pub fn dispatch(self: Downsample, command_buffer: vk.CommandBuffer, image: vk.Image) void {
+pub fn dispatch(self: Downsample, command_buffer: vk.CommandBuffer) void {
     command_buffer.bindComputePipeline(self.pipeline);
 
-    for (0..image.mip_levels - 1) |i| {
+    for (0..self.mip_levels - 1) |i| {
         command_buffer.bindBindGroup(self.pipeline, 0, self.bind_groups[i], &.{});
 
-        const x = (image.extent.width >> @intCast(i)) / 8;
-        const y = (image.extent.height >> @intCast(i)) / 8;
+        const x = (self.extent.width >> @intCast(i)) / 8;
+        const y = (self.extent.height >> @intCast(i)) / 8;
         command_buffer.dispatch(@max(x, 1), @max(y, 1), 1);
 
         command_buffer.pipelineBarrier(.{

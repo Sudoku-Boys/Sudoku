@@ -12,23 +12,23 @@ vec4 sample_one(vec2 coord) {
 }
 
 // NOTE: this is a lot of samples, but it's a very nice filter
-vec4 sample_src(ivec2 coord) {
-    vec4 a = sample_one(coord + vec2(-1.0, -1.0));
-    vec4 b = sample_one(coord + vec2(-1.0,  0.0));
-    vec4 c = sample_one(coord + vec2(-1.0,  1.0));
+vec4 sample_src(ivec2 coord, float scale) {
+    vec4 a = sample_one(coord + vec2(-1.0, -1.0) * scale);
+    vec4 b = sample_one(coord + vec2(-1.0,  0.0) * scale);
+    vec4 c = sample_one(coord + vec2(-1.0,  1.0) * scale);
 
-    vec4 d = sample_one(coord + vec2( 0.0, -1.0));
-    vec4 e = sample_one(coord + vec2( 0.0,  0.0));
-    vec4 f = sample_one(coord + vec2( 0.0,  1.0));
+    vec4 d = sample_one(coord + vec2( 0.0, -1.0) * scale);
+    vec4 e = sample_one(coord + vec2( 0.0,  0.0) * scale);
+    vec4 f = sample_one(coord + vec2( 0.0,  1.0) * scale);
 
-    vec4 g = sample_one(coord + vec2( 1.0, -1.0));
-    vec4 h = sample_one(coord + vec2( 1.0,  0.0));
-    vec4 i = sample_one(coord + vec2( 1.0,  1.0));
+    vec4 g = sample_one(coord + vec2( 1.0, -1.0) * scale);
+    vec4 h = sample_one(coord + vec2( 1.0,  0.0) * scale);
+    vec4 i = sample_one(coord + vec2( 1.0,  1.0) * scale);
 
-    vec4 j = sample_one(coord + vec2(-0.5,  0.0));
-    vec4 k = sample_one(coord + vec2( 0.5,  0.0));
-    vec4 l = sample_one(coord + vec2( 0.0, -0.5));
-    vec4 m = sample_one(coord + vec2( 0.0,  0.5));
+    vec4 j = sample_one(coord + vec2(-0.5,  0.0) * scale);
+    vec4 k = sample_one(coord + vec2( 0.5,  0.0) * scale);
+    vec4 l = sample_one(coord + vec2( 0.0, -0.5) * scale);
+    vec4 m = sample_one(coord + vec2( 0.0,  0.5) * scale);
 
     vec2 div = vec2(0.5, 0.125) / 4.0;
 
@@ -47,6 +47,6 @@ void main() {
     ivec2 size = imageSize(dst).xy;
     if (coord.x >= size.x || coord.y >= size.y) return;
 
-    vec4 s = sample_src(coord * 2);
+    vec4 s = sample_src(coord * 2, 2.0);
     imageStore(dst, coord, s);
 }

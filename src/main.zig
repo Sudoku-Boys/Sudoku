@@ -155,6 +155,8 @@ pub fn main() !void {
             .a = 1.0,
         };
 
+        materials.getPtr(engine.StandardMaterial, left).?.roughness = (engine.sin(time) + 1.0) / 2.0;
+
         const axis = engine.vec3(1.0, -2.0, 0.8).normalize();
         const rotation = engine.Quat.rotate(axis, dt);
 
