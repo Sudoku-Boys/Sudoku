@@ -92,6 +92,9 @@ pub fn main() !void {
 
     var grabbed: bool = false;
 
+    var lastTime: i64 = std.time.milliTimestamp();
+    var frames: u64 = 0;
+
     while (!window.shouldClose()) {
         engine.Window.pollEvents();
         try renderer.drawFrame(
@@ -99,6 +102,17 @@ pub fn main() !void {
             meshes,
             scene,
         );
+        frames += 1;
+
+        const currentTime = std.time.milliTimestamp();
+        if (currentTime - lastTime > 1000) {
+            lastTime = currentTime;
+            var buffer : [128:0]u8 = undefined;
+            const tit = try std.fmt.bufPrint(&buffer, "Sudoku Engine | FPS: {d}", .{frames});
+            buffer[tit.len] = 0;
+            window.setTitle(tit);
+            frames = 0;
+        }
 
         const dt: f32 = @as(f32, @floatFromInt(frame_timer.lap())) / std.time.ns_per_s;
         time += dt;
@@ -134,7 +148,7 @@ pub fn main() !void {
         if (window.isMouseDown(0)) {
             grabbed = true;
             window.cursorDisabled();
-        } else if (window.isMouseDown(1)) {
+        } else if (window.isKeyDown(engine.Window.glfw.GLFW_KEY_ESCAPE)) {
             grabbed = false;
             window.cursorNormal();
         }
