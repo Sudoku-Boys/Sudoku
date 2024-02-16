@@ -54,13 +54,13 @@ test "cos error" {
         }
     }
 
-    std.debug.print("\nmax absolute error fcos({d}) e={d}\n\tfcos = {d}\n\t cos = {d}\n", .{
+    std.debug.print("\nmax absolute error cos({d}) e={d}\n\tcos = {d}\n\t std.cos = {d}\n", .{
         aerror_idx,
         max_aerror,
         cos(aerror_idx),
         std.math.cos(aerror_idx * 2 * std.math.pi),
     });
-    std.debug.print("max percent error fcos({d}) e={d}%\n\tfcos = {d}\n\t cos = {d}\n", .{
+    std.debug.print("max percent error cos({d}) e={d}%\n\tcos = {d}\n\t std.cos = {d}\n", .{
         perror_idx,
         max_perror * 100.0,
         cos(perror_idx),
@@ -74,8 +74,8 @@ test "idiot rule" {
 
     for (0..65536) |i| {
         const f: f32 = @as(f32, @floatFromInt(i)) / (65536.0);
-        const tc = fcos(f);
-        const ts = fsin(f);
+        const tc = cos(f);
+        const ts = sin(f);
 
         if (@fabs(tc * tc + ts * ts - 1) > max_error) {
             max_error = @fabs(tc * tc + ts * ts - 1);
@@ -83,10 +83,10 @@ test "idiot rule" {
         }
     }
 
-    std.debug.print("\nmax absolute error ({d}) e={d}\n\tfcos**2 + fsin**2 = {d}\n", .{
+    std.debug.print("\nmax absolute error ({d}) e={d}\n\tcos**2 + sin**2 = {d}\n", .{
         error_idx,
         max_error,
-        fcos(error_idx) * fcos(error_idx) + fsin(error_idx) * fsin(error_idx),
+        cos(error_idx) * cos(error_idx) + sin(error_idx) * sin(error_idx),
     });
 }
 

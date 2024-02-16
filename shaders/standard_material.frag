@@ -65,6 +65,6 @@ void main() {
     light.intensity = 1.0;
     
     vec3 color = pbr_light_directional(pixel, light);
-    color += pbr_refraction(pixel, vec3(0.0));
+    color += pbr_refraction(pixel, vec3(0.5));
     o_color = vec4(color, 1.0);
 }
