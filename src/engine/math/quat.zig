@@ -52,8 +52,8 @@ pub const Quat = extern struct {
 
     pub fn rotate(axis: Vec3, angle: f32) Quat {
         const halfAngle = angle / 2.0;
-        const sinHalfAngle = trig.fsin(halfAngle);
-        const cosHalfAngle = trig.fcos(halfAngle);
+        const sinHalfAngle = trig.sin(halfAngle);
+        const cosHalfAngle = trig.cos(halfAngle);
 
         const quat: Quat = .{
             .x = axis._.x * sinHalfAngle,

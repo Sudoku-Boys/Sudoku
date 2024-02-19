@@ -156,10 +156,13 @@ pub const ImageType = enum(u8) {
 };
 
 pub const ViewType = enum(u32) {
+    Image1D = api.VK_IMAGE_VIEW_TYPE_1D,
+    Image1DArray = api.VK_IMAGE_VIEW_TYPE_1D_ARRAY,
     Image2D = api.VK_IMAGE_VIEW_TYPE_2D,
-    Image3D = api.VK_IMAGE_VIEW_TYPE_3D,
+    Image2DArray = api.VK_IMAGE_VIEW_TYPE_2D_ARRAY,
     ImageCube = api.VK_IMAGE_VIEW_TYPE_CUBE,
-    ImageArray = api.VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+    ImageCubeArray = api.VK_IMAGE_VIEW_TYPE_CUBE_ARRAY,
+    Image3D = api.VK_IMAGE_VIEW_TYPE_3D,
 };
 
 pub const IndexType = enum(u8) {

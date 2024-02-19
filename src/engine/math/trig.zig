@@ -1,59 +1,12 @@
 const std = @import("std");
 
-pub inline fn fcos(f: f32) f32 {
-    @setRuntimeSafety(false); // shutup
-    @setFloatMode(.Optimized);
-    // from float to int
-    const source: u32 = @intFromFloat(f * @as(f32, @floatFromInt(0x100000000)));
-    //
-    //	abs(0x40000000 - source) = diff
-    //	0.5 - diff;
-    //
-    // shift right to switch to 31 bit fixed point
-    var it: i32 = @as(i32, @bitCast(source >> 1));
-    // do this to make range between [0, 0.5]
-    it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
-
-    const x: i64 = it;
-
-    //
-    //	1 - 20(x^2) + 80(x^4) - 64(x^5)
-    //	1 - 5(2x)^2 + 5(2x)^4 - 2(2x)^5
-    //	1 + 5((2x)^4 - (2x)^2) - 2(2x)^5
-    //
-
-    const x2: i64 = (x * x) >> 29;
-    const x4: i64 = x2 * x2 >> 31;
-    const c: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
-
-    return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
-}
-
-pub inline fn fsin(f: f32) f32 {
-    @setRuntimeSafety(false); // shutup
-    @setFloatMode(.Optimized);
-    // from float to int
-    const source: u32 = @intFromFloat((f - 0.25) * @as(f32, @floatFromInt(0x100000000)));
-
-    var it: i32 = @as(i32, @bitCast(source >> 1));
-    it = 0x40000000 - std.zig.c_builtins.__builtin_abs(0x40000000 - it);
-
-    const x: i64 = it;
-
-    const x2: i64 = (x * x) >> 29;
-    const x4: i64 = x2 * x2 >> 31;
-    const c: i64 = 0x80000000 + 5 * (x4 - x2) - (x4 * x >> 29);
-
-    return @as(f32, @floatFromInt(c)) / @as(f32, @floatFromInt(0x80000000));
-}
-
 pub const SinCos = struct {
     sin: f32,
     cos: f32,
 };
 
 pub inline fn fsincos(f: f32) SinCos {
-    const _cos = fcos(f);
+    const _cos = cos(f);
     var _sin = @sqrt(1.0 - _cos * _cos);
     if (@mod(f, 1.0) >= 0.5) _sin = -_sin;
 
@@ -101,13 +54,13 @@ test "cos error" {
         }
     }
 
-    std.debug.print("\nmax absolute error fcos({d}) e={d}\n\tfcos = {d}\n\t cos = {d}\n", .{
+    std.debug.print("\nmax absolute error cos({d}) e={d}\n\tcos = {d}\n\t std.cos = {d}\n", .{
         aerror_idx,
         max_aerror,
         cos(aerror_idx),
         std.math.cos(aerror_idx * 2 * std.math.pi),
     });
-    std.debug.print("max percent error fcos({d}) e={d}%\n\tfcos = {d}\n\t cos = {d}\n", .{
+    std.debug.print("max percent error cos({d}) e={d}%\n\tcos = {d}\n\t std.cos = {d}\n", .{
         perror_idx,
         max_perror * 100.0,
         cos(perror_idx),
@@ -121,8 +74,8 @@ test "idiot rule" {
 
     for (0..65536) |i| {
         const f: f32 = @as(f32, @floatFromInt(i)) / (65536.0);
-        const tc = fcos(f);
-        const ts = fsin(f);
+        const tc = cos(f);
+        const ts = sin(f);
 
         if (@fabs(tc * tc + ts * ts - 1) > max_error) {
             max_error = @fabs(tc * tc + ts * ts - 1);
@@ -130,10 +83,10 @@ test "idiot rule" {
         }
     }
 
-    std.debug.print("\nmax absolute error ({d}) e={d}\n\tfcos**2 + fsin**2 = {d}\n", .{
+    std.debug.print("\nmax absolute error ({d}) e={d}\n\tcos**2 + sin**2 = {d}\n", .{
         error_idx,
         max_error,
-        fcos(error_idx) * fcos(error_idx) + fsin(error_idx) * fsin(error_idx),
+        cos(error_idx) * cos(error_idx) + sin(error_idx) * sin(error_idx),
     });
 }
 
