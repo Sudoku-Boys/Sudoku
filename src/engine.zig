@@ -1,4 +1,6 @@
 pub const Color = @import("engine/Color.zig");
+pub const Entities = @import("engine/Entities.zig");
+pub const Dense = @import("engine/Dense.zig");
 pub const Transform = @import("engine/Transform.zig");
 pub const Window = @import("engine/Window.zig");
 pub const math = @import("engine/math.zig");

@@ -29,6 +29,9 @@ pub fn main() !void {
     });
     defer device.deinit();
 
+    var entities = engine.Entities.init(allocator);
+    defer entities.deinit();
+
     var materials = engine.Materials.init(allocator);
     defer materials.deinit();
 
