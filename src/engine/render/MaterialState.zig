@@ -1,9 +1,9 @@
 const std = @import("std");
 const vk = @import("vulkan");
 
+const asset = @import("../asset.zig");
 const Material = @import("Material.zig");
 const Materials = @import("Materials.zig");
-const OpaqueMaterial = @import("OpaqueMaterial.zig");
 
 const TypeId = std.builtin.TypeId;
 
@@ -14,16 +14,12 @@ pub const Instance = struct {
     bind_group_pool: vk.BindGroupPool,
     bind_group: vk.BindGroup,
     opaque_state: *anyopaque,
-    reads_transmission: bool,
-    generation: u64,
-    version: u64,
+    reads_screen_image: bool,
 
     fn init(
         cx: Material.Context,
         pipeline: Pipeline,
-        opaque_material: OpaqueMaterial,
-        generation: u32,
-        version: u32,
+        material: *anyopaque,
     ) !Instance {
         var pool_sizes: [vk.BindGroupPool.Descriptor.MAX_POOL_SIZES]vk.BindGroupPool.PoolSize = undefined;
         var pool_size_count: usize = 0;
@@ -54,24 +50,32 @@ pub const Instance = struct {
 
         const bind_group = try bind_group_pool.alloc(pipeline.bind_group_layout);
 
-        const opaque_data = try pipeline.material.allocState(cx.allocator.*);
-        errdefer pipeline.material.freeState(cx.allocator.*, opaque_data);
+        const opaque_data = try pipeline.material.allocState(cx.allocator);
+        errdefer pipeline.material.freeState(cx.allocator, opaque_data);
 
         try pipeline.material.initState(opaque_data, cx, bind_group);
 
-        var instance = Instance{
+        var state = .{
             .type_id = pipeline.material.type_id,
             .bind_group_pool = bind_group_pool,
             .bind_group = bind_group,
             .opaque_state = opaque_data,
-            .reads_transmission = false,
-            .generation = generation,
-            .version = version,
+            .reads_screen_image = false,
         };
 
-        try instance.update(cx, pipeline, opaque_material);
+        try state.update(pipeline, material);
 
-        return instance;
+        return state;
+    }
+
+    fn update(
+        self: *Instance,
+        cx: Material.Context,
+        pipeline: Pipeline,
+        material: *anyopaque,
+    ) !void {
+        try pipeline.material.update(material, self.opaque_state, cx);
+        self.reads_screen_image = pipeline.material.readsScreenImage(material);
     }
 
     pub fn deinit(
@@ -83,16 +87,6 @@ pub const Instance = struct {
         material.freeState(allocator, self.opaque_state);
 
         self.bind_group_pool.deinit();
-    }
-
-    fn update(
-        self: *Instance,
-        cx: Material.Context,
-        pipeline: Pipeline,
-        opaque_material: OpaqueMaterial,
-    ) !void {
-        try pipeline.material.update(opaque_material, self.opaque_state, cx);
-        self.reads_transmission = pipeline.material.readsTransmissionImage(opaque_material);
     }
 };
 
@@ -186,32 +180,33 @@ pub const Pipeline = struct {
 };
 
 allocator: std.mem.Allocator,
-instances: std.ArrayList(?Instance),
-pipelines: std.AutoHashMap(TypeId, Pipeline),
+instances: std.AutoHashMapUnmanaged(asset.DynamicAssetId, Instance),
+pipelines: std.AutoHashMapUnmanaged(TypeId, Pipeline),
 
 pub fn init(allocator: std.mem.Allocator) !MaterialState {
     return .{
         .allocator = allocator,
-        .instances = std.ArrayList(?Instance).init(allocator),
-        .pipelines = std.AutoHashMap(TypeId, Pipeline).init(allocator),
+        .instances = .{},
+        .pipelines = .{},
     };
 }
 
 pub fn deinit(self: *MaterialState) void {
-    for (self.instances.items) |optional_instance| {
-        if (optional_instance) |instance| {
-            const pipeline = self.pipelines.get(instance.type_id).?;
+    var instances = self.instances.valueIterator();
+    while (instances.next()) |instance| {
+        const pipeline = self.pipelines.get(instance.type_id).?;
 
-            instance.deinit(self.allocator, pipeline.material);
-        }
+        instance.deinit(self.allocator, pipeline.material);
     }
-    self.instances.deinit();
+
+    self.instances.deinit(self.allocator);
 
     var pipelines = self.pipelines.valueIterator();
     while (pipelines.next()) |pipeline| {
         pipeline.deinit();
     }
-    self.pipelines.deinit();
+
+    self.pipelines.deinit(self.allocator);
 }
 
 pub fn addMaterial(
@@ -228,23 +223,43 @@ pub fn addMaterial(
     const material = Material.init(T);
     const pipeline = try Pipeline.init(cx, material, layouts, render_pass);
 
-    try self.pipelines.put(type_id, pipeline);
+    try self.pipelines.put(self.allocator, type_id, pipeline);
 }
 
 pub fn getInstance(
     self: MaterialState,
-    id: Materials.Id,
+    asset_id: asset.DynamicAssetId,
 ) ?Instance {
-    if (id.index >= self.instances.items.len) return null;
-
-    const instance = self.instances.items[id.index] orelse return null;
-    if (instance.generation != id.generation) return null;
-
-    return instance;
+    return self.instances.get(asset_id);
 }
 
-pub fn getPipeline(self: *MaterialState, type_id: TypeId) ?Pipeline {
+pub fn getPipeline(
+    self: MaterialState,
+    type_id: TypeId,
+) ?Pipeline {
     return self.pipelines.get(type_id);
+}
+
+fn prepareMaterialState(
+    self: *MaterialState,
+    instance: *Instance,
+    pipeline: Pipeline,
+    entry: *Materials.Entry,
+) !void {
+    if (instance.generation != entry.generation) {
+        instance.deinit(self.allocator, pipeline.material);
+        instance.* = try self.createMaterialState(pipeline, entry);
+    }
+
+    if (instance.version != entry.version) {
+        try self.updateMaterialState(
+            pipeline,
+            instance,
+            entry.value,
+        );
+
+        instance.version = entry.version;
+    }
 }
 
 pub fn prepare(
@@ -252,44 +267,7 @@ pub fn prepare(
     cx: Material.Context,
     materials: Materials,
 ) !void {
-    if (self.instances.items.len < materials.len()) {
-        const old_len = self.instances.items.len;
-        const new_len = materials.len();
-
-        const delta = new_len - old_len;
-        try self.instances.appendNTimes(null, delta);
-    }
-
-    for (materials.entries.items, 0..) |optional_entry, i| {
-        const entry = optional_entry orelse continue;
-        const pipeline = self.pipelines.get(entry.value.type_id) orelse continue;
-
-        if (self.instances.items[i] == null) {
-            self.instances.items[i] = try Instance.init(
-                cx,
-                pipeline,
-                entry.value,
-                entry.generation,
-                entry.version,
-            );
-        }
-
-        const instance = &self.instances.items[i].?;
-
-        if (instance.generation != entry.generation) {
-            instance.deinit(self.allocator, pipeline.material);
-            instance.* = try Instance.init(
-                cx,
-                pipeline,
-                entry.value,
-                entry.generation,
-                entry.version,
-            );
-        }
-
-        if (instance.version != entry.version) {
-            try instance.update(cx, pipeline, entry.value);
-            instance.version = entry.version;
-        }
-    }
+    _ = materials;
+    _ = cx;
+    _ = self;
 }

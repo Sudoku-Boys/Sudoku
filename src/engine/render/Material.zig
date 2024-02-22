@@ -2,7 +2,6 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Mesh = @import("Mesh.zig");
-const OpaqueMaterial = @import("OpaqueMaterial.zig");
 
 const Material = @This();
 
@@ -99,7 +98,7 @@ pub const VTable = struct {
     pipeline: *const fn () Pipeline,
     bind_group_layout_entries: *const fn () []const vk.BindGroupLayout.Entry,
 
-    reads_transmission_image: *const fn (*anyopaque) bool,
+    reads_screen_image: *const fn (*anyopaque) bool,
 
     alloc_state: *const fn (std.mem.Allocator) anyerror!*anyopaque,
     free_state: *const fn (std.mem.Allocator, *anyopaque) void,
@@ -121,7 +120,7 @@ pub fn init(comptime T: type) Material {
             .pipeline = Opaque(T).pipeline,
             .bind_group_layout_entries = Opaque(T).bindGroupLayoutEntries,
 
-            .reads_transmission_image = Opaque(T).readsTransmissionImage,
+            .reads_screen_image = Opaque(T).readsScreenImage,
 
             .alloc_state = Opaque(T).allocState,
             .free_state = Opaque(T).freeState,
@@ -184,10 +183,10 @@ fn Opaque(comptime T: type) type {
             return T.bindGroupLayoutEntries();
         }
 
-        fn readsTransmissionImage(material: *anyopaque) bool {
-            if (@hasDecl(T, "readsTransmissionImage")) {
+        fn readsScreenImage(material: *anyopaque) bool {
+            if (@hasDecl(T, "readsScreenImage")) {
                 const material_ptr: *T = @ptrCast(@alignCast(material));
-                return material_ptr.readsTransmissionImage();
+                return material_ptr.readsScreenImage();
             } else {
                 return false;
             }
@@ -261,11 +260,11 @@ pub fn bindGroupLayoutEntries(self: Material) []const vk.BindGroupLayout.Entry {
     return self.vtable.bind_group_layout_entries();
 }
 
-pub fn readsTransmissionImage(
+pub fn readsScreenImage(
     self: Material,
-    material: OpaqueMaterial,
+    material: *anyopaque,
 ) bool {
-    return self.vtable.reads_transmission_image(material.data.ptr);
+    return self.vtable.reads_screen_image(material.data.ptr);
 }
 
 pub fn allocState(
@@ -301,7 +300,7 @@ pub fn deinitState(
 
 pub fn update(
     self: Material,
-    material: OpaqueMaterial,
+    material: *anyopaque,
     state: *anyopaque,
     cx: Context,
 ) anyerror!void {

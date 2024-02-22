@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 
+const asset = @import("../asset.zig");
 const Camera = @import("Camera.zig");
 const CameraState = @import("CameraState.zig");
 const LightState = @import("LightState.zig");
@@ -8,9 +9,7 @@ const Material = @import("Material.zig");
 const Materials = @import("Materials.zig");
 const MaterialState = @import("MaterialState.zig");
 const Mesh = @import("Mesh.zig");
-const Meshes = @import("Meshes.zig");
 const Object = @import("Object.zig");
-const OpaqueMaterial = @import("OpaqueMaterial.zig");
 const Renderer = @import("Renderer.zig");
 const Scene = @import("Scene.zig");
 const Sky = @import("Sky.zig");
@@ -41,18 +40,17 @@ const VertexBuffer = struct {
 };
 
 const MeshState = struct {
+    allocator: std.mem.Allocator,
     vertex_buffers: []const VertexBuffer,
     index_buffer: vk.Buffer,
     index_count: u32,
-    generation: u64,
-    version: u64,
 
-    pub fn deinit(self: MeshState, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: MeshState) void {
         for (self.vertex_buffers) |buffer| {
             buffer.buffer.deinit();
         }
 
-        allocator.free(self.vertex_buffers);
+        self.allocator.free(self.vertex_buffers);
         self.index_buffer.deinit();
     }
 
@@ -80,7 +78,7 @@ framebuffer: vk.Framebuffer,
 
 camera_state: CameraState,
 objects: std.ArrayList(?ObjectState),
-meshes: std.ArrayList(?MeshState),
+meshes: asset.Assets(MeshState),
 material_state: MaterialState,
 
 sky: Sky,
@@ -95,7 +93,10 @@ pub fn init(
     target: vk.Image,
 ) !SceneRenderer {
     const objects = std.ArrayList(?ObjectState).init(allocator);
-    const meshes = std.ArrayList(?MeshState).init(allocator);
+    errdefer objects.deinit();
+
+    var meshes = asset.Assets(MeshState).init(allocator);
+    errdefer meshes.deinit();
 
     var material_state = try MaterialState.init(allocator);
     errdefer material_state.deinit();
@@ -185,10 +186,6 @@ pub fn deinit(self: *SceneRenderer) void {
     self.sky.deinit();
 
     self.material_state.deinit();
-
-    for (self.meshes.items) |optional_state| {
-        if (optional_state) |state| state.deinit(self.allocator);
-    }
     self.meshes.deinit();
 
     for (self.objects.items) |optional_state| {
@@ -423,15 +420,12 @@ fn createObjectState(
 fn createMeshState(
     self: *SceneRenderer,
     device: vk.Device,
-    mesh_entry: *Meshes.Entry,
+    mesh: Mesh,
 ) !MeshState {
-    const vertex_buffers = try self.allocator.alloc(
-        VertexBuffer,
-        mesh_entry.value.attributes.items.len,
-    );
+    const vertex_buffers = try self.allocator.alloc(VertexBuffer, mesh.attributes.items.len);
     errdefer self.allocator.free(vertex_buffers);
 
-    for (mesh_entry.value.attributes.items, 0..) |attribute, i| {
+    for (mesh.attributes.items, 0..) |attribute, i| {
         const size = attribute.vertices.data.items.len;
         const buffer = try device.createBuffer(.{
             .size = size,
@@ -453,24 +447,23 @@ fn createMeshState(
     }
 
     const index_buffer = try device.createBuffer(.{
-        .size = mesh_entry.value.indexBytes().len,
+        .size = mesh.indexBytes().len,
         .usage = .{ .index_buffer = true, .transfer_dst = true },
         .memory = .{ .device_local = true },
     });
     errdefer index_buffer.deinit();
 
-    try self.staging_buffer.write(mesh_entry.value.indexBytes());
+    try self.staging_buffer.write(mesh.indexBytes());
     try self.staging_buffer.copyBuffer(.{
         .dst = index_buffer,
-        .size = mesh_entry.value.indexBytes().len,
+        .size = mesh.indexBytes().len,
     });
 
     return .{
+        .allocator = self.allocator,
         .vertex_buffers = vertex_buffers,
         .index_buffer = index_buffer,
-        .index_count = @intCast(mesh_entry.value.indices.items.len),
-        .generation = mesh_entry.generation,
-        .version = mesh_entry.version,
+        .index_count = @intCast(mesh.indices.items.len),
     };
 }
 
@@ -494,19 +487,6 @@ fn getObjectState(
 
     self.objects.items[index] = try self.createObjectState(device);
     return &self.objects.items[index].?;
-}
-
-fn getMeshState(
-    self: *SceneRenderer,
-    device: vk.Device,
-    mesh_entry: *Meshes.Entry,
-    index: usize,
-) !*MeshState {
-    try resizeArrayList(&self.meshes, index);
-    if (self.meshes.items[index]) |*state| return state;
-
-    self.meshes.items[index] = try self.createMeshState(device, mesh_entry);
-    return &self.meshes.items[index].?;
 }
 
 fn prepareObjectState(
@@ -536,24 +516,25 @@ fn prepareCameraState(
 fn prepareMeshState(
     self: *SceneRenderer,
     device: vk.Device,
-    mesh_state: *MeshState,
-    entry: *Meshes.Entry,
+    entry: asset.Assets(Mesh).Entry,
 ) !void {
-    if (mesh_state.version != entry.version or
-        mesh_state.generation != entry.generation)
-    {
-        mesh_state.deinit(self.allocator);
-        mesh_state.* = try self.createMeshState(device, entry);
+    if (self.meshes.getVersion(entry.id.cast(MeshState)) != entry.version()) {
+        const state = try self.createMeshState(device, entry.item());
+
+        self.meshes.remove(entry.id.cast(MeshState));
+        _ = try self.meshes.put(entry.id.cast(MeshState), state);
+        self.meshes.setVersion(entry.id.cast(MeshState), entry.version());
     }
 }
 
 pub fn prepare(
     self: *SceneRenderer,
     device: vk.Device,
+    meshes: asset.Assets(Mesh),
     materials: Materials,
-    meshes: Meshes,
     scene: Scene,
 ) !void {
+    _ = materials;
     try self.prepareCameraState(scene.camera);
 
     for (scene.objects.items, 0..) |object, i| {
@@ -561,11 +542,9 @@ pub fn prepare(
         try self.prepareObjectState(object_state, object);
     }
 
-    for (meshes.entries.items, 0..) |*optional_entry, i| {
-        if (optional_entry.*) |*entry| {
-            const mesh_state = try self.getMeshState(device, entry, i);
-            try self.prepareMeshState(device, mesh_state, entry);
-        }
+    var mesh_iterator = meshes.iterator();
+    while (mesh_iterator.next()) |entry| {
+        try self.prepareMeshState(device, entry);
     }
 
     const cx = .{
@@ -573,8 +552,9 @@ pub fn prepare(
         .device = &device,
         .staging_buffer = &self.staging_buffer,
     };
+    _ = cx;
 
-    try self.material_state.prepare(cx, materials);
+    //try self.material_state.prepare(cx, materials);
 }
 
 fn recordDrawObjects(
@@ -585,11 +565,11 @@ fn recordDrawObjects(
 ) void {
     for (scene.objects.items, 0..) |object, i| {
         const object_state = self.objects.items[i] orelse continue;
-        const mesh_state = self.meshes.items[object.mesh.index] orelse continue;
+        const mesh_state = self.meshes.get(object.mesh.cast(MeshState)) orelse continue;
         const instance = self.material_state.getInstance(object.material) orelse continue;
         const pipeline = self.material_state.getPipeline(instance.type_id) orelse continue;
 
-        if (instance.reads_transmission != read_transmission) continue;
+        if (instance.reads_screen_image != read_transmission) continue;
 
         command_buffer.bindGraphicsPipeline(pipeline.pipeline);
         command_buffer.bindBindGroup(pipeline.pipeline, 0, instance.bind_group, &.{});

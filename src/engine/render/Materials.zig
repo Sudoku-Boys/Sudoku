@@ -1,120 +1,72 @@
 const std = @import("std");
-const OpaqueMaterial = @import("OpaqueMaterial.zig");
+
+const asset = @import("../asset.zig");
 
 const Materials = @This();
 
-pub const Id = struct {
-    index: usize,
-    generation: u32,
-};
-
-pub const Entry = struct {
-    value: OpaqueMaterial,
-    generation: u32,
-    version: u32,
-};
-
 allocator: std.mem.Allocator,
-entries: std.ArrayList(?Entry),
-free_list: std.ArrayList(Id),
+assets: std.AutoHashMapUnmanaged(std.builtin.TypeId, asset.DynamicAssets),
 
 pub fn init(allocator: std.mem.Allocator) Materials {
-    return Materials{
+    return .{
         .allocator = allocator,
-        .entries = std.ArrayList(?Entry).init(allocator),
-        .free_list = std.ArrayList(Id).init(allocator),
+        .assets = .{},
     };
 }
 
-pub fn deinit(self: Materials) void {
-    for (self.entries.items) |optional_entry| {
-        if (optional_entry) |entry| {
-            entry.value.deinit(self.allocator);
-        }
+pub fn deinit(self: *Materials) void {
+    var it = self.assets.valueIterator();
+    while (it.next()) |assets| {
+        assets.destroy(self.allocator);
     }
 
-    self.entries.deinit();
-    self.free_list.deinit();
+    self.assets.deinit(self.allocator);
 }
 
-pub fn len(self: Materials) usize {
-    return self.entries.items.len;
+pub fn register(self: *Materials, comptime T: type) !void {
+    const type_id = std.meta.activeTag(@typeInfo(T));
+
+    if (!self.assets.contains(type_id)) {
+        const assets = asset.Assets(T).init(self.allocator);
+        const dynamic = try asset.DynamicAssets.alloc(self.allocator, assets);
+        try self.assets.put(self.allocator, type_id, dynamic);
+    }
 }
 
-pub fn contains(self: Materials, id: Id) bool {
-    if (id.index >= self.entries.items.len) {
-        return false;
+pub fn add(self: *Materials, material: anytype) !asset.AssetId(@TypeOf(material)) {
+    const T = @TypeOf(material);
+    try self.register(T);
+
+    return self.getAssets(T).?.add(material);
+}
+
+pub fn getAssets(self: *Materials, comptime T: type) ?*asset.Assets(T) {
+    const type_id = std.meta.activeTag(@typeInfo(T));
+
+    if (self.assets.get(type_id)) |dynamic| {
+        return dynamic.cast(T);
     }
 
-    const entry = self.entries.items[id.index].?;
-    return entry.generation == id.generation;
+    return null;
 }
 
-pub fn add(self: *Materials, value: anytype) !Id {
-    const material = try OpaqueMaterial.init(self.allocator, value);
+pub fn getPtr(self: *Materials, asset_id: anytype) ?*@TypeOf(asset_id).Item {
+    const T = @TypeOf(asset_id);
 
-    if (self.free_list.items.len > 0) {
-        var id = self.free_list.pop();
-        id.generation += 1;
-
-        self.entries.items[id.index] = .{
-            .value = material,
-            .generation = id.generation,
-            .version = 0,
-        };
-
-        return id;
+    if (self.getAssets(T.Item)) |assets| {
+        return assets.getPtr(asset_id);
     }
 
-    const index = self.entries.items.len;
-    try self.entries.append(.{
-        .value = material,
-        .generation = 0,
-        .version = 0,
-    });
-
-    return .{
-        .index = index,
-        .generation = 0,
-    };
+    return null;
 }
 
-pub fn getOpaque(self: Materials, id: Id) ?OpaqueMaterial {
-    if (!self.contains(id)) return null;
-    return self.entries.items[id.index].?.value;
-}
-
-pub fn get(self: Materials, comptime T: type, id: Id) ?T {
-    const material = self.getOpaque(id) orelse return null;
-    return material.cast(T);
-}
-
-pub fn getPtr(self: *Materials, comptime T: type, id: Id) ?*T {
-    if (!self.contains(id)) return null;
-
-    const entry = &self.entries.items[id.index].?;
-    entry.version += 1;
-
-    return entry.value.castPtr(T);
-}
-
-pub const EntryIterator = struct {
-    entries: []?Entry,
-
-    pub fn next(self: *EntryIterator) ?Entry {
-        while (self.entries.len > 0) {
-            const optional_entry = self.entries[0];
-            self.entries = self.entries[1..];
-
-            return optional_entry orelse continue;
-        }
-
-        return null;
+pub fn getOpaque(
+    self: *Materials,
+    asset_id: asset.DynamicAssetId,
+) ?*asset.DynamicAssets.Asset {
+    if (self.assets.get(asset_id.type_id)) |dynamic| {
+        return dynamic.getAsset(asset_id);
     }
-};
 
-pub fn entryIterator(self: Materials) EntryIterator {
-    return .{
-        .entries = self.entries.items,
-    };
+    return null;
 }

@@ -47,7 +47,7 @@ pub fn main() !void {
         .roughness = 0.5,
     });
 
-    var meshes = engine.Meshes.init(allocator);
+    var meshes = engine.Assets(engine.Mesh).init(allocator);
     defer meshes.deinit();
 
     const plane = try meshes.add(try engine.Mesh.plane(allocator, 20.0, 0xffffffff));
@@ -58,19 +58,19 @@ pub fn main() !void {
 
     try scene.objects.append(.{
         .mesh = plane,
-        .material = ground,
+        .material = ground.dynamic(),
         .transform = engine.Transform.xyz(0, -2, 0),
     });
 
     try scene.objects.append(.{
         .mesh = cube,
-        .material = left,
+        .material = left.dynamic(),
         .transform = engine.Transform.xyz(-2, 0, 0),
     });
 
     try scene.objects.append(.{
         .mesh = cube,
-        .material = right,
+        .material = right.dynamic(),
         .transform = engine.Transform.xyz(2, 0, 0),
     });
 
@@ -95,8 +95,8 @@ pub fn main() !void {
     while (!window.shouldClose()) {
         engine.Window.pollEvents();
         try renderer.drawFrame(
-            materials,
             meshes,
+            materials,
             scene,
         );
 
@@ -148,14 +148,14 @@ pub fn main() !void {
             scene.camera.transform.rotation = rotY.mul(rotX);
         }
 
-        materials.getPtr(engine.StandardMaterial, left).?.color = .{
+        materials.getPtr(left).?.color = .{
             .r = (engine.sin(time) + 1.0) / 2.0,
             .g = (engine.cos(time) + 1.0) / 2.0,
             .b = (engine.sin(time) * engine.cos(time) + 1.0) / 2.0,
             .a = 1.0,
         };
 
-        materials.getPtr(engine.StandardMaterial, left).?.roughness = (engine.sin(time) + 1.0) / 2.0;
+        materials.getPtr(left).?.roughness = (engine.sin(time) + 1.0) / 2.0;
 
         const axis = engine.vec3(1.0, -2.0, 0.8).normalize();
         const rotation = engine.Quat.rotate(axis, dt);

@@ -1,7 +1,9 @@
 const std = @import("std");
 const vk = @import("vulkan");
+
+const asset = @import("../asset.zig");
 const Materials = @import("Materials.zig");
-const Meshes = @import("Meshes.zig");
+const Mesh = @import("Mesh.zig");
 const Tonemap = @import("Tonemap.zig");
 const Scene = @import("Scene.zig");
 const SceneRenderer = @import("SceneRenderer.zig");
@@ -332,11 +334,11 @@ fn recreate(self: *Renderer) !void {
 
 pub fn drawFrame(
     self: *Renderer,
+    meshes: asset.Assets(Mesh),
     materials: Materials,
-    meshes: Meshes,
     scene: Scene,
 ) !void {
-    try self.scene_renderer.prepare(self.device, materials, meshes, scene);
+    try self.scene_renderer.prepare(self.device, meshes, materials, scene);
 
     try self.in_flight.wait(.{});
 
