@@ -44,7 +44,7 @@ pub fn deinit(self: *Dense, allocator: std.mem.Allocator) void {
         for (self.entries.items) |entry| {
             if (entry.isNull()) continue;
 
-            const data = self.data.items[entry.index .. entry.index + self.size];
+            const data = &self.data.items[entry.index];
             vtable_deinit(data);
         }
     }
@@ -108,7 +108,7 @@ pub fn get(
     if (!self.contains(entity)) return null;
 
     const entry = &self.entries.items[entity.index];
-    const data = self.data.items[entry.index .. entry.index + self.size];
+    const data = &self.data.items[entry.index];
 
     return @ptrCast(@alignCast(data));
 }
@@ -121,7 +121,7 @@ pub fn destroy(
     if (!self.contains(entity)) return;
 
     const entry = &self.entries.items[entity.index];
-    const data = self.data.items[entry.index .. entry.index + self.size];
+    const data = &self.data.items[entry.index];
 
     if (self.vtable.deinit) |vtable_deinit| {
         vtable_deinit(data);

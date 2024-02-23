@@ -13,7 +13,7 @@ pub fn init(entities: *Entities, entity: Entity) EntityRef {
     };
 }
 
-pub fn putComponent(self: EntityRef, value: anytype) !void {
+pub fn addComponent(self: EntityRef, value: anytype) !void {
     try self.entities.putComponent(self.entity, value);
 }
 

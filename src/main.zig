@@ -29,8 +29,19 @@ pub fn main() !void {
     });
     defer device.deinit();
 
-    var entities = engine.Entities.init(allocator);
-    defer entities.deinit();
+    var world = engine.World.init(allocator);
+    defer world.deinit();
+
+    const ref = try world.createEntity();
+    try ref.addComponent(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
+
+    const query = try world.queryOnce(struct {
+        id: engine.Entity,
+        a: engine.Mesh,
+    });
+    _ = query;
+
+    try world.addResource(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
 
     var materials = engine.Materials.init(allocator);
     defer materials.deinit();

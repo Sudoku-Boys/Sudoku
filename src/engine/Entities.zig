@@ -151,8 +151,26 @@ pub fn registerComponent(self: *Entities, comptime T: type) !Storage {
     return self.registerDense(T);
 }
 
-pub fn putComponentRegistered(
+pub fn containsComponentRegistered(
     self: *Entities,
+    storage: Storage,
+    entity: Entity,
+) bool {
+    switch (storage) {
+        .Zst => return false,
+        .Dense => |index| {
+            return self.dense.items[index].contains(entity);
+        },
+    }
+}
+
+pub fn containsComponent(self: *Entities, entity: Entity, comptime T: type) bool {
+    const storage = self.getStorage(T) orelse return false;
+    return self.containsComponentRegistered(storage, entity);
+}
+
+pub fn putComponentRegistered(
+    self: *const Entities,
     storage: Storage,
     entity: Entity,
     component: anytype,
@@ -171,7 +189,7 @@ pub fn putComponent(self: *Entities, entity: Entity, component: anytype) !void {
 }
 
 pub fn getComponentRegistered(
-    self: *Entities,
+    self: *const Entities,
     storage: Storage,
     entity: Entity,
     comptime T: type,
