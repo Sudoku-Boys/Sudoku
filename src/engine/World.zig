@@ -9,11 +9,18 @@ const q = @import("query.zig");
 
 const World = @This();
 
+/// A general purpose allocator for the world.
+allocator: std.mem.Allocator,
+
+/// The entities in the world.
 entities: Entities,
+
+/// The resources in the world.
 resources: Resources,
 
 pub fn init(allocator: std.mem.Allocator) World {
     return .{
+        .allocator = allocator,
         .entities = Entities.init(allocator),
         .resources = Resources.init(allocator),
     };
@@ -83,10 +90,11 @@ pub fn query(
     };
 }
 
-/// Note that queries are stateful, when possible use `query` instead.
+/// Create a query for the given query type `Q`, initializing the query state.
+///
+/// This should only be used when the query state cannot be reused.
 pub fn queryOnce(self: *World, comptime Q: type) !q.Query(Q) {
     const state = try q.Query(Q).initState(self);
-
     return self.query(Q, state);
 }
 
@@ -98,10 +106,11 @@ pub fn addResource(self: *World, res: anytype) !void {
     try self.resources.add(res);
 }
 
-pub fn getResource(self: *World, comptime T: type) ?T {
+pub fn getResource(self: *World, comptime T: type) ?*T {
     return self.resources.get(T);
 }
 
 pub fn resource(self: *World, comptime T: type) T {
-    return self.getResource(T) orelse unreachable;
+    const ptr = self.getResource(T) orelse unreachable;
+    return ptr.*;
 }

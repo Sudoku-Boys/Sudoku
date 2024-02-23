@@ -3,6 +3,18 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 
+const TestSystem = struct {
+    pub fn run(self: TestSystem, world: *engine.World) !void {
+        _ = world;
+        _ = self;
+    }
+};
+
+const TestLabel = enum {
+    TestA,
+    TestB,
+};
+
 pub fn main() !void {
     try engine.Window.initGlfw();
     defer engine.Window.deinitGlfw();
@@ -29,22 +41,17 @@ pub fn main() !void {
     });
     defer device.deinit();
 
-    var world = engine.World.init(allocator);
-    defer world.deinit();
+    var e = engine.Engine.init(allocator);
+    defer e.deinit();
 
-    const ref = try world.createEntity();
-    try ref.addComponent(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
+    var schedule = engine.Schedule.init(allocator);
+    defer schedule.deinit();
 
-    const query = try world.queryOnce(struct {
-        id: engine.Entity,
-        a: engine.Mesh,
-    });
-    _ = query;
-
-    try world.addResource(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
+    const sys = try schedule.addSystem(TestSystem{});
+    try sys.label(TestLabel.TestA);
+    try sys.before(TestLabel.TestB);
 
     var materials = engine.Materials.init(allocator);
-    defer materials.deinit();
 
     const ground = try materials.add(engine.StandardMaterial{
         .color = engine.Color.WHITE,
@@ -62,10 +69,12 @@ pub fn main() !void {
     });
 
     var meshes = engine.Assets(engine.Mesh).init(allocator);
-    defer meshes.deinit();
 
     const plane = try meshes.add(try engine.Mesh.plane(allocator, 20.0, 0xffffffff));
     const cube = try meshes.add(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
+
+    try e.world.addResource(materials);
+    try e.world.addResource(meshes);
 
     var scene = engine.Scene.init(allocator);
     defer scene.deinit();
@@ -109,8 +118,8 @@ pub fn main() !void {
     while (!window.shouldClose()) {
         engine.Window.pollEvents();
         try renderer.drawFrame(
-            meshes,
-            materials,
+            e.world.resource(engine.Assets(engine.Mesh)),
+            e.world.resource(engine.Materials),
             scene,
         );
 
