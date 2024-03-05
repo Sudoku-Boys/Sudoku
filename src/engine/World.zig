@@ -110,7 +110,11 @@ pub fn getResource(self: *World, comptime T: type) ?*T {
     return self.resources.get(T);
 }
 
+pub fn resourcePtr(self: *World, comptime T: type) *T {
+    const ptr = self.getResource(T) orelse std.debug.panic("resource not found", .{});
+    return ptr;
+}
+
 pub fn resource(self: *World, comptime T: type) T {
-    const ptr = self.getResource(T) orelse unreachable;
-    return ptr.*;
+    return self.resourcePtr(T).*;
 }

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const System = @import("System.zig");
+const World = @import("World.zig");
 
 const Schedule = @This();
 
@@ -29,9 +30,13 @@ const Entry = struct {
     after: std.ArrayListUnmanaged(SystemLabel),
 };
 
+pub const Error = error{
+    CircularDependency,
+};
+
 allocator: std.mem.Allocator,
 entries: std.ArrayListUnmanaged(Entry),
-order: ?std.ArrayListUnmanaged(usize),
+order: ?[]usize,
 
 pub fn init(allocator: std.mem.Allocator) Schedule {
     return .{
@@ -44,7 +49,12 @@ pub fn init(allocator: std.mem.Allocator) Schedule {
 pub fn deinit(self: *Schedule) void {
     self.entries.deinit(self.allocator);
 
-    if (self.order) |*order| order.deinit(self.allocator);
+    if (self.order) |order| self.allocator.free(order);
+}
+
+pub fn invalidate(self: *Schedule) void {
+    if (self.order) |order| self.allocator.free(order);
+    self.order = null;
 }
 
 pub const AddedSystem = struct {
@@ -75,8 +85,149 @@ pub fn addSystem(self: *Schedule, system: anytype) !AddedSystem {
         .after = .{},
     });
 
+    self.invalidate();
+
     return .{
         .allocator = self.allocator,
         .entry = &self.entries.items[index],
     };
+}
+
+// shorthands for ease of use
+const LabelToIndex = std.AutoHashMapUnmanaged(SystemLabel, std.ArrayListUnmanaged(usize));
+const Dependencies = std.AutoHashMapUnmanaged(usize, std.ArrayListUnmanaged(usize));
+
+pub fn sort(self: *Schedule) ![]usize {
+    // a map from label to indices, note that there can be multiple indices for the same label
+    var labelToIndex: LabelToIndex = .{};
+    defer {
+        var it = labelToIndex.valueIterator();
+        while (it.next()) |v| v.deinit(self.allocator);
+
+        labelToIndex.deinit(self.allocator);
+    }
+
+    for (self.entries.items, 0..) |entry, i| {
+        for (entry.labels.items) |label| {
+            if (!labelToIndex.contains(label)) {
+                try labelToIndex.put(self.allocator, label, .{});
+            }
+
+            try labelToIndex.getPtr(label).?.append(self.allocator, i);
+        }
+    }
+
+    // a map from index to the indices of systems that must run before it
+    var dependencies: Dependencies = .{};
+    defer {
+        var it = dependencies.valueIterator();
+        while (it.next()) |v| v.deinit(self.allocator);
+
+        dependencies.deinit(self.allocator);
+    }
+
+    for (0..self.entries.items.len) |i| {
+        if (!dependencies.contains(i)) {
+            try dependencies.put(self.allocator, i, .{});
+        }
+    }
+
+    for (self.entries.items, 0..) |entry, i| {
+        // for each label this system should run after
+        //  - append the indices of systems that have this label to
+        //    the dependencies of this system
+        for (entry.after.items) |after| {
+            const indices = dependencies.getPtr(i).?;
+
+            if (labelToIndex.get(after)) |indices_after| {
+                try indices.appendSlice(self.allocator, indices_after.items);
+            }
+        }
+
+        // for each label this system should run before do what we did for after
+        // but in reverse
+        for (entry.before.items) |before| {
+            if (labelToIndex.get(before)) |indices_before| {
+                for (indices_before.items) |index_before| {
+                    const indices = dependencies.getPtr(index_before).?;
+
+                    try indices.append(self.allocator, i);
+                }
+            }
+        }
+    }
+
+    var order: std.ArrayListUnmanaged(usize) = .{};
+    errdefer order.deinit(self.allocator);
+
+    var visited: std.ArrayListUnmanaged(bool) = .{};
+    defer visited.deinit(self.allocator);
+
+    try visited.appendNTimes(self.allocator, false, self.entries.items.len);
+
+    while (nextConsidered(&dependencies)) |i| {
+        const next = try self.sortRecursive(&dependencies, &visited, i);
+        try order.append(self.allocator, next);
+
+        if (dependencies.getPtr(next)) |indices| {
+            indices.deinit(self.allocator);
+        }
+
+        _ = dependencies.remove(next);
+    }
+
+    return order.toOwnedSlice(self.allocator);
+}
+
+fn nextConsidered(
+    dependencies: *std.AutoHashMapUnmanaged(usize, std.ArrayListUnmanaged(usize)),
+) ?usize {
+    var it = dependencies.keyIterator();
+    const next = it.next() orelse return null;
+    return next.*;
+}
+
+fn sortRecursive(
+    self: *Schedule,
+    dependencies: *std.AutoHashMapUnmanaged(usize, std.ArrayListUnmanaged(usize)),
+    visited: *std.ArrayListUnmanaged(bool),
+    considered: usize,
+) !usize {
+    for (dependencies.get(considered).?.items) |dependency| {
+        if (!dependencies.contains(dependency)) continue;
+
+        if (visited.items[dependency]) {
+            std.log.err("Circular dependency detected", .{});
+            std.log.err(" - {any}", .{visited.items});
+
+            return error.CircularDependency;
+        }
+
+        visited.items[considered] = true;
+
+        const result = try self.sortRecursive(
+            dependencies,
+            visited,
+            dependency,
+        );
+
+        visited.items[considered] = false;
+
+        return result;
+    }
+
+    return considered;
+}
+
+pub fn run(self: *Schedule, world: *World) !void {
+    // ensure the order is up to date
+    if (self.order == null) {
+        self.order = try self.sort();
+    }
+
+    // run the systems in order
+    for (self.order.?) |index| {
+        const entry = self.entries.items[index];
+        try entry.system.run(world);
+    }
 }

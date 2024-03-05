@@ -3,18 +3,6 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 
-const TestSystem = struct {
-    pub fn run(self: TestSystem, world: *engine.World) !void {
-        _ = world;
-        _ = self;
-    }
-};
-
-const TestLabel = enum {
-    TestA,
-    TestB,
-};
-
 pub fn main() !void {
     try engine.Window.initGlfw();
     defer engine.Window.deinitGlfw();
@@ -43,13 +31,6 @@ pub fn main() !void {
 
     var e = engine.Engine.init(allocator);
     defer e.deinit();
-
-    var schedule = engine.Schedule.init(allocator);
-    defer schedule.deinit();
-
-    const sys = try schedule.addSystem(TestSystem{});
-    try sys.label(TestLabel.TestA);
-    try sys.before(TestLabel.TestB);
 
     var materials = engine.Materials.init(allocator);
 
