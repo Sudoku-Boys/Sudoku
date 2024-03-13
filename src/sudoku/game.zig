@@ -8,7 +8,8 @@ pub const Action = struct {
     event: ActionEvent = .NONE,
     x: u16 = 0,
     y: u16 = 0,
-    value: u16 = 0,}; //Action objects
+    value: u16 = 0,
+}; //Action objects
 
 //The Game struct is meant to represent individual games of sudoku
 //It takes input from the player in the form of actions sent by the main game manager (not yet implemented)
