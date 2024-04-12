@@ -5,13 +5,13 @@ const World = @import("World.zig");
 
 const render = @import("render.zig");
 
-const Engine = @This();
+const Game = @This();
 
 plugins: std.AutoHashMap(std.builtin.TypeId, void),
 schedule: Schedule,
 world: World,
 
-pub fn init(allocator: std.mem.Allocator) Engine {
+pub fn init(allocator: std.mem.Allocator) Game {
     return .{
         .plugins = std.AutoHashMap(std.builtin.TypeId, void).init(allocator),
         .schedule = Schedule.init(allocator),
@@ -19,12 +19,12 @@ pub fn init(allocator: std.mem.Allocator) Engine {
     };
 }
 
-pub fn deinit(self: *Engine) void {
+pub fn deinit(self: *Game) void {
     self.schedule.deinit();
     self.world.deinit();
 }
 
-pub fn addPlugin(self: *Engine, plugin: anytype) !void {
+pub fn addPlugin(self: *Game, plugin: anytype) !void {
     const T = @TypeOf(plugin);
     const type_id = std.meta.activeTag(@typeInfo(T));
 
@@ -38,6 +38,6 @@ pub fn addPlugin(self: *Engine, plugin: anytype) !void {
     try plugin.builtPlugin(self);
 }
 
-pub fn addSystem(self: *Engine, system: anytype) !Schedule.AddedSystem {
+pub fn addSystem(self: *Game, system: anytype) !Schedule.AddedSystem {
     return self.schedule.addSystem(system);
 }

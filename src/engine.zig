@@ -1,5 +1,5 @@
 pub const Color = @import("engine/Color.zig");
-pub const Engine = @import("engine/Engine.zig");
+pub const Game = @import("engine/Game.zig");
 pub const Entities = @import("engine/Entities.zig");
 pub const Entity = @import("engine/Entity.zig");
 pub const EntityRef = @import("engine/EntityRef.zig");
@@ -15,3 +15,4 @@ pub usingnamespace @import("engine/asset.zig");
 pub usingnamespace @import("engine/render.zig");
 pub usingnamespace @import("engine/math.zig");
 pub usingnamespace @import("engine/query.zig");
+pub usingnamespace @import("engine/system.zig");

@@ -2,10 +2,8 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const asset = @import("../asset.zig");
-const Materials = @import("Materials.zig");
 const Mesh = @import("Mesh.zig");
 const Tonemap = @import("Tonemap.zig");
-const Scene = @import("Scene.zig");
 const SceneRenderer = @import("SceneRenderer.zig");
 
 const Renderer = @This();
@@ -271,7 +269,6 @@ pub fn addMaterial(self: *Renderer, comptime T: type) !void {
 
 fn recordCommandBuffer(
     self: *Renderer,
-    scene: Scene,
     image_index: usize,
 ) !void {
     try self.graphics_buffer.reset();
@@ -303,7 +300,7 @@ fn recordCommandBuffer(
         .extent = self.sdr.swapchain.extent.as2D(),
     });
 
-    try self.scene_renderer.draw(self.graphics_buffer, scene);
+    //try self.scene_renderer.draw(self.graphics_buffer, scene);
 
     // ---------- SDR ----------
 
@@ -334,11 +331,8 @@ fn recreate(self: *Renderer) !void {
 
 pub fn drawFrame(
     self: *Renderer,
-    meshes: asset.Assets(Mesh),
-    materials: Materials,
-    scene: Scene,
 ) !void {
-    try self.scene_renderer.prepare(self.device, meshes, materials, scene);
+    //try self.scene_renderer.prepare(self.device, meshes, materials, scene);
 
     try self.in_flight.wait(.{});
 
@@ -353,7 +347,7 @@ pub fn drawFrame(
 
     try self.in_flight.reset();
 
-    try self.recordCommandBuffer(scene, image_index);
+    //try self.recordCommandBuffer(scene, image_index);
 
     try self.device.graphics.submit(.{
         .wait_semaphores = &.{

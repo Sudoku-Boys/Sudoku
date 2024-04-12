@@ -1,7 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const Color = @import("../Color.zig");
-const Material = @import("Material.zig");
 const Mesh = @import("Mesh.zig");
 
 const math = @import("../math.zig");
@@ -36,13 +35,13 @@ pub fn fragmentShader() vk.Spirv {
     return vk.embedSpirv(@embedFile("shaders/standard_material.frag"));
 }
 
-pub fn vertexAttibutes() []const Material.VertexAttribute {
-    return &.{
-        .{ .name = Mesh.POSITION, .format = .f32x3 },
-        .{ .name = Mesh.NORMAL, .format = .f32x3 },
-        .{ .name = Mesh.TEX_COORD_0, .format = .f32x2 },
-    };
-}
+//pub fn vertexAttibutes() []const Material.VertexAttribute {
+//    return &.{
+//        .{ .name = Mesh.POSITION, .format = .f32x3 },
+//        .{ .name = Mesh.NORMAL, .format = .f32x3 },
+//        .{ .name = Mesh.TEX_COORD_0, .format = .f32x2 },
+//    };
+//}
 
 pub fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
     return &.{
@@ -85,69 +84,69 @@ pub const State = struct {
     uniform_buffer: vk.Buffer,
 };
 
-pub fn initState(
-    cx: Material.Context,
-    bind_group: vk.BindGroup,
-) !State {
-    const uniform_buffer = try cx.device.createBuffer(.{
-        .size = @sizeOf(Uniforms),
-        .usage = .{ .uniform_buffer = true, .transfer_dst = true },
-        .memory = .{ .device_local = true },
-    });
-
-    cx.device.updateBindGroups(.{
-        .writes = &.{
-            .{
-                .dst = bind_group,
-                .binding = 0,
-                .resource = .{
-                    .buffer = .{
-                        .buffer = uniform_buffer,
-                        .size = @sizeOf(Uniforms),
-                    },
-                },
-            },
-        },
-    });
-
-    return State{
-        .uniform_buffer = uniform_buffer,
-    };
-}
+//pub fn initState(
+//    cx: Material.Context,
+//    bind_group: vk.BindGroup,
+//) !State {
+//    const uniform_buffer = try cx.device.createBuffer(.{
+//        .size = @sizeOf(Uniforms),
+//        .usage = .{ .uniform_buffer = true, .transfer_dst = true },
+//        .memory = .{ .device_local = true },
+//    });
+//
+//    cx.device.updateBindGroups(.{
+//        .writes = &.{
+//            .{
+//                .dst = bind_group,
+//                .binding = 0,
+//                .resource = .{
+//                    .buffer = .{
+//                        .buffer = uniform_buffer,
+//                        .size = @sizeOf(Uniforms),
+//                    },
+//                },
+//            },
+//        },
+//    });
+//
+//    return State{
+//        .uniform_buffer = uniform_buffer,
+//    };
+//}
 
 pub fn deinitState(state: *State) void {
     state.uniform_buffer.deinit();
 }
 
-pub fn update(
-    self: *StandardMaterial,
-    state: *State,
-    cx: Material.Context,
-) !void {
-    const uniforms = Uniforms{
-        .color = self.color.asArray(),
-        .metallic = self.metallic,
-        .roughness = self.roughness,
-        .reflectance = self.reflectance,
-
-        .emissive = self.emissive.mul(self.emissive_strength).asArray(),
-
-        .clearcoat = self.clearcoat,
-        .clearcoat_roughness = self.clearcoat_roughness,
-
-        .thickness = self.thickness,
-        .transmission = self.transmission,
-
-        .absorption = self.absorption.asArray(),
-        .subsurface_color = self.subsurface_color.asArray(),
-
-        .index_of_refraction = self.index_of_refraction,
-        .subsurface = self.subsurface,
-    };
-
-    try cx.staging_buffer.write(&uniforms);
-    try cx.staging_buffer.copyBuffer(.{
-        .dst = state.uniform_buffer,
-        .size = @sizeOf(Uniforms),
-    });
-}
+//pub fn update(
+//    self: *StandardMaterial,
+//    state: *State,
+//    cx: Material.Context,
+//) !void {
+//    const uniforms = Uniforms{
+//        .color = self.color.asArray(),
+//        .metallic = self.metallic,
+//        .roughness = self.roughness,
+//        .reflectance = self.reflectance,
+//
+//        .emissive = self.emissive.mul(self.emissive_strength).asArray(),
+//
+//        .clearcoat = self.clearcoat,
+//        .clearcoat_roughness = self.clearcoat_roughness,
+//
+//        .thickness = self.thickness,
+//        .transmission = self.transmission,
+//
+//        .absorption = self.absorption.asArray(),
+//        .subsurface_color = self.subsurface_color.asArray(),
+//
+//        .index_of_refraction = self.index_of_refraction,
+//        .subsurface = self.subsurface,
+//    };
+//
+//    try cx.staging_buffer.write(&uniforms);
+//    try cx.staging_buffer.copyBuffer(.{
+//        .dst = state.uniform_buffer,
+//        .size = @sizeOf(Uniforms),
+//    });
+//}

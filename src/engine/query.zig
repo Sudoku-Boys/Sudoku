@@ -112,6 +112,8 @@ pub fn Query(comptime Q: type) type {
             },
         });
 
+        pub const SystemParamState = State;
+
         world: *World,
         state: State,
 
@@ -126,6 +128,14 @@ pub fn Query(comptime Q: type) type {
             }
 
             return state;
+        }
+
+        pub fn systemParamInit(world: *World) !SystemParamState {
+            return initState(world);
+        }
+
+        pub fn systemParamFetch(world: *World, state: SystemParamState) !Self {
+            return world.query(Q, state);
         }
 
         /// Check if the query contains the given `entity`.

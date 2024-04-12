@@ -6,12 +6,9 @@ pub const VTable = struct {
     init: ?*const fn (*u8) anyerror!void,
     deinit: ?*const fn (*u8) void,
 
-    update: ?*const fn (*u8, *context.UpdateContext) anyerror!void,
-
     pub const EMPTY: *const VTable = &.{
         .init = null,
         .deinit = null,
-        .update = null,
     };
 
     pub fn of(comptime T: type) *const VTable {
@@ -38,10 +35,6 @@ pub const VTable = struct {
             vtable.deinit = Closure(T).deinit;
         }
 
-        if (@hasDecl(T, "update")) {
-            vtable.update = Closure(T).update;
-        }
-
         return &vtable;
     }
 
@@ -55,13 +48,6 @@ pub const VTable = struct {
                 if (@hasDecl(T, "deinit")) {
                     const ptr: *T = @ptrCast(@alignCast(component));
                     ptr.deinit();
-                }
-            }
-
-            fn update(component: *u8, cx: *context.UpdateContext) anyerror!void {
-                if (@hasDecl(T, "update")) {
-                    const ptr: *T = @ptrCast(@alignCast(component));
-                    try ptr.update(cx);
                 }
             }
         };

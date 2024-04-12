@@ -5,13 +5,10 @@ const asset = @import("../asset.zig");
 const Camera = @import("Camera.zig");
 const CameraState = @import("CameraState.zig");
 const LightState = @import("LightState.zig");
-const Material = @import("Material.zig");
-const Materials = @import("Materials.zig");
 const MaterialState = @import("MaterialState.zig");
 const Mesh = @import("Mesh.zig");
 const Object = @import("Object.zig");
 const Renderer = @import("Renderer.zig");
-const Scene = @import("Scene.zig");
 const Sky = @import("Sky.zig");
 const math = @import("../math.zig");
 
@@ -65,7 +62,7 @@ const MeshState = struct {
 
 allocator: std.mem.Allocator,
 
-layouts: Material.BindGroupLayouts,
+//layouts: Material.BindGroupLayouts,
 clear_pass: vk.RenderPass,
 render_pass: vk.RenderPass,
 

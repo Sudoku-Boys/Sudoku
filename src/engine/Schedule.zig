@@ -28,6 +28,13 @@ const Entry = struct {
     labels: std.ArrayListUnmanaged(SystemLabel),
     before: std.ArrayListUnmanaged(SystemLabel),
     after: std.ArrayListUnmanaged(SystemLabel),
+
+    pub fn deinit(self: *Entry, allocator: std.mem.Allocator) void {
+        self.system.deinit(allocator);
+        self.labels.deinit(allocator);
+        self.before.deinit(allocator);
+        self.after.deinit(allocator);
+    }
 };
 
 pub const Error = error{
@@ -47,6 +54,8 @@ pub fn init(allocator: std.mem.Allocator) Schedule {
 }
 
 pub fn deinit(self: *Schedule) void {
+    for (self.entries.items) |*entry| entry.deinit(self.allocator);
+
     self.entries.deinit(self.allocator);
 
     if (self.order) |order| self.allocator.free(order);

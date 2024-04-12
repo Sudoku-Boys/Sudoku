@@ -2,19 +2,25 @@ const std = @import("std");
 
 const World = @import("World.zig");
 
+const system = @import("system.zig");
+
 const System = @This();
 
 vtable: *const VTable,
 state: *u8,
 
-pub fn init(allocator: std.mem.Allocator, system: anytype) !System {
-    const T = @TypeOf(system);
+pub fn init(allocator: std.mem.Allocator, sys: anytype) !System {
+    const T = @TypeOf(sys);
+
+    if (@typeInfo(T) == .Fn) {
+        return System.init(allocator, system.FunctionSystem(sys){});
+    }
 
     var state: *T = undefined;
 
     if (@sizeOf(T) > 0) {
         state = try allocator.create(T);
-        state.* = system;
+        state.* = sys;
     }
 
     return System{

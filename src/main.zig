@@ -3,6 +3,21 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 
+fn systemA(
+    res: engine.Res(u32),
+) !void {
+    std.debug.print("A {}\n", .{res.get()});
+}
+
+fn systemB() !void {
+    std.debug.print("B\n", .{});
+}
+
+const TestLabel = enum {
+    A,
+    B,
+};
+
 pub fn main() !void {
     try engine.Window.initGlfw();
     defer engine.Window.deinitGlfw();
@@ -29,64 +44,57 @@ pub fn main() !void {
     });
     defer device.deinit();
 
-    var e = engine.Engine.init(allocator);
-    defer e.deinit();
+    var game = engine.Game.init(allocator);
+    defer game.deinit();
 
-    var materials = engine.Materials.init(allocator);
+    try game.world.addResource(@as(u32, 123));
 
-    const ground = try materials.add(engine.StandardMaterial{
-        .color = engine.Color.WHITE,
-    });
+    _ = try game.world.createEntity();
 
-    const left = try materials.add(engine.StandardMaterial{
-        .color = .{ .r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0 },
-        .transmission = 0.9,
-        .roughness = 0.25,
-    });
+    const test_a = try game.schedule.addSystem(systemA);
+    try test_a.label(TestLabel.A);
 
-    const right = try materials.add(engine.StandardMaterial{
-        .color = .{ .r = 0.9, .g = 0.7, .b = 0.6, .a = 1.0 },
-        .roughness = 0.5,
-    });
+    const test_b = try game.schedule.addSystem(systemB);
+    try test_b.label(TestLabel.B);
+    try test_b.before(TestLabel.A);
+
+    try game.schedule.run(&game.world);
+
+    //var materials = engine.Materials.init(allocator);
+
+    //const ground = try materials.add(engine.StandardMaterial{
+    //    .color = engine.Color.WHITE,
+    //});
+
+    //const left = try materials.add(engine.StandardMaterial{
+    //    .color = .{ .r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0 },
+    //    .transmission = 0.9,
+    //    .roughness = 0.25,
+    //});
+
+    //const right = try materials.add(engine.StandardMaterial{
+    //    .color = .{ .r = 0.9, .g = 0.7, .b = 0.6, .a = 1.0 },
+    //    .roughness = 0.5,
+    //});
 
     var meshes = engine.Assets(engine.Mesh).init(allocator);
 
     const plane = try meshes.add(try engine.Mesh.plane(allocator, 20.0, 0xffffffff));
+    _ = plane;
     const cube = try meshes.add(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
+    _ = cube;
 
-    try e.world.addResource(materials);
-    try e.world.addResource(meshes);
+    //try e.world.addResource(materials);
+    try game.world.addResource(meshes);
+    //var renderer = try engine.Renderer.init(.{
+    //    .allocator = allocator,
+    //    .device = device,
+    //    .surface = window.surface,
+    //    .present_mode = .Immediate,
+    //});
+    //defer renderer.deinit();
 
-    var scene = engine.Scene.init(allocator);
-    defer scene.deinit();
-
-    try scene.objects.append(.{
-        .mesh = plane,
-        .material = ground.dynamic(),
-        .transform = engine.Transform.xyz(0, -2, 0),
-    });
-
-    try scene.objects.append(.{
-        .mesh = cube,
-        .material = left.dynamic(),
-        .transform = engine.Transform.xyz(-2, 0, 0),
-    });
-
-    try scene.objects.append(.{
-        .mesh = cube,
-        .material = right.dynamic(),
-        .transform = engine.Transform.xyz(2, 0, 0),
-    });
-
-    var renderer = try engine.Renderer.init(.{
-        .allocator = allocator,
-        .device = device,
-        .surface = window.surface,
-        .present_mode = .Immediate,
-    });
-    defer renderer.deinit();
-
-    try renderer.addMaterial(engine.StandardMaterial);
+    //try renderer.addMaterial(engine.StandardMaterial);
 
     var frame_timer = try std.time.Timer.start();
     var time: f32 = 0.0;
@@ -98,11 +106,11 @@ pub fn main() !void {
 
     while (!window.shouldClose()) {
         engine.Window.pollEvents();
-        try renderer.drawFrame(
-            e.world.resource(engine.Assets(engine.Mesh)),
-            e.world.resource(engine.Materials),
-            scene,
-        );
+        //try renderer.drawFrame(
+        //    e.world.resource(engine.Assets(engine.Mesh)),
+        //    e.world.resource(engine.Materials),
+        //    scene,
+        //);
 
         const dt: f32 = @as(f32, @floatFromInt(frame_timer.lap())) / std.time.ns_per_s;
         time += dt;
@@ -129,8 +137,6 @@ pub fn main() !void {
         }
 
         movement = movement.normalize_or_zero().muls(dt * 5.0);
-        movement = scene.camera.transform.rotation.inv().mul(movement);
-        scene.camera.transform.translation.addEq(movement);
 
         const mouse_delta = window.mousePosition().sub(mouse_position);
         mouse_position = window.mousePosition();
@@ -147,25 +153,13 @@ pub fn main() !void {
             camera_direction = camera_direction.add(mouse_delta.mul(0.001));
 
             const rotX = engine.Quat.rotateY(camera_direction._.x);
+            _ = rotX;
             const rotY = engine.Quat.rotateX(camera_direction._.y);
-
-            scene.camera.transform.rotation = rotY.mul(rotX);
+            _ = rotY;
         }
-
-        materials.getPtr(left).?.color = .{
-            .r = (engine.sin(time) + 1.0) / 2.0,
-            .g = (engine.cos(time) + 1.0) / 2.0,
-            .b = (engine.sin(time) * engine.cos(time) + 1.0) / 2.0,
-            .a = 1.0,
-        };
-
-        materials.getPtr(left).?.roughness = (engine.sin(time) + 1.0) / 2.0;
 
         const axis = engine.vec3(1.0, -2.0, 0.8).normalize();
         const rotation = engine.Quat.rotate(axis, dt);
-
-        for (scene.objects.items[1..], 1..) |*object, i| {
-            object.transform.rotation = object.transform.rotation.mul(if (i % 2 == 0) rotation else rotation.inv());
-        }
+        _ = rotation;
     }
 }
