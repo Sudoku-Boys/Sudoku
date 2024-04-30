@@ -1,7 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 
-const Tonemapper = @This();
+const Tonemap = @This();
 
 graphics_pipeline: vk.GraphicsPipeline,
 
@@ -15,7 +15,7 @@ pub fn init(
     device: vk.Device,
     render_pass: vk.RenderPass,
     subpass: u32,
-) !Tonemapper {
+) !Tonemap {
     const bind_group_pool = try device.createBindGroupPool(.{
         .pool_sizes = &.{
             .{
@@ -59,7 +59,7 @@ pub fn init(
     };
 }
 
-pub fn deinit(self: Tonemapper) void {
+pub fn deinit(self: Tonemap) void {
     self.sampler.deinit();
 
     self.bind_group_layout.deinit();
@@ -94,7 +94,7 @@ fn createRenderPipeline(
     });
 }
 
-pub fn setHdrImage(self: Tonemapper, device: vk.Device, hdr_image: vk.ImageView) !void {
+pub fn setHdrImage(self: Tonemap, device: vk.Device, hdr_image: vk.ImageView) void {
     device.updateBindGroups(.{
         .writes = &.{
             .{
@@ -112,7 +112,7 @@ pub fn setHdrImage(self: Tonemapper, device: vk.Device, hdr_image: vk.ImageView)
     });
 }
 
-pub fn recordCommandBuffer(self: Tonemapper, command_buffer: vk.CommandBuffer) !void {
+pub fn recordCommandBuffer(self: Tonemap, command_buffer: vk.CommandBuffer) !void {
     command_buffer.bindGraphicsPipeline(self.graphics_pipeline);
     command_buffer.bindBindGroup(self.graphics_pipeline, 0, self.bind_group, &.{});
 

@@ -80,6 +80,10 @@ pub const Quat = extern struct {
         @compileError("Unsupported type");
     }
 
+    pub fn mulEq(self: *Quat, other: anytype) void {
+        self.* = self.mul(other);
+    }
+
     pub fn mulQuat(self: Quat, other: Quat) Quat {
         return .{
             .x = self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,

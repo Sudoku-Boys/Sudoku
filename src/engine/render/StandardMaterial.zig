@@ -1,9 +1,9 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const Color = @import("../Color.zig");
-const Material = @import("Material.zig");
 const Mesh = @import("Mesh.zig");
 
+const material = @import("material.zig");
 const math = @import("../math.zig");
 
 const StandardMaterial = @This();
@@ -36,7 +36,7 @@ pub fn fragmentShader() vk.Spirv {
     return vk.embedSpirv(@embedFile("shaders/standard_material.frag"));
 }
 
-pub fn vertexAttibutes() []const Material.VertexAttribute {
+pub fn vertexAttibutes() []const material.VertexAttribute {
     return &.{
         .{ .name = Mesh.POSITION, .format = .f32x3 },
         .{ .name = Mesh.NORMAL, .format = .f32x3 },
@@ -86,16 +86,16 @@ pub const State = struct {
 };
 
 pub fn initState(
-    cx: Material.Context,
+    device: vk.Device,
     bind_group: vk.BindGroup,
 ) !State {
-    const uniform_buffer = try cx.device.createBuffer(.{
+    const uniform_buffer = try device.createBuffer(.{
         .size = @sizeOf(Uniforms),
         .usage = .{ .uniform_buffer = true, .transfer_dst = true },
         .memory = .{ .device_local = true },
     });
 
-    cx.device.updateBindGroups(.{
+    device.updateBindGroups(.{
         .writes = &.{
             .{
                 .dst = bind_group,
@@ -120,9 +120,9 @@ pub fn deinitState(state: *State) void {
 }
 
 pub fn update(
-    self: *StandardMaterial,
+    self: StandardMaterial,
     state: *State,
-    cx: Material.Context,
+    staging_buffer: *vk.StagingBuffer,
 ) !void {
     const uniforms = Uniforms{
         .color = self.color.asArray(),
@@ -145,8 +145,8 @@ pub fn update(
         .subsurface = self.subsurface,
     };
 
-    try cx.staging_buffer.write(&uniforms);
-    try cx.staging_buffer.copyBuffer(.{
+    try staging_buffer.write(&uniforms);
+    try staging_buffer.copyBuffer(.{
         .dst = state.uniform_buffer,
         .size = @sizeOf(Uniforms),
     });

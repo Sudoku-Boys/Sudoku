@@ -226,7 +226,11 @@ pub const QueueFamilies = struct {
     }
 };
 
-fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const u8, queues: QueueFamilies) !vk.api.VkDevice {
+fn createDevice(
+    physical: vk.api.VkPhysicalDevice,
+    extensions: []const [*c]const u8,
+    queues: QueueFamilies,
+) !vk.api.VkDevice {
     const queueInfo = vk.api.VkDeviceQueueCreateInfo{
         .sType = vk.api.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .pNext = null,
@@ -241,6 +245,12 @@ fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const
     queueInfos[0].queueFamilyIndex = queues.graphics;
     queueInfos[1].queueFamilyIndex = queues.present;
 
+    var queue_count: u32 = QueueFamilies.COUNT;
+
+    if (queues.graphics == queues.present) {
+        queue_count = 1;
+    }
+
     var features: vk.api.VkPhysicalDeviceFeatures = undefined;
     vk.api.vkGetPhysicalDeviceFeatures(physical, &features);
 
@@ -248,7 +258,7 @@ fn createDevice(physical: vk.api.VkPhysicalDevice, extensions: []const [*c]const
         .sType = vk.api.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = null,
         .flags = 0,
-        .queueCreateInfoCount = QueueFamilies.COUNT,
+        .queueCreateInfoCount = queue_count,
         .pQueueCreateInfos = &queueInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = null,
@@ -387,13 +397,6 @@ pub fn createFence(
     signalled: bool,
 ) !vk.Fence {
     return vk.Fence.init(self, signalled);
-}
-
-pub fn createFramebuffer(
-    self: Device,
-    desc: vk.Framebuffer.Descriptor,
-) !vk.Framebuffer {
-    return vk.Framebuffer.init(self, desc);
 }
 
 pub fn createGraphicsPipeline(

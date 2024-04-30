@@ -71,6 +71,10 @@ float linear_to_perceptual_roughness(float linear_roughness) {
     return sqrt(linear_roughness);
 }
 
+float perceptual_to_linear_roughness(float perceptual_roughness) {
+    return perceptual_roughness * perceptual_roughness;
+}
+
 vec3 compute_f0(vec3 albedo, float metallic, float reflectance) {
     float a = 0.16 * reflectance * reflectance * (1.0 - metallic);
     vec3 b = albedo * metallic;

@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const ShaderStage = enum {
     Vertex,
@@ -38,9 +39,17 @@ fn compileShaderTool(
         .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
     });
 
-    if (b.host.target.os.tag == .windows) {
-        addIncludePath(tool);
-        tool.addLibraryPath(.{ .path = "ext/win/lib" });
+    switch (b.host.target.os.tag) {
+        .windows => {
+            addWindowsIncludePath(tool);
+            tool.addLibraryPath(.{ .path = "ext/win/lib" });
+        },
+        .linux => {
+            if (comptime builtin.os.tag == .linux) {
+                addLinuxIncludePath(tool);
+            }
+        },
+        else => {},
     }
 
     tool.linkSystemLibrary("shaderc_shared");
@@ -107,6 +116,16 @@ pub fn compileShaders(
     return shaders;
 }
 
-pub fn addIncludePath(s: *std.Build.Step.Compile) void {
+pub fn addWindowsIncludePath(s: *std.Build.Step.Compile) void {
     s.addIncludePath(.{ .path = "ext/shaderc/libshaderc/include" });
+}
+
+pub fn addLinuxIncludePath(s: *std.Build.Step.Compile) void {
+    if (std.os.getenv("LD_LIBRARY_PATH")) |ld_library_path| {
+        var it = std.mem.splitScalar(u8, ld_library_path, ':');
+
+        while (it.next()) |path| {
+            s.addLibraryPath(.{ .path = path });
+        }
+    }
 }
