@@ -44,7 +44,7 @@ pub fn embedSpirv(comptime data: []const u8) Spirv {
     }
 
     // this is beyond stupid, but it's the only way to do it
-    comptime var spv: [len]u32 = undefined;
+    var spv: [len]u32 = undefined;
     @memcpy(@as([*]u8, @ptrCast(&spv)), data);
 
     return &spv;

@@ -19,7 +19,7 @@ pub const VTable = struct {
             else => return EMPTY,
         }
 
-        comptime var vtable = VTable{
+        var vtable = VTable{
             .init = null,
             .deinit = null,
         };

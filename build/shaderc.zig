@@ -28,18 +28,19 @@ const ShaderStage = enum {
 const CompiledShader = struct {
     name: []const u8,
     stage: ShaderStage,
-    data: std.build.LazyPath,
+    data: std.Build.LazyPath,
 };
 
 fn compileShaderTool(
     b: *std.Build,
 ) *std.Build.Step.Compile {
     const tool = b.addExecutable(.{
+        .target = b.host,
         .name = "compile_shader",
         .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
     });
 
-    switch (b.host.target.os.tag) {
+    switch (b.host.result.os.tag) {
         .windows => {
             addWindowsIncludePath(tool);
             tool.addLibraryPath(.{ .path = "ext/win/lib" });
@@ -58,11 +59,15 @@ fn compileShaderTool(
     return tool;
 }
 
-fn rebuildDetection(b: *std.Build, run: *std.Build.RunStep) !void {
-    var shaders = try std.fs.cwd().openIterableDir("shaders", .{});
+fn rebuildDetection(b: *std.Build, run: *std.Build.Step.Run) !void {
+    var shaders = try std.fs.cwd().openDir("shaders", .{
+        .iterate = true,
+    });
+
     defer shaders.close();
 
     var it = shaders.iterate();
+
     while (try it.next()) |entry| {
         const other_path = try std.fs.path.join(b.allocator, &.{ "shaders", entry.name });
         run.addFileArg(.{ .path = other_path });
@@ -81,7 +86,7 @@ fn compileShader(
 
     try rebuildDetection(b, tool_step);
 
-    if (b.host.target.os.tag == .windows) {
+    if (b.host.result.os.tag == .windows) {
         tool_step.addPathDir("ext/win/lib");
     }
 
@@ -93,13 +98,13 @@ pub fn compileShaders(
 ) !std.ArrayList(CompiledShader) {
     const tool = compileShaderTool(b);
 
-    const dir = std.fs.cwd();
-    var shader = try dir.openIterableDir("shaders", .{});
-    defer shader.close();
+    var dir = try std.fs.cwd().openDir("shaders", .{ .iterate = true });
+    defer dir.close();
+
+    var it = dir.iterate();
 
     var shaders = std.ArrayList(CompiledShader).init(b.allocator);
 
-    var it = shader.iterate();
     while (try it.next()) |entry| {
         if (ShaderStage.fromPath(entry.name)) |stage| {
             const path = try std.mem.join(b.allocator, "/", &.{ "shaders", entry.name });
@@ -121,7 +126,7 @@ pub fn addWindowsIncludePath(s: *std.Build.Step.Compile) void {
 }
 
 pub fn addLinuxIncludePath(s: *std.Build.Step.Compile) void {
-    if (std.os.getenv("LD_LIBRARY_PATH")) |ld_library_path| {
+    if (std.posix.getenv("LD_LIBRARY_PATH")) |ld_library_path| {
         var it = std.mem.splitScalar(u8, ld_library_path, ':');
 
         while (it.next()) |path| {

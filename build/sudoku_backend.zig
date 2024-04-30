@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn addSudokuExe(b: *std.Build, target: std.zig.CrossTarget, optimize: std.builtin.Mode) void {
+pub fn addSudokuExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.Mode) void {
     const exe = b.addExecutable(.{
         .name = "sudoku-backend",
         // In this case the main source file is merely a path, however, in more
@@ -16,7 +16,7 @@ pub fn addSudokuExe(b: *std.Build, target: std.zig.CrossTarget, optimize: std.bu
     run_step.dependOn(&run_exe.step);
 }
 
-pub fn addSudokuTests(b: *std.Build, test_step: *std.Build.Step, target: std.zig.CrossTarget, optimize: std.builtin.Mode) void {
+pub fn addSudokuTests(b: *std.Build, test_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.Mode) void {
     const main_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/sudoku/main.zig" },
         .target = target,

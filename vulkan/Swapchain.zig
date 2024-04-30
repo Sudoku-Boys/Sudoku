@@ -139,7 +139,7 @@ fn createSwapchain(
         null,
     ));
 
-    var formats = try device.allocator.alloc(vk.api.VkSurfaceFormatKHR, formats_count);
+    const formats = try device.allocator.alloc(vk.api.VkSurfaceFormatKHR, formats_count);
     defer device.allocator.free(formats);
 
     try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(
@@ -157,7 +157,7 @@ fn createSwapchain(
         null,
     ));
 
-    var present_modes = try device.allocator.alloc(vk.api.VkPresentModeKHR, present_modes_count);
+    const present_modes = try device.allocator.alloc(vk.api.VkPresentModeKHR, present_modes_count);
     defer device.allocator.free(present_modes);
 
     try vk.check(vk.api.vkGetPhysicalDeviceSurfacePresentModesKHR(
@@ -266,7 +266,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Swapchain {
     ));
 
     // allocate memory for the images
-    var images = try device.allocator.alloc(vk.api.VkImage, images_count);
+    const images = try device.allocator.alloc(vk.api.VkImage, images_count);
     errdefer device.allocator.free(images);
 
     // get the actual images
@@ -278,7 +278,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Swapchain {
     ));
 
     // allocate memory for the image views and framebuffers
-    var views = try device.allocator.alloc(vk.ImageView, images_count);
+    const views = try device.allocator.alloc(vk.ImageView, images_count);
     errdefer device.allocator.free(views);
 
     // create the image views

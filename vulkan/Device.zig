@@ -25,7 +25,7 @@ fn getSupportedExtensions(
     var count: u32 = 0;
     try vk.check(vk.api.vkEnumerateDeviceExtensionProperties(device, null, &count, null));
 
-    var extensions = try allocator.alloc(vk.api.VkExtensionProperties, count);
+    const extensions = try allocator.alloc(vk.api.VkExtensionProperties, count);
     try vk.check(vk.api.vkEnumerateDeviceExtensionProperties(device, null, &count, extensions.ptr));
 
     return extensions;
@@ -118,7 +118,7 @@ fn getPhysicalDevices(
     try vk.check(vk.api.vkEnumeratePhysicalDevices(instance, &count, null));
 
     // allocate an array of physical devices
-    var devices = try allocator.alloc(vk.api.VkPhysicalDevice, count);
+    const devices = try allocator.alloc(vk.api.VkPhysicalDevice, count);
     try vk.check(vk.api.vkEnumeratePhysicalDevices(instance, &count, devices.ptr));
 
     return devices;
@@ -139,7 +139,7 @@ fn findPhysicalDevice(
     var best_score: i32 = -80085;
 
     for (devices[0..]) |device| {
-        var score = try ratePhysicalDevice(instance.allocator, device, surface) orelse continue;
+        const score = try ratePhysicalDevice(instance.allocator, device, surface) orelse continue;
         if (score > best_score) {
             best_device = device;
             best_score = score;
@@ -185,7 +185,7 @@ pub const QueueFamilies = struct {
         var count: u32 = 0;
         vk.api.vkGetPhysicalDeviceQueueFamilyProperties(device, &count, null);
 
-        var queue_families = try allocator.alloc(vk.api.VkQueueFamilyProperties, count);
+        const queue_families = try allocator.alloc(vk.api.VkQueueFamilyProperties, count);
         vk.api.vkGetPhysicalDeviceQueueFamilyProperties(device, &count, queue_families.ptr);
 
         return queue_families;
@@ -199,11 +199,11 @@ pub const QueueFamilies = struct {
         var graphics: ?u32 = null;
         var present: ?u32 = null;
 
-        var queue_families = try QueueFamilies.getQueueFamilies(allocator, device);
+        const queue_families = try QueueFamilies.getQueueFamilies(allocator, device);
         defer allocator.free(queue_families);
 
         for (queue_families, 0..) |family, i| {
-            var queue_index: u32 = @intCast(i);
+            const queue_index: u32 = @intCast(i);
 
             if ((family.queueFlags & vk.api.VK_QUEUE_GRAPHICS_BIT) != 0) {
                 graphics = queue_index;

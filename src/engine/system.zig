@@ -99,7 +99,7 @@ pub fn FunctionSystem(comptime f: anytype) type {
 
     const Params = @Type(.{
         .Struct = .{
-            .layout = .Auto,
+            .layout = .auto,
             .fields = param_fields,
             .decls = &.{},
             .is_tuple = true,
@@ -108,7 +108,7 @@ pub fn FunctionSystem(comptime f: anytype) type {
 
     const State = @Type(.{
         .Struct = .{
-            .layout = .Auto,
+            .layout = .auto,
             .fields = state_fields,
             .decls = &.{},
             .is_tuple = false,
