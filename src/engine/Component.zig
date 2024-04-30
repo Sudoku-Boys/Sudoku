@@ -9,7 +9,7 @@ pub const VTable = struct {
         .deinit = null,
     };
 
-    pub fn of(comptime T: type) *const VTable {
+    pub fn of(comptime T: type) VTable {
         if (@alignOf(T) > 16) {
             @compileError("Components must have an alignment of 16 bytes or less!");
         }
@@ -32,7 +32,7 @@ pub const VTable = struct {
             vtable.deinit = Closure(T).deinit;
         }
 
-        return &vtable;
+        return vtable;
     }
 
     fn Closure(comptime T: type) type {
