@@ -2,8 +2,9 @@ const std = @import("std");
 
 const EmptySystem = @import("EmptySystem.zig");
 const Schedule = @import("Schedule.zig");
-const World = @import("World.zig");
+const Time = @import("Time.zig");
 const TypeId = @import("TypeId.zig");
+const World = @import("World.zig");
 
 const event = @import("event.zig");
 const render = @import("render.zig");
@@ -27,6 +28,8 @@ pub fn init(alloc: std.mem.Allocator) !Game {
         .schedule = Schedule.init(alloc),
         .world = World.init(alloc),
     };
+
+    try game.addPlugin(Time.Plugin{});
 
     const start_phase = try game.addSystem(EmptySystem{});
     try start_phase.label(Phase.Start);

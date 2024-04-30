@@ -43,11 +43,14 @@ pub fn embedSpirv(comptime data: []const u8) Spirv {
         @compileError("SPIR-V file size is not a multiple of 4");
     }
 
-    // this is beyond stupid, but it's the only way to do it
-    var spv: [len]u32 = undefined;
-    @memcpy(@as([*]u8, @ptrCast(&spv)), data);
+    const Spv = struct {
+        var spv: [len]u32 = undefined;
+    };
 
-    return &spv;
+    // this is beyond stupid, but it's the only way to do it
+    @memcpy(@as([*]u8, @ptrCast(&Spv.spv)), data);
+
+    return &Spv.spv;
 }
 
 pub fn vkBool(b: bool) api.VkBool32 {

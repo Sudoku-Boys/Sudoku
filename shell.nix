@@ -2,7 +2,7 @@
 
 pkgs.mkShell {
   packages = with pkgs; [
-    zig
+    zig_0_12
     shaderc
     glfw
     vulkan-headers

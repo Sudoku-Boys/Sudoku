@@ -21,7 +21,7 @@ const Entry = struct {
 
 // NOTE: only the deinit function is used, but taking the whole vtable
 // doesn't make a difference
-vtable: *const Component.VTable,
+vtable: Component.VTable,
 size: usize,
 
 entries: std.ArrayListUnmanaged(Entry),

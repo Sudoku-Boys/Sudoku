@@ -18,6 +18,11 @@ pub const Error = error{
     GlfwVulkanUnsupported,
 };
 
+pub const Size = struct {
+    width: u32,
+    height: u32,
+};
+
 var is_glfw_initialized = false;
 
 fn glfwErrorCallback(
@@ -168,6 +173,16 @@ pub fn shouldClose(self: *const Window) bool {
 
 pub fn setTitle(self: *const Window, title: []const u8) void {
     glfw.glfwSetWindowTitle(self.window, title.ptr);
+}
+
+pub fn getSize(self: *const Window) Size {
+    var width: i32 = 0;
+    var height: i32 = 0;
+    glfw.glfwGetWindowSize(self.window, &width, &height);
+    return Size{
+        .width = @intCast(width),
+        .height = @intCast(height),
+    };
 }
 
 pub fn cursorNormal(self: *const Window) void {
