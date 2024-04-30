@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const ShaderStage = enum {
     Vertex,
@@ -38,13 +39,15 @@ fn compileShaderTool(
         .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
     });
 
-    switch (comptime b.host.target.os.tag) {
+    switch (b.host.target.os.tag) {
         .windows => {
             addWindowsIncludePath(tool);
             tool.addLibraryPath(.{ .path = "ext/win/lib" });
         },
         .linux => {
-            addLinuxIncludePath(tool);
+            if (comptime builtin.os.tag == .linux) {
+                addLinuxIncludePath(tool);
+            }
         },
         else => {},
     }
