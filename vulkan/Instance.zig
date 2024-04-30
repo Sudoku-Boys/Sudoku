@@ -146,7 +146,7 @@ pub fn areLayersAvailable(allocator: std.mem.Allocator, layers: []const [*c]cons
     var count: u32 = 0;
     try vk.check(vk.api.vkEnumerateInstanceLayerProperties(&count, null));
 
-    var available = try allocator.alloc(vk.api.VkLayerProperties, count);
+    const available = try allocator.alloc(vk.api.VkLayerProperties, count);
     defer allocator.free(available);
 
     try vk.check(vk.api.vkEnumerateInstanceLayerProperties(&count, available.ptr));
@@ -204,7 +204,7 @@ pub fn areExtensionsAvailable(allocator: std.mem.Allocator, extensions: []const 
     var count: u32 = 0;
     try vk.check(vk.api.vkEnumerateInstanceExtensionProperties(null, &count, null));
 
-    var available = try allocator.alloc(vk.api.VkExtensionProperties, count);
+    const available = try allocator.alloc(vk.api.VkExtensionProperties, count);
     defer allocator.free(available);
 
     try vk.check(vk.api.vkEnumerateInstanceExtensionProperties(null, &count, available.ptr));

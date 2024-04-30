@@ -186,16 +186,18 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
             }
         }
 
-        fn get_matrix(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
+        // Matrix getters and setters
+        fn mget(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
             return self.board[coordinate.i * self.size + coordinate.j];
         }
 
-        fn set_matrix(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
+        fn mset(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
             assert(value <= self.size);
             self.board[coordinate.i * self.size + coordinate.j] = value;
         }
 
-        fn get_bitfield(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
+        // Bitfield getters and setters
+        fn bget(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
             const field = self.board[coordinate.i * self.size + coordinate.j];
 
             if (field == SudokuEmptySentinel) {
@@ -205,7 +207,7 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
             return @intCast(@ctz(field) + 1);
         }
 
-        fn set_bitfield(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
+        fn bset(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
             assert(value <= self.size);
             // Ignore the previous value as we are setting a new value.
             // We set value - 1 as the bit field is 0 indexed.
@@ -221,18 +223,21 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
         // Get the value of the field at i, j.
         pub fn get(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
             switch (storageType) {
-                .BITFIELD => return self.get_bitfield(coordinate),
-                .MATRIX => return self.get_matrix(coordinate),
+                .BITFIELD => return self.bget(coordinate),
+                .MATRIX => return self.mget(coordinate),
             }
         }
 
         // Set the value of the field at i, j to value.
         pub fn set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
             switch (storageType) {
-                .BITFIELD => self.set_bitfield(coordinate, value),
-                .MATRIX => self.set_matrix(coordinate, value),
+                .BITFIELD => self.bset(coordinate, value),
+                .MATRIX => self.mset(coordinate, value),
             }
         }
+
+        // Check
+        // pub fn validate(self: *Self, comptime C: SudokuContraint, constraint_index: u8) bool {}
 
         pub fn iterator(self: *Self, comptime C: SudokuContraint, coordinate: SudokuCoordinate) SudokuContraintIterator(Self, C) {
             return SudokuContraintIterator(Self, C).init(self, coordinate);

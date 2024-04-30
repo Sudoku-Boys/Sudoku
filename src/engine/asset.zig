@@ -5,14 +5,14 @@ const TypeId = @import("TypeId.zig");
 fn decrementRefCount(ref_count: *u32) void {
     while (true) {
         // load the `ref_count` atomically
-        const current_ref_count = @atomicLoad(u32, ref_count, .SeqCst);
+        const current_ref_count = @atomicLoad(u32, ref_count, .seq_cst);
         std.debug.assert(current_ref_count > 0);
 
         // calculate the new `ref_count`
         const new_ref_count = current_ref_count - 1;
 
         // attempt to atomically swap the `ref_count` with the new value
-        const res = @cmpxchgWeak(u32, ref_count, current_ref_count, new_ref_count, .SeqCst, .SeqCst);
+        const res = @cmpxchgWeak(u32, ref_count, current_ref_count, new_ref_count, .seq_cst, .seq_cst);
 
         // if the swap was unsuccessful, retry
         if (res == null) break;
@@ -22,13 +22,13 @@ fn decrementRefCount(ref_count: *u32) void {
 fn incrementRefCount(ref_count: *u32) void {
     while (true) {
         // load the `ref_count` atomically
-        const current_ref_count = @atomicLoad(u32, ref_count, .SeqCst);
+        const current_ref_count = @atomicLoad(u32, ref_count, .seq_cst);
 
         // calculate the new `ref_count`
         const new_ref_count = current_ref_count + 1;
 
         // attempt to atomically swap the `ref_count` with the new value
-        const res = @cmpxchgWeak(u32, ref_count, current_ref_count, new_ref_count, .SeqCst, .SeqCst);
+        const res = @cmpxchgWeak(u32, ref_count, current_ref_count, new_ref_count, .seq_cst, .seq_cst);
 
         // if the swap was unsuccessful, retry
         if (res == null) break;
@@ -125,11 +125,11 @@ pub fn Assets(comptime T: type) type {
             ref_count: *u32,
 
             pub fn refCount(self: Self) u32 {
-                return @atomicLoad(u32, self.ref_count, .SeqCst);
+                return @atomicLoad(u32, self.ref_count, .seq_cst);
             }
 
             pub fn setRefCount(self: Self, new_ref_count: u32) void {
-                @atomicStore(u32, self.ref_count, new_ref_count, .SeqCst);
+                @atomicStore(u32, self.ref_count, new_ref_count, .seq_cst);
             }
 
             fn deinit(self: *Asset, allocator: std.mem.Allocator) void {
@@ -257,7 +257,7 @@ pub fn Assets(comptime T: type) type {
 
             var it = self.entries.iterator();
             while (it.next()) |entry| {
-                const ref_count = @atomicLoad(u32, entry.value_ptr.ref_count, .SeqCst);
+                const ref_count = @atomicLoad(u32, entry.value_ptr.ref_count, .seq_cst);
                 if (ref_count > 0) continue;
 
                 entry.value_ptr.deinit(self.allocator);
@@ -374,7 +374,7 @@ fn hasDeinit(comptime T: type) bool {
     const deinit_decl = @field(T, "deinit");
     const DeinitType = @TypeOf(deinit_decl);
 
-    if (!std.meta.trait.is(.Fn)(DeinitType)) return false;
+    if (@typeInfo(DeinitType) != .Fn) return false;
 
     const deinit_fn = @typeInfo(DeinitType).Fn;
 

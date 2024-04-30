@@ -289,7 +289,7 @@ empty: vk.BindGroupLayout,
 pub fn init(device: vk.Device, desc: Descriptor) !GraphicsPipeline {
     const vertex_module = try createShaderModule(device.vk, desc.vertex.shader);
     defer vk.api.vkDestroyShaderModule(device.vk, vertex_module, null);
-    var fragment_module = try createShaderModule(device.vk, desc.fragment.shader);
+    const fragment_module = try createShaderModule(device.vk, desc.fragment.shader);
     defer vk.api.vkDestroyShaderModule(device.vk, fragment_module, null);
 
     var pipelines: [2]vk.api.VkPipelineShaderStageCreateInfo = undefined;

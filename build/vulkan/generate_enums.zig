@@ -58,7 +58,7 @@ fn vkEnumFields(comptime fields: []VkEnumField, comptime prefix: []const u8) usi
             if (field.value == value) continue :outer;
         }
 
-        var start = prefix.len;
+        const start = prefix.len;
         var end = decl.name.len;
 
         if (std.mem.endsWith(u8, decl.name[start..end], "_KHR")) {

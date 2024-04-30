@@ -38,7 +38,7 @@ fn vkFlagsFields(comptime fields: []?VkFlagsField, comptime prefix: []const u8) 
         // if the name is invalid, skip it
         if (!vkFlagsIsValidField(decl.name, prefix)) continue;
 
-        var start = prefix.len;
+        const start = prefix.len;
         const end = decl.name.len - 4;
 
         // if the field has 2_ in the name, skip it
@@ -60,7 +60,7 @@ fn vkFlagsFields(comptime fields: []?VkFlagsField, comptime prefix: []const u8) 
         if (fields[index] != null) continue;
 
         const stripped_name = decl.name[start..end];
-        var field_name = vkFlagFieldName(stripped_name);
+        const field_name = vkFlagFieldName(stripped_name);
 
         fields[index] = .{
             .name = field_name,
