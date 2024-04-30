@@ -1,7 +1,5 @@
 const std = @import("std");
 
-const context = @import("context.zig");
-
 pub const VTable = struct {
     init: ?*const fn (*u8) anyerror!void,
     deinit: ?*const fn (*u8) void,

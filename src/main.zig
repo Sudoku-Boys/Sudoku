@@ -60,6 +60,9 @@ pub fn main() !void {
 
         const window = game.world.resource(engine.Window);
 
+        const events = game.world.resourcePtr(engine.Events(engine.Window.Size));
+        try events.send(window.getSize());
+
         if (window.shouldClose()) {
             break;
         }

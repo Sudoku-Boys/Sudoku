@@ -4,6 +4,7 @@ const vk = @import("vulkan");
 const asset = @import("../asset.zig");
 const system = @import("../system.zig");
 const material = @import("material.zig");
+const event = @import("../event.zig");
 
 const Game = @import("../Game.zig");
 const Window = @import("../Window.zig");
@@ -30,6 +31,11 @@ pub const Phase = enum {
 pub const CommandPools = struct {
     graphics: vk.CommandPool,
     present: vk.CommandPool,
+
+    pub fn deinit(self: CommandPools) void {
+        self.graphics.deinit();
+        self.present.deinit();
+    }
 };
 
 present_mode: vk.PresentMode = .Fifo,
@@ -125,6 +131,8 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
         const meshes = asset.Assets(Mesh).init(allocator);
         try game.world.addResource(meshes);
     }
+
+    try game.addEvent(Window.Size);
 
     const camera_system = try game.addSystem(Camera.Prepared.system);
     try camera_system.after(Game.Phase.Update);

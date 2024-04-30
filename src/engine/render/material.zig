@@ -274,8 +274,6 @@ pub fn MaterialPlugin(comptime T: type) type {
                     continue;
                 };
 
-                std.log.debug("Queueing entity: {}\n", .{q.entity});
-
                 const vertex_buffers = try draw_commands.allocator.alloc(
                     vk.Buffer,
                     pipeline.attributes.len,
