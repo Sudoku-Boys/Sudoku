@@ -105,7 +105,7 @@ pub fn Query(comptime Q: type) type {
         /// The state of the query.
         pub const State = @Type(std.builtin.Type{
             .Struct = .{
-                .layout = .Auto,
+                .layout = .auto,
                 .fields = state_fields,
                 .decls = &.{},
                 .is_tuple = false,

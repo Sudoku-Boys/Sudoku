@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const vulkan_module = try vulkan.createVulkanModule(b);
+    const vm = try vulkan.createVulkanModule(b);
     const shaders = try shaderc.compileShaders(b);
 
     const exe = b.addExecutable(.{
@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    if (b.host.target.os.tag == .windows) {
+    if (b.host.result.os.tag == .windows) {
         vulkan.addIncludePath(exe);
         glfw.addIncludePath(exe);
         exe.addLibraryPath(.{ .path = "ext/win/lib" });
@@ -31,10 +31,10 @@ pub fn build(b: *std.Build) !void {
     exe.linkSystemLibrary("vulkan");
 
     for (shaders.items) |shader| {
-        exe.addAnonymousModule(shader.name, .{ .source_file = shader.data });
+        exe.root_module.addAnonymousImport(shader.name, .{ .root_source_file = shader.data });
     }
 
-    exe.addModule("vulkan", vulkan_module);
+    exe.root_module.addImport("vulkan", vm);
     exe.linkLibC();
 
     b.installArtifact(exe);
@@ -42,7 +42,7 @@ pub fn build(b: *std.Build) !void {
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
 
-    if (b.host.target.os.tag == .windows) {
+    if (b.host.result.os.tag == .windows) {
         run_cmd.addPathDir("ext/win/lib");
     }
 
