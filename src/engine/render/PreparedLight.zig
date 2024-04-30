@@ -103,6 +103,7 @@ pub fn deinit(self: PreparedLight) void {
     self.transmission_sampler.deinit();
 
     self.bind_group_pool.deinit();
+    self.bind_group_layout.deinit();
 }
 
 fn createTransmissionImage(device: vk.Device, target: vk.Image) !vk.Image {

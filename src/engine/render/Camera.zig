@@ -6,8 +6,7 @@ const Commands = @import("../Commands.zig");
 const Entity = @import("../Entity.zig");
 const Query = @import("../query.zig").Query;
 const Transform = @import("../Transform.zig");
-
-const Sdr = @import("Sdr.zig");
+const Window = @import("../Window.zig");
 
 const Camera = @This();
 
@@ -144,7 +143,7 @@ pub const Prepared = struct {
         device: *vk.Device,
         staging_buffer: *vk.StagingBuffer,
         pipeline: *Pipeline,
-        sdr: *Sdr,
+        window: *Window,
         camera_query: Query(struct {
             entity: Entity,
             transform: *Transform,
@@ -154,7 +153,10 @@ pub const Prepared = struct {
             prepared: *Prepared,
         }),
     ) !void {
-        const aspect = sdr.swapchain.extent.aspectRatio();
+        const size = window.getSize();
+        const width: f32 = @floatFromInt(size.width);
+        const height: f32 = @floatFromInt(size.height);
+        const aspect = width / height;
 
         var it = camera_query.iterator();
         while (it.next()) |camera| {
