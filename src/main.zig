@@ -3,6 +3,20 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 
+const Rotate = struct {};
+
+fn testSystem(
+    query: engine.Query(struct {
+        transform: *engine.Transform,
+        rotate: *Rotate,
+    }),
+) !void {
+    var it = query.iterator();
+    while (it.next()) |q| {
+        q.transform.rotation.mulEq(engine.Quat.rotateY(0.01));
+    }
+}
+
 pub fn main() !void {
     try engine.Window.initGlfw();
     defer engine.Window.deinitGlfw();
@@ -18,6 +32,11 @@ pub fn main() !void {
     try game.addPlugin(engine.RenderPlugin{});
     try game.addPlugin(engine.MaterialPlugin(engine.StandardMaterial){});
 
+    try game.addEvent(u32);
+
+    const t = try game.addSystem(testSystem);
+    try t.label(engine.Game.Phase.Update);
+
     const materials = game.world.resourcePtr(engine.Assets(engine.StandardMaterial));
     const mat = try materials.add(engine.StandardMaterial{});
 
@@ -28,6 +47,7 @@ pub fn main() !void {
     try box.addComponent(mat);
     try box.addComponent(mesh);
     try box.addComponent(engine.Transform{});
+    try box.addComponent(Rotate{});
 
     const camera = try game.world.addEntity();
     try camera.addComponent(engine.Camera{});

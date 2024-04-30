@@ -52,6 +52,8 @@ fn createRenderPipeline(
             },
         },
         .layouts = &.{
+            null,
+            null,
             camera_pipeline.layout,
         },
         .render_pass = render_pass,
@@ -60,18 +62,8 @@ fn createRenderPipeline(
 }
 
 pub fn record(self: Sky, command_buffer: vk.CommandBuffer, camera: Camera.Prepared) void {
-    command_buffer.beginRenderPass(.{
-        .render_pass = self.render_pass,
-        .framebuffer = self.framebuffer,
-        .render_area = .{
-            .extent = self.view.extent.as2D(),
-        },
-    });
-
     command_buffer.bindGraphicsPipeline(self.graphics_pipeline);
-    command_buffer.bindBindGroup(self.graphics_pipeline, 0, camera.bind_group, &.{});
+    command_buffer.bindBindGroup(self.graphics_pipeline, 2, camera.bind_group, &.{});
 
     command_buffer.draw(.{ .vertex_count = 6 });
-
-    command_buffer.endRenderPass();
 }

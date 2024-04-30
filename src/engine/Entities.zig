@@ -11,6 +11,38 @@ pub const Storage = union(enum) {
     Dense: u32,
 };
 
+const ZstStorage = struct {
+    entities: std.ArrayListUnmanaged(u32) = .{},
+
+    fn deinit(self: *ZstStorage, allocator: std.mem.Allocator) void {
+        self.entities.deinit(allocator);
+    }
+
+    fn contains(self: ZstStorage, entity: Entity) bool {
+        if (self.entities.items.len <= entity.index) return false;
+
+        const generation = self.entities.items[entity.index];
+        return generation == entity.generation;
+    }
+
+    fn put(self: *ZstStorage, allocator: std.mem.Allocator, entity: Entity) !void {
+        if (self.entities.items.len <= entity.index) {
+            const new_len = entity.index + 1;
+            const old_len = self.entities.items.len;
+            const delta = new_len - old_len;
+
+            try self.entities.appendNTimes(allocator, Entity.MAX_GENERATIONS, delta);
+        }
+
+        self.entities.items[entity.index] = entity.generation;
+    }
+
+    fn remove(self: *ZstStorage, entity: Entity) void {
+        if (self.entities.items.len <= entity.index) return;
+        self.entities.items[entity.index] = Entity.MAX_GENERATIONS;
+    }
+};
+
 allocator: std.mem.Allocator,
 
 entity_allocator: EntityAllocator,
@@ -18,7 +50,7 @@ entities: std.ArrayListUnmanaged(u32),
 
 storages: std.AutoHashMapUnmanaged(TypeId, Storage),
 
-zst_count: u32,
+zst: std.ArrayListUnmanaged(ZstStorage),
 dense: std.ArrayListUnmanaged(Dense),
 
 pub fn init(allocator: std.mem.Allocator) Entities {
@@ -27,12 +59,16 @@ pub fn init(allocator: std.mem.Allocator) Entities {
         .entity_allocator = .{},
         .entities = .{},
         .storages = .{},
-        .zst_count = 0,
+        .zst = .{},
         .dense = .{},
     };
 }
 
 pub fn deinit(self: *Entities) void {
+    for (self.zst.items) |*zst| {
+        zst.deinit(self.allocator);
+    }
+
     for (self.dense.items) |*dense| {
         dense.deinit(self.allocator);
     }
@@ -40,6 +76,8 @@ pub fn deinit(self: *Entities) void {
     self.entity_allocator.deinit(self.allocator);
     self.entities.deinit(self.allocator);
     self.storages.deinit(self.allocator);
+
+    self.zst.deinit(self.allocator);
     self.dense.deinit(self.allocator);
 }
 
@@ -111,12 +149,14 @@ fn registerZst(self: *Entities, comptime T: type) !Storage {
     const type_id = TypeId.of(T);
 
     const storage = Storage{
-        .Zst = self.zst_count,
+        .Zst = @intCast(self.zst.items.len),
     };
 
     try self.storages.put(self.allocator, type_id, storage);
 
-    self.zst_count += 1;
+    const zst = ZstStorage{};
+    try self.zst.append(self.allocator, zst);
+
     return storage;
 }
 
@@ -158,7 +198,9 @@ pub fn containsComponentRegistered(
     entity: Entity,
 ) bool {
     switch (storage) {
-        .Zst => return false,
+        .Zst => |index| {
+            return self.zst.items[index].contains(entity);
+        },
         .Dense => |index| {
             return self.dense.items[index].contains(entity);
         },
@@ -177,7 +219,9 @@ pub fn putComponentRegistered(
     component: anytype,
 ) !void {
     switch (storage) {
-        .Zst => {},
+        .Zst => |index| {
+            try self.zst.items[index].put(self.allocator, entity);
+        },
         .Dense => |index| {
             try self.dense.items[index].put(self.allocator, entity, component);
         },
@@ -196,7 +240,10 @@ pub fn getComponentRegistered(
     comptime T: type,
 ) ?*T {
     switch (storage) {
-        .Zst => return undefined,
+        .Zst => |index| {
+            if (!self.zst.items[index].contains(entity)) return null;
+            return undefined;
+        },
         .Dense => |index| {
             return self.dense.items[index].get(entity, T);
         },

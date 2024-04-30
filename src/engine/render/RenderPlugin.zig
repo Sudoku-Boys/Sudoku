@@ -7,6 +7,7 @@ const material = @import("material.zig");
 
 const Game = @import("../Game.zig");
 const Window = @import("../Window.zig");
+const Query = @import("../query.zig").Query;
 
 const Camera = @import("Camera.zig");
 const DrawCommand = @import("DrawCommand.zig");
@@ -164,7 +165,9 @@ fn recordCommandBuffer(
     draw_commands: *DrawCommand.Queue,
     hdr: *Hdr,
     sdr: *Sdr,
+    sky: *Sky,
     tonemap: *Tonemap,
+    camera: Camera.Prepared,
     light: *PreparedLight,
     present: *Present,
     image_index: u32,
@@ -216,6 +219,8 @@ fn recordCommandBuffer(
             .extent = hdr.color_image.extent.as2D(),
         },
     });
+
+    sky.record(present.graphics_buffer, camera);
 
     for (draw_commands.commands.items) |command| {
         present.graphics_buffer.bindGraphicsPipeline(command.pipeline);
@@ -270,9 +275,13 @@ pub fn renderSystem(
     draw_commands: *DrawCommand.Queue,
     hdr: *Hdr,
     sdr: *Sdr,
+    sky: *Sky,
     tonemap: *Tonemap,
     light: *PreparedLight,
     present: *Present,
+    camera_query: Query(struct {
+        prepared_camera: *Camera.Prepared,
+    }),
 ) !void {
     try present.in_flight.wait(.{});
 
@@ -293,12 +302,17 @@ pub fn renderSystem(
 
     try present.in_flight.reset();
 
+    var camera_it = camera_query.iterator();
+    const camera = camera_it.next().?;
+
     try recordCommandBuffer(
         device,
         draw_commands,
         hdr,
         sdr,
+        sky,
         tonemap,
+        camera.prepared_camera.*,
         light,
         present,
         image_index,

@@ -7,6 +7,8 @@ const Entity = @import("../Entity.zig");
 const Query = @import("../query.zig").Query;
 const Transform = @import("../Transform.zig");
 
+const Sdr = @import("Sdr.zig");
+
 const Camera = @This();
 
 pub const Uniforms = extern struct {
@@ -22,8 +24,6 @@ fov: f32 = 70.0,
 near: f32 = 0.1,
 far: f32 = 100.0,
 
-transform: Transform = Transform.xyz(0.0, 0.0, 5.0),
-
 pub fn proj(self: Camera, aspect: f32) math.Mat4 {
     return math.Mat4.projection(
         aspect,
@@ -33,13 +33,13 @@ pub fn proj(self: Camera, aspect: f32) math.Mat4 {
     );
 }
 
-pub fn uniforms(self: Camera, aspect: f32) Uniforms {
-    const view_matrix = self.transform.computeMatrix();
+pub fn uniforms(self: Camera, transform: Transform, aspect: f32) Uniforms {
+    const view_matrix = transform.computeMatrix();
     const proj_matrix = self.proj(aspect);
     const view_proj_matrix = view_matrix.inv().mul(proj_matrix);
     const inv_view_proj_matrix = view_proj_matrix.inv();
 
-    const eye = self.transform.translation;
+    const eye = transform.translation;
 
     return Uniforms{
         .view = view_matrix.f,
@@ -123,10 +123,28 @@ pub const Prepared = struct {
         self.buffer.deinit();
     }
 
+    pub fn update(
+        self: Prepared,
+        staging_buffer: *vk.StagingBuffer,
+        camera: Camera,
+        transform: Transform,
+        aspect: f32,
+    ) !void {
+        const u = camera.uniforms(transform, aspect);
+
+        try staging_buffer.write(&u);
+        try staging_buffer.copyBuffer(.{
+            .dst = self.buffer,
+            .size = @sizeOf(Uniforms),
+        });
+    }
+
     pub fn system(
         commands: Commands,
         device: *vk.Device,
+        staging_buffer: *vk.StagingBuffer,
         pipeline: *Pipeline,
+        sdr: *Sdr,
         camera_query: Query(struct {
             entity: Entity,
             transform: *Transform,
@@ -136,9 +154,18 @@ pub const Prepared = struct {
             prepared: *Prepared,
         }),
     ) !void {
+        const aspect = sdr.swapchain.extent.aspectRatio();
+
         var it = camera_query.iterator();
         while (it.next()) |camera| {
-            if (!prepared_query.contains(camera.entity)) {
+            if (prepared_query.fetch(camera.entity)) |p| {
+                try p.prepared.update(
+                    staging_buffer,
+                    camera.camera.*,
+                    camera.transform.*,
+                    aspect,
+                );
+            } else {
                 std.log.debug("Preparing camera bind group for entity {}", .{camera.entity});
 
                 const prepared = try Prepared.init(
@@ -146,6 +173,13 @@ pub const Prepared = struct {
                     pipeline.*,
                 );
                 errdefer prepared.deinit();
+
+                try prepared.update(
+                    staging_buffer,
+                    camera.camera.*,
+                    camera.transform.*,
+                    aspect,
+                );
 
                 try commands.addComponent(camera.entity, prepared);
             }

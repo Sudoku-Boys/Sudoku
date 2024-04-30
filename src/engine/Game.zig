@@ -5,6 +5,7 @@ const Schedule = @import("Schedule.zig");
 const World = @import("World.zig");
 const TypeId = @import("TypeId.zig");
 
+const event = @import("event.zig");
 const render = @import("render.zig");
 
 const Game = @This();
@@ -83,6 +84,16 @@ pub fn requirePlugin(self: *const Game, comptime T: type) void {
     if (!self.hasPlugin(T)) {
         std.debug.panic("Plugin `{}` is required but not found", .{T});
     }
+}
+
+pub fn addEvent(self: *Game, comptime T: type) !void {
+    if (self.world.containsResource(event.Events(T))) return;
+
+    const events = event.Events(T).init(self.world.allocator);
+    try self.world.addResource(events);
+
+    const system = try self.addSystem(event.Events(T).system);
+    try system.before(Phase.Start);
 }
 
 pub fn addSystem(self: *Game, system: anytype) !Schedule.AddedSystem {

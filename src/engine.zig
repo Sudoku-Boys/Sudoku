@@ -13,6 +13,7 @@ pub const math = @import("engine/math.zig");
 
 pub usingnamespace @import("engine/asset.zig");
 pub usingnamespace @import("engine/render.zig");
+pub usingnamespace @import("engine/event.zig");
 pub usingnamespace @import("engine/math.zig");
 pub usingnamespace @import("engine/query.zig");
 pub usingnamespace @import("engine/system.zig");

@@ -57,9 +57,26 @@ pub fn deinit(self: PreparedTransform) void {
     self.buffer.deinit();
 }
 
+pub fn update(
+    self: PreparedTransform,
+    staging_buffer: *vk.StagingBuffer,
+    transform: Transform,
+) !void {
+    const u = Uniforms{
+        .model = transform.computeMatrix().f,
+    };
+
+    try staging_buffer.write(&u);
+    try staging_buffer.copyBuffer(.{
+        .dst = self.buffer,
+        .size = @sizeOf(Uniforms),
+    });
+}
+
 pub fn system(
     commands: Commands,
     device: *vk.Device,
+    staging_buffer: *vk.StagingBuffer,
     pipeline: *Pipeline,
     transform_query: Query(struct {
         entity: Entity,
@@ -70,9 +87,14 @@ pub fn system(
     }),
 ) !void {
     var it = transform_query.iterator();
-    while (it.next()) |transform| {
-        if (!prepared_query.contains(transform.entity)) {
-            std.log.debug("Preparing transform for entity: {}", .{transform.entity});
+    while (it.next()) |q| {
+        if (prepared_query.fetch(q.entity)) |p| {
+            try p.prepared.update(
+                staging_buffer,
+                q.transform.*,
+            );
+        } else {
+            std.log.debug("Preparing transform for entity: {}", .{q.entity});
 
             const prepared = try PreparedTransform.init(
                 device.*,
@@ -80,7 +102,12 @@ pub fn system(
             );
             errdefer prepared.deinit();
 
-            try commands.addComponent(transform.entity, prepared);
+            try prepared.update(
+                staging_buffer,
+                q.transform.*,
+            );
+
+            try commands.addComponent(q.entity, prepared);
         }
     }
 }
