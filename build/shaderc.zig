@@ -38,7 +38,7 @@ fn compileShaderTool(
         .root_source_file = .{ .path = "build/vulkan/compile_shader.zig" },
     });
 
-    switch (b.host.target.os.tag) {
+    switch (comptime b.host.target.os.tag) {
         .windows => {
             addWindowsIncludePath(tool);
             tool.addLibraryPath(.{ .path = "ext/win/lib" });
