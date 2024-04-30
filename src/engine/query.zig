@@ -134,8 +134,13 @@ pub fn Query(comptime Q: type) type {
             return initState(world);
         }
 
-        pub fn systemParamFetch(world: *World, state: SystemParamState) !Self {
-            return world.query(Q, state);
+        pub fn systemParamFetch(world: *World, state: *SystemParamState) !Self {
+            return world.query(Q, state.*);
+        }
+
+        pub fn systemParamApply(world: *World, state: *SystemParamState) !void {
+            _ = state;
+            _ = world;
         }
 
         /// Check if the query contains the given `entity`.

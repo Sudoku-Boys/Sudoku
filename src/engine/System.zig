@@ -39,14 +39,20 @@ pub fn run(self: System, world: *World) !void {
     try self.vtable.run(self.state, world);
 }
 
+pub fn apply(self: System, world: *World) !void {
+    try self.vtable.apply(self.state, world);
+}
+
 pub const VTable = struct {
     deinit: ?*const fn (*u8, std.mem.Allocator) void,
     run: *const fn (*u8, *World) anyerror!void,
+    apply: *const fn (*u8, *World) anyerror!void,
 
     pub fn of(comptime T: type) *const VTable {
         return &.{
             .deinit = Closure(T).deinit,
             .run = Closure(T).run,
+            .apply = Closure(T).apply,
         };
     }
 
@@ -67,6 +73,11 @@ pub const VTable = struct {
             pub fn run(state: *u8, world: *World) anyerror!void {
                 const state_ptr: *T = @ptrCast(@alignCast(state));
                 try state_ptr.run(world);
+            }
+
+            pub fn apply(state: *u8, world: *World) anyerror!void {
+                const state_ptr: *T = @ptrCast(@alignCast(state));
+                try state_ptr.apply(world);
             }
         };
     }

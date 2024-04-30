@@ -2,6 +2,7 @@ const std = @import("std");
 
 const Entity = @import("Entity.zig");
 const Dense = @import("Dense.zig");
+const TypeId = @import("TypeId.zig");
 
 const Entities = @This();
 
@@ -15,7 +16,7 @@ allocator: std.mem.Allocator,
 entity_allocator: EntityAllocator,
 entities: std.ArrayListUnmanaged(u32),
 
-storages: std.AutoHashMapUnmanaged(std.builtin.TypeId, Storage),
+storages: std.AutoHashMapUnmanaged(TypeId, Storage),
 
 zst_count: u32,
 dense: std.ArrayListUnmanaged(Dense),
@@ -42,7 +43,7 @@ pub fn deinit(self: *Entities) void {
     self.dense.deinit(self.allocator);
 }
 
-pub fn createEntity(self: *Entities) !Entity {
+pub fn addEntity(self: *Entities) !Entity {
     const entity = self.entity_allocator.alloc();
 
     if (self.entities.items.len <= entity.index) {
@@ -58,7 +59,7 @@ pub fn createEntity(self: *Entities) !Entity {
     return entity;
 }
 
-pub fn destroyEntity(self: *Entities, entity: Entity) !void {
+pub fn removeEntity(self: *Entities, entity: Entity) !void {
     for (self.dense.items) |*dense| {
         try dense.destroy(self.allocator, entity);
     }
@@ -107,7 +108,7 @@ pub fn entityIterator(self: Entities) EntityIterator {
 }
 
 fn registerZst(self: *Entities, comptime T: type) !Storage {
-    const type_id = std.meta.activeTag(@typeInfo(T));
+    const type_id = TypeId.of(T);
 
     const storage = Storage{
         .Zst = self.zst_count,
@@ -120,7 +121,7 @@ fn registerZst(self: *Entities, comptime T: type) !Storage {
 }
 
 fn registerDense(self: *Entities, comptime T: type) !Storage {
-    const type_id = std.meta.activeTag(@typeInfo(T));
+    const type_id = TypeId.of(T);
 
     const storage = Storage{
         .Dense = @intCast(self.dense.items.len),
@@ -135,12 +136,12 @@ fn registerDense(self: *Entities, comptime T: type) !Storage {
 }
 
 pub fn getStorage(self: *Entities, comptime T: type) ?Storage {
-    const type_id = std.meta.activeTag(@typeInfo(T));
+    const type_id = TypeId.of(T);
     return self.storages.get(type_id);
 }
 
 pub fn registerComponent(self: *Entities, comptime T: type) !Storage {
-    const type_id = std.meta.activeTag(@typeInfo(T));
+    const type_id = TypeId.of(T);
 
     if (self.storages.get(type_id)) |storage| return storage;
 

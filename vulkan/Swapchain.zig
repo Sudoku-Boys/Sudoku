@@ -118,6 +118,14 @@ fn createSwapchain(
     capabilities.currentExtent.width = @max(1, capabilities.currentExtent.width);
     capabilities.currentExtent.height = @max(1, capabilities.currentExtent.height);
 
+    if (capabilities.currentExtent.width > capabilities.maxImageExtent.width) {
+        capabilities.currentExtent.width = 800;
+    }
+
+    if (capabilities.currentExtent.height > capabilities.maxImageExtent.height) {
+        capabilities.currentExtent.height = 600;
+    }
+
     const min_image_count = @min(
         capabilities.minImageCount + 1,
         capabilities.maxImageCount,

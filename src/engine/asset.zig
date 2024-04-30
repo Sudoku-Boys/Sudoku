@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const TypeId = @import("TypeId.zig");
+
 fn decrementRefCount(ref_count: *u32) void {
     while (true) {
         // load the `ref_count` atomically
@@ -36,7 +38,7 @@ fn incrementRefCount(ref_count: *u32) void {
 pub const DynamicAssetId = struct {
     const Self = @This();
 
-    type_id: std.builtin.TypeId,
+    type_id: TypeId,
     index: usize,
     ref_count: *u32,
 
@@ -93,7 +95,7 @@ pub fn AssetId(comptime T: type) type {
 
         pub fn dynamic(self: Self) DynamicAssetId {
             return .{
-                .type_id = std.meta.activeTag(@typeInfo(T)),
+                .type_id = TypeId(T),
                 .index = self.index,
                 .ref_count = self.ref_count,
             };
@@ -181,11 +183,8 @@ pub fn Assets(comptime T: type) type {
             self.entries.deinit(self.allocator);
         }
 
-        pub fn dynamic(self: *Self) DynamicAssets {
-            return .{
-                .data = self,
-                .vtable = &DynamicAssets.VTable.of(T),
-            };
+        pub fn len(self: Self) usize {
+            return self.entries.count();
         }
 
         pub fn contains(self: *Self, id: AssetId(T)) bool {
@@ -350,129 +349,19 @@ pub fn Assets(comptime T: type) type {
             }
         };
 
-        pub fn iterator(self: Self) Iterator {
+        pub fn iterator(self: *Self) Iterator {
             return .{
                 .it = self.entries.iterator(),
             };
         }
 
-        pub fn assetIterator(self: Self) AssetIterator {
+        pub fn assetIterator(self: *Self) AssetIterator {
             return .{
                 .it = self.entries.iterator(),
             };
         }
     };
 }
-
-pub const DynamicAssets = struct {
-    pub const Asset = struct {
-        const Self = @This();
-
-        asset: *anyopaque,
-        version: u32,
-        ref_count: *u32,
-
-        pub fn refCount(self: Self) u32 {
-            return @atomicLoad(u32, self.ref_count, .SeqCst);
-        }
-
-        pub fn setRefCount(self: Self, new_ref_count: u32) void {
-            @atomicStore(u32, self.ref_count, new_ref_count, .SeqCst);
-        }
-    };
-
-    const VTable = struct {
-        type_id: std.builtin.TypeId,
-        destroy: *const fn (std.mem.Allocator, *anyopaque) void,
-        deinit: *const fn (*anyopaque) void,
-        contains: *const fn (*anyopaque, DynamicAssetId) bool,
-        get_asset: *const fn (*anyopaque, DynamicAssetId) ?Asset,
-
-        fn of(comptime T: type) VTable {
-            const Closure = struct {
-                fn destroy(allocator: std.mem.Allocator, data: *anyopaque) void {
-                    const assets: *Assets(T) = @ptrCast(@alignCast(data));
-                    assets.deinit();
-                    allocator.destroy(assets);
-                }
-
-                fn deinit(data: *anyopaque) void {
-                    const assets: *Assets(T) = @ptrCast(@alignCast(data));
-                    assets.deinit();
-                }
-
-                fn contains(data: *anyopaque, id: DynamicAssetId) bool {
-                    const assets: *Assets(T) = @ptrCast(@alignCast(data));
-                    return assets.contains(id.cast(T));
-                }
-
-                fn getAsset(data: *anyopaque, id: DynamicAssetId) ?Asset {
-                    const assets: *Assets(T) = @ptrCast(@alignCast(data));
-                    const asset = assets.getAsset(id.cast(T)) orelse return null;
-
-                    return .{
-                        .asset = asset,
-                        .version = asset.version,
-                        .ref_count = asset.ref_count,
-                    };
-                }
-            };
-
-            return .{
-                .type_id = std.meta.activeTag(@typeInfo(T)),
-                .destroy = Closure.destroy,
-                .deinit = Closure.deinit,
-                .contains = Closure.contains,
-                .get_asset = Closure.getAsset,
-            };
-        }
-    };
-
-    data: *anyopaque,
-    vtable: *const VTable,
-
-    pub fn alloc(allocator: std.mem.Allocator, assets: anytype) !DynamicAssets {
-        const allocation = try allocator.create(@TypeOf(assets));
-        allocation.* = assets;
-
-        return allocation.dynamic();
-    }
-
-    pub fn destroy(self: DynamicAssets, allocator: std.mem.Allocator) void {
-        self.vtable.destroy(allocator, self.data);
-    }
-
-    pub fn deinit(self: DynamicAssets) void {
-        self.vtable.deinit(self.data);
-    }
-
-    pub fn contains(self: DynamicAssets, id: DynamicAssetId) bool {
-        return self.vtable.contains(self.data, id);
-    }
-
-    pub fn getAsset(self: DynamicAssets, id: DynamicAssetId) ?Asset {
-        return self.vtable.get_asset(self.data, id);
-    }
-
-    pub fn get(self: DynamicAssets, id: DynamicAssetId) ?*anyopaque {
-        const asset = self.getAsset(id) orelse return null;
-        return asset.asset;
-    }
-
-    pub fn is(self: DynamicAssets, comptime T: type) bool {
-        return self.vtable.type_id == std.meta.activeTag(@typeInfo(T));
-    }
-
-    pub fn tryCast(self: DynamicAssets, comptime T: type) ?*Assets(T) {
-        if (!self.is(T)) return null;
-        return self.cast();
-    }
-
-    pub fn cast(self: DynamicAssets, comptime T: type) *Assets(T) {
-        std.debug.assert(self.is(T));
-        return @ptrCast(@alignCast(self.data));
-    }
-};
 
 fn hasDeinit(comptime T: type) bool {
     switch (@typeInfo(T)) {

@@ -31,13 +31,13 @@ pub fn deinit(self: *World) void {
     self.resources.deinit();
 }
 
-pub fn createEntity(self: *World) !EntityRef {
-    const e = try self.entities.createEntity();
+pub fn addEntity(self: *World) !EntityRef {
+    const e = try self.entities.addEntity();
     return EntityRef.init(&self.entities, e);
 }
 
-pub fn destroyEntity(self: *World, e: Entity) !void {
-    try self.entities.destroyEntity(e);
+pub fn removeEntity(self: *World, e: Entity) !void {
+    try self.entities.removeEntity(e);
 }
 
 pub fn containsEntity(self: *World, e: Entity) bool {
@@ -111,7 +111,7 @@ pub fn getResource(self: *World, comptime T: type) ?*T {
 }
 
 pub fn resourcePtr(self: *World, comptime T: type) *T {
-    const ptr = self.getResource(T) orelse std.debug.panic("resource not found", .{});
+    const ptr = self.getResource(T) orelse std.debug.panic("resource not found {}", .{T});
     return ptr;
 }
 

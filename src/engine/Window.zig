@@ -20,11 +20,20 @@ pub const Error = error{
 
 var is_glfw_initialized = false;
 
+fn glfwErrorCallback(
+    err: i32,
+    description: [*c]const u8,
+) callconv(.C) void {
+    std.debug.print("GLFW error {}: {s}\n", .{ err, description });
+}
+
 /// Initialize GLFW, this can be called multiple times, but will only initialize GLFW once.
 pub fn initGlfw() !void {
     if (is_glfw_initialized) {
         return;
     }
+
+    _ = glfw.glfwSetErrorCallback(glfwErrorCallback);
 
     if (glfw.glfwInit() != glfw.GLFW_TRUE) {
         return Error.GlfwInit;

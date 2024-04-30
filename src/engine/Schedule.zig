@@ -2,16 +2,17 @@ const std = @import("std");
 
 const System = @import("System.zig");
 const World = @import("World.zig");
+const TypeId = @import("TypeId.zig");
 
 const Schedule = @This();
 
 const SystemLabel = struct {
-    type_id: std.builtin.TypeId,
+    type_id: TypeId,
     hash: u64,
 
     pub fn of(label: anytype) SystemLabel {
         const T = @TypeOf(label);
-        const type_id = std.meta.activeTag(@typeInfo(T));
+        const type_id = TypeId.of(T);
 
         var hasher = std.hash.XxHash64.init(42069);
         std.hash.autoHash(&hasher, label);
@@ -238,5 +239,6 @@ pub fn run(self: *Schedule, world: *World) !void {
     for (self.order.?) |index| {
         const entry = self.entries.items[index];
         try entry.system.run(world);
+        try entry.system.apply(world);
     }
 }

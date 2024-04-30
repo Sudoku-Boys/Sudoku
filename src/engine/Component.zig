@@ -24,7 +24,6 @@ pub const VTable = struct {
         comptime var vtable = VTable{
             .init = null,
             .deinit = null,
-            .update = null,
         };
 
         if (@hasDecl(T, "init")) {

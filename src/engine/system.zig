@@ -2,36 +2,62 @@ const std = @import("std");
 
 const World = @import("World.zig");
 
-pub fn Res(comptime T: type) type {
-    return struct {
-        const Self = @This();
+fn SystemParamState(comptime T: type) type {
+    const type_info = @typeInfo(T);
 
-        pub const SystemParamState = void;
+    if (T == std.mem.Allocator) return void;
 
-        ptr: *T,
+    switch (type_info) {
+        .Pointer => return void,
+        else => return T.SystemParamState,
+    }
+}
 
-        pub fn systemParamInit(world: *World) !SystemParamState {
-            _ = world;
+fn systemParamInit(comptime T: type, world: *World) !SystemParamState(T) {
+    const type_info = @typeInfo(T);
 
-            return {};
-        }
+    if (T == std.mem.Allocator) return;
 
-        pub fn systemParamFetch(world: *World, state: SystemParamState) !Self {
-            _ = state;
+    switch (type_info) {
+        .Pointer => {},
+        else => return T.systemParamInit(world),
+    }
+}
 
-            return .{
-                .ptr = world.resourcePtr(T),
-            };
-        }
+pub fn systemParamFetch(comptime T: type, world: *World, state: *SystemParamState(T)) !T {
+    const type_info = @typeInfo(T);
 
-        pub fn get(self: Self) T {
-            return self.ptr.*;
-        }
+    if (T == std.mem.Allocator) return world.allocator;
 
-        pub fn set(self: Self, value: T) void {
-            self.ptr.* = value;
-        }
-    };
+    switch (type_info) {
+        .Pointer => |pointer| return world.resourcePtr(pointer.child),
+        else => return T.systemParamFetch(world, state),
+    }
+}
+
+pub fn systemParamApply(comptime T: type, world: *World, state: *SystemParamState(T)) !void {
+    const type_info = @typeInfo(T);
+
+    if (T == std.mem.Allocator) return;
+
+    switch (type_info) {
+        .Pointer => {},
+        else => try T.systemParamApply(world, state),
+    }
+}
+
+pub fn systemParamDeinit(comptime T: type, state: *SystemParamState(T)) void {
+    const type_info = @typeInfo(T);
+
+    if (T == std.mem.Allocator) return;
+
+    switch (type_info) {
+        .Pointer => {},
+        .Struct, .Enum, .Union, .Opaque => if (@hasDecl(T, "systemParamDeinit")) {
+            T.systemParamDeinit(state);
+        },
+        else => {},
+    }
 }
 
 pub fn FunctionSystem(comptime f: anytype) type {
@@ -61,7 +87,7 @@ pub fn FunctionSystem(comptime f: anytype) type {
         const state_name = std.fmt.comptimePrint("state_{}", .{i});
         const state_field = std.builtin.Type.StructField{
             .name = state_name,
-            .type = Param.SystemParamState,
+            .type = SystemParamState(Param),
             .default_value = null,
             .is_comptime = false,
             .alignment = 0,
@@ -100,7 +126,7 @@ pub fn FunctionSystem(comptime f: anytype) type {
             inline for (func.params, 0..) |param, i| {
                 const Param = param.type.?;
                 const name = std.fmt.comptimePrint("state_{}", .{i});
-                const param_state = try Param.systemParamInit(world);
+                const param_state = try systemParamInit(Param, world);
                 @field(state, name) = param_state;
             }
 
@@ -116,25 +142,36 @@ pub fn FunctionSystem(comptime f: anytype) type {
                 const Param = param.type.?;
 
                 const state_name = std.fmt.comptimePrint("state_{}", .{i});
-                const state = @field(self.state.?, state_name);
+                const state = &@field(self.state.?, state_name);
 
                 const name = std.fmt.comptimePrint("{}", .{i});
-                @field(params, name) = try Param.systemParamFetch(world, state);
+                @field(params, name) = try systemParamFetch(Param, world, state);
             }
 
             try @call(.auto, f, params);
         }
 
+        pub fn apply(self: *Self, world: *World) !void {
+            if (self.state == null) try self.init(world);
+
+            inline for (func.params, 0..) |param, i| {
+                const Param = param.type.?;
+
+                const state_name = std.fmt.comptimePrint("state_{}", .{i});
+                const state = &@field(self.state.?, state_name);
+
+                try systemParamApply(Param, world, state);
+            }
+        }
+
         pub fn deinit(self: *Self) void {
-            if (self.state) |state| {
+            if (self.state) |*state| {
                 inline for (func.params, 0..) |param, i| {
                     const Param = param.type.?;
                     const state_name = std.fmt.comptimePrint("state_{}", .{i});
-                    const param_state = @field(state, state_name);
+                    const param_state = &@field(state, state_name);
 
-                    if (@hasDecl(Param, "systemParamDeinit")) {
-                        Param.systemParamDeinit(param_state);
-                    }
+                    systemParamDeinit(Param, param_state);
                 }
             }
         }

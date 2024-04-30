@@ -30,5 +30,5 @@ pub fn destroyComponent(self: EntityRef, comptime T: type) !void {
 }
 
 pub fn destroy(self: EntityRef) !void {
-    try self.entities.destroyEntity(self.entity);
+    try self.entities.removeEntity(self.entity);
 }

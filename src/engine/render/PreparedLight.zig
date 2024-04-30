@@ -2,11 +2,10 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Downsample = @import("Downsample.zig");
-const Material = @import("Material.zig");
-const Renderer = @import("Renderer.zig");
 
-const LightState = @This();
+const PreparedLight = @This();
 
+bind_group_layout: vk.BindGroupLayout,
 bind_group_pool: vk.BindGroupPool,
 bind_group: vk.BindGroup,
 
@@ -15,7 +14,21 @@ transmission_image: vk.Image,
 transmission_image_view: vk.ImageView,
 transmission_sampler: vk.Sampler,
 
-pub fn init(device: vk.Device, layouts: Material.BindGroupLayouts, target: vk.Image) !LightState {
+pub fn init(
+    device: vk.Device,
+    target: vk.Image,
+) !PreparedLight {
+    const bind_group_layout = try device.createBindGroupLayout(.{
+        .entries = &.{
+            .{
+                .binding = 0,
+                .stages = .{ .fragment = true },
+                .type = .CombinedImageSampler,
+            },
+        },
+    });
+    errdefer bind_group_layout.deinit();
+
     const bind_group_pool = try device.createBindGroupPool(.{
         .pool_sizes = &.{
             .{
@@ -27,7 +40,7 @@ pub fn init(device: vk.Device, layouts: Material.BindGroupLayouts, target: vk.Im
     });
     errdefer bind_group_pool.deinit();
 
-    const bind_group = try bind_group_pool.alloc(layouts.light);
+    const bind_group = try bind_group_pool.alloc(bind_group_layout);
 
     const transmission_image = try createTransmissionImage(device, target);
     errdefer transmission_image.deinit();
@@ -72,6 +85,7 @@ pub fn init(device: vk.Device, layouts: Material.BindGroupLayouts, target: vk.Im
     try transmission_downsample.setImage(device, transmission_image);
 
     return .{
+        .bind_group_layout = bind_group_layout,
         .bind_group_pool = bind_group_pool,
         .bind_group = bind_group,
 
@@ -82,7 +96,7 @@ pub fn init(device: vk.Device, layouts: Material.BindGroupLayouts, target: vk.Im
     };
 }
 
-pub fn deinit(self: LightState) void {
+pub fn deinit(self: PreparedLight) void {
     self.transmission_downsample.deinit();
     self.transmission_image_view.deinit();
     self.transmission_image.deinit();
@@ -108,7 +122,7 @@ fn createTransmissionImage(device: vk.Device, target: vk.Image) !vk.Image {
     });
 }
 
-pub fn setTarget(self: *LightState, device: vk.Device, target: vk.Image) !void {
+pub fn setTarget(self: *PreparedLight, device: vk.Device, target: vk.Image) !void {
     self.transmission_image.deinit();
     self.transmission_image = try createTransmissionImage(device, target);
     try self.transmission_downsample.setImage(device, self.transmission_image);
