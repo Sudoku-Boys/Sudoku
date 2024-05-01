@@ -15,10 +15,12 @@ pub fn init(
     allocator: std.mem.Allocator,
     device: vk.Device,
     surface: vk.Surface,
+    extent: vk.Extent2D,
     present_mode: vk.PresentMode,
 ) !Sdr {
     const render_pass = try createRenderPass(device);
     const swapchain = try device.createSwapchain(.{
+        .extent = extent,
         .surface = surface,
         .present_mode = present_mode,
     });
@@ -89,12 +91,12 @@ fn createRenderPass(device: vk.Device) !vk.RenderPass {
     });
 }
 
-pub fn recreate(self: *Sdr) !void {
+pub fn recreate(self: *Sdr, extent: vk.Extent2D) !void {
     for (self.framebuffers) |framebuffer| {
         framebuffer.deinit();
     }
 
-    try self.swapchain.recreate();
+    try self.swapchain.recreate(extent);
 
     self.framebuffers = try self.allocator.realloc(self.framebuffers, self.swapchain.images.len);
 

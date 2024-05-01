@@ -24,6 +24,14 @@ pub fn AddComponent(comptime T: type) type {
     };
 }
 
+pub const AddEntity = struct {
+    entity: Entity,
+
+    fn apply(self: *AddEntity, world: *World) !void {
+        try world.entities.addEntity(self.entity);
+    }
+};
+
 pub const SystemParamState = struct {
     allocator: std.mem.Allocator,
     queue: std.ArrayListUnmanaged(Command),
@@ -35,6 +43,16 @@ state: *SystemParamState,
 pub fn add(self: *const Commands, command: anytype) !void {
     const cmd = try Command.init(command, self.state.allocator);
     try self.state.queue.append(self.state.allocator, cmd);
+}
+
+pub fn addEntity(self: *const Commands) !Entity {
+    const entity = self.world.entities.allocEntity();
+
+    const cmd = AddEntity{
+        .entity = entity,
+    };
+
+    try self.add(cmd);
 }
 
 pub fn addComponent(self: *const Commands, entity: Entity, component: anytype) !void {

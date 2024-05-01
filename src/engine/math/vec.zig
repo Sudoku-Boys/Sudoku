@@ -211,9 +211,20 @@ fn VecBase(comptime T: type, comptime size: usize) type {
             return a;
         }
 
+        pub fn eql(a: T, b: T) bool {
+            var is_eql = true;
+
+            inline for (0..size) |i| {
+                is_eql = is_eql and (a.v[i] == b.v[i]);
+            }
+
+            return is_eql;
+        }
+
         pub fn from(a: anytype) T {
             if (@TypeOf(a) == T) return a;
-            if (@TypeOf(a) == f32 or @TypeOf(a) == comptime_float) return T{ .v = @as(@Vector(size, f32), @splat(a)) };
+            if (@TypeOf(a) == f32 or @TypeOf(a) == comptime_float)
+                return T{ .v = @as(@Vector(size, f32), @splat(a)) };
             if (@TypeOf(a) == @Vector(size, f32)) return T{ .v = a };
             @compileError("Vector cannot be created from given type");
         }

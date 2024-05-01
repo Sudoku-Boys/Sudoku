@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
+
+const event = @import("event.zig");
 const math = @import("math.zig");
 
 pub const glfw = @cImport({
@@ -16,11 +18,6 @@ pub const Error = error{
     GlfwCreateWindow,
     GlfwUninitialized,
     GlfwVulkanUnsupported,
-};
-
-pub const Size = struct {
-    width: u32,
-    height: u32,
 };
 
 var is_glfw_initialized = false;
@@ -175,14 +172,21 @@ pub fn setTitle(self: *const Window, title: []const u8) void {
     glfw.glfwSetWindowTitle(self.window, title.ptr);
 }
 
-pub fn getSize(self: *const Window) Size {
+pub fn getSize(self: *const Window) vk.Extent2D {
     var width: i32 = 0;
     var height: i32 = 0;
     glfw.glfwGetWindowSize(self.window, &width, &height);
-    return Size{
+    return .{
         .width = @intCast(width),
         .height = @intCast(height),
     };
+}
+
+pub fn getMousePosition(self: *const Window) math.Vec2 {
+    var x: f64 = 0;
+    var y: f64 = 0;
+    glfw.glfwGetCursorPos(self.window, &x, &y);
+    return math.vec2(@floatCast(x), @floatCast(y));
 }
 
 pub fn cursorNormal(self: *const Window) void {
@@ -204,4 +208,47 @@ pub fn deinit(self: *const Window) void {
     // destroy the surface first
     self.surface.deinit();
     glfw.glfwDestroyWindow(self.window);
+}
+
+pub const SizeChanged = struct {
+    size: vk.Extent2D,
+};
+
+pub const MouseMoved = struct {
+    position: math.Vec2,
+    delta: math.Vec2,
+};
+
+pub const State = struct {
+    window_size: vk.Extent2D = .{ .width = 0, .height = 0 },
+    mouse_position: math.Vec2 = math.Vec2.ZERO,
+};
+
+pub fn eventSystem(
+    size_changed: event.EventWriter(SizeChanged),
+    mouse_moved: event.EventWriter(MouseMoved),
+    window: *Window,
+    state: *State,
+) !void {
+    const new_size = window.getSize();
+    const new_position = window.getMousePosition();
+
+    if (!state.mouse_position.eql(new_position)) {
+        const delta = new_position.sub(state.mouse_position);
+        state.mouse_position = new_position;
+
+        try mouse_moved.send(.{
+            .position = new_position,
+            .delta = delta,
+        });
+    }
+
+    if (state.window_size.width != new_size.width or
+        state.window_size.height != new_size.height)
+    {
+        state.window_size = new_size;
+        try size_changed.send(.{
+            .size = state.window_size,
+        });
+    }
 }

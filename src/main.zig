@@ -6,6 +6,7 @@ const engine = @import("engine.zig");
 const Rotate = struct {};
 
 fn testSystem(
+    time: *engine.Time,
     query: engine.Query(struct {
         transform: *engine.Transform,
         rotate: *Rotate,
@@ -13,7 +14,7 @@ fn testSystem(
 ) !void {
     var it = query.iterator();
     while (it.next()) |q| {
-        q.transform.rotation.mulEq(engine.Quat.rotateY(0.01));
+        q.transform.rotation.mulEq(engine.Quat.rotateY(time.dt));
     }
 }
 
@@ -59,9 +60,6 @@ pub fn main() !void {
         engine.Window.pollEvents();
 
         const window = game.world.resource(engine.Window);
-
-        const events = game.world.resourcePtr(engine.Events(engine.Window.Size));
-        try events.send(window.getSize());
 
         if (window.shouldClose()) {
             break;

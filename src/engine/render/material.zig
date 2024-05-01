@@ -16,6 +16,7 @@ const PreparedLight = @import("PreparedLight.zig");
 const Query = @import("../query.zig").Query;
 
 const asset = @import("../asset.zig");
+const event = @import("../event.zig");
 const system = @import("../system.zig");
 
 pub const VertexAttribute = struct {
@@ -170,76 +171,85 @@ pub fn MaterialPlugin(comptime T: type) type {
         };
 
         fn prepare(
+            events: event.EventReader(asset.AssetEvent(T)),
             device: *vk.Device,
             staging_buffer: *vk.StagingBuffer,
             pipeline: *Pipeline,
             materials: *asset.Assets(T),
             prepared: *PreparedAssets,
         ) !void {
-            // we need to initialize the prepared assets with the materials
-            var it = materials.iterator();
-            while (it.next()) |entry| {
-                // if the material is already prepared, skip it
-                if (prepared.assets.contains(entry.id)) continue;
+            while (events.next()) |e| {
+                switch (e) {
+                    .Added => |id| {
+                        const entries = T.bindGroupLayoutEntries();
 
-                std.log.debug("Preparing material: {}\n", .{T});
+                        // we need to create a pool for each unique type of binding
+                        var pool_sizes: [16]vk.BindGroupPool.PoolSize = undefined;
+                        var count: u8 = 0;
 
-                const entries = T.bindGroupLayoutEntries();
+                        // iterate over the layout entries and create a pool size for each unique type
+                        entries: for (entries) |layout_entry| {
+                            // if the type is already in the pool sizes, increment the count
+                            for (pool_sizes[0..count]) |*pool_size| {
+                                if (pool_size.type == layout_entry.type) {
+                                    pool_size.count += 1;
+                                    continue :entries;
+                                }
+                            }
 
-                // we need to create a pool for each unique type of binding
-                var pool_sizes: [16]vk.BindGroupPool.PoolSize = undefined;
-                var count: u8 = 0;
+                            pool_sizes[count] = .{
+                                .type = layout_entry.type,
+                                .count = 1,
+                            };
 
-                // iterate over the layout entries and create a pool size for each unique type
-                entries: for (entries) |layout_entry| {
-                    // if the type is already in the pool sizes, increment the count
-                    for (pool_sizes[0..count]) |*pool_size| {
-                        if (pool_size.type == layout_entry.type) {
-                            pool_size.count += 1;
-                            continue :entries;
+                            count += 1;
                         }
-                    }
 
-                    pool_sizes[count] = .{
-                        .type = layout_entry.type,
-                        .count = 1,
-                    };
+                        // create the pool
+                        const pool = try device.createBindGroupPool(.{
+                            .pool_sizes = pool_sizes[0..count],
+                            .max_groups = 1,
+                        });
+                        errdefer pool.deinit();
 
-                    count += 1;
+                        // allocate the group from the pool
+                        const group = try pool.alloc(pipeline.layout);
+
+                        // create the state
+                        var state = try T.initState(device.*, group);
+                        errdefer T.deinitState(&state);
+
+                        const material = materials.get(id).?;
+
+                        // update the state
+                        try material.update(
+                            &state,
+                            staging_buffer,
+                        );
+
+                        // add the prepared material to the prepared assets
+                        try prepared.assets.put(id, .{
+                            .state = state,
+                            .pool = pool,
+                            .group = group,
+                        });
+                    },
+                    .Modified => |id| {
+                        const prepared_asset = prepared.assets.getPtr(id).?;
+                        const material = materials.get(id).?;
+
+                        // update the state
+                        try material.update(
+                            &prepared_asset.state,
+                            staging_buffer,
+                        );
+                    },
+                    .Removed => |id| {
+                        const prepared_asset = prepared.assets.getPtr(id).?;
+                        prepared_asset.deinit();
+                        _ = prepared.assets.remove(id);
+                    },
                 }
-
-                // create the pool
-                const pool = try device.createBindGroupPool(.{
-                    .pool_sizes = pool_sizes[0..count],
-                    .max_groups = 1,
-                });
-                errdefer pool.deinit();
-
-                // allocate the group from the pool
-                const group = try pool.alloc(pipeline.layout);
-
-                // create the state
-                var state = try T.initState(device.*, group);
-                errdefer T.deinitState(&state);
-
-                // add the prepared material to the prepared assets
-                try prepared.assets.put(entry.id, .{
-                    .state = state,
-                    .pool = pool,
-                    .group = group,
-                });
-            }
-
-            // now we need to update all the prepared materials
-            it = materials.iterator();
-            while (it.next()) |entry| {
-                const prepared_asset = prepared.assets.getPtr(entry.id).?;
-
-                // update the state
-                try entry.asset.item.update(
-                    &prepared_asset.state,
-                    staging_buffer,
-                );
             }
         }
 
@@ -322,8 +332,7 @@ pub fn MaterialPlugin(comptime T: type) type {
             try q.after(MaterialPhase.Prepare);
             try q.before(Game.Phase.Render);
 
-            const materials = asset.Assets(T).init(game.allocator());
-            try game.world.addResource(materials);
+            try game.addAsset(T);
 
             const prepared = PreparedAssets.init(game.allocator());
             try game.world.addResource(prepared);

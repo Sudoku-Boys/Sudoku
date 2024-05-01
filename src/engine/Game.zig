@@ -6,6 +6,7 @@ const Time = @import("Time.zig");
 const TypeId = @import("TypeId.zig");
 const World = @import("World.zig");
 
+const asset = @import("asset.zig");
 const event = @import("event.zig");
 const render = @import("render.zig");
 
@@ -97,6 +98,21 @@ pub fn addEvent(self: *Game, comptime T: type) !void {
 
     const system = try self.addSystem(event.Events(T).system);
     try system.before(Phase.Start);
+}
+
+pub fn addAsset(self: *Game, comptime T: type) !void {
+    if (self.world.containsResource(asset.Assets(T))) return;
+
+    try self.addEvent(asset.AssetEvent(T));
+
+    const assets = asset.Assets(T).init(self.world.allocator);
+    try self.world.addResource(assets);
+
+    const clean = try self.addSystem(asset.Assets(T).clean);
+    try clean.after(Phase.End);
+
+    const events = try self.addSystem(asset.Assets(T).sendEvents);
+    try events.before(Phase.Start);
 }
 
 pub fn addSystem(self: *Game, system: anytype) !Schedule.AddedSystem {

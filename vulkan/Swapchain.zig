@@ -104,6 +104,7 @@ const CreatedSwapchain = struct {
 fn createSwapchain(
     device: vk.Device,
     format: vk.ImageFormat,
+    extent: vk.Extent2D,
     present_mode: vk.PresentMode,
     surface: vk.api.VkSurfaceKHR,
     old_swapchain: vk.api.VkSwapchainKHR,
@@ -114,17 +115,6 @@ fn createSwapchain(
         surface,
         &capabilities,
     ));
-
-    capabilities.currentExtent.width = @max(1, capabilities.currentExtent.width);
-    capabilities.currentExtent.height = @max(1, capabilities.currentExtent.height);
-
-    if (capabilities.currentExtent.width > capabilities.maxImageExtent.width) {
-        capabilities.currentExtent.width = 800;
-    }
-
-    if (capabilities.currentExtent.height > capabilities.maxImageExtent.height) {
-        capabilities.currentExtent.height = 600;
-    }
 
     const min_image_count = @min(
         capabilities.minImageCount + 1,
@@ -179,7 +169,7 @@ fn createSwapchain(
         .minImageCount = min_image_count,
         .imageFormat = vk_format.format,
         .imageColorSpace = vk_format.colorSpace,
-        .imageExtent = capabilities.currentExtent,
+        .imageExtent = .{ .width = extent.width, .height = extent.height },
         .imageArrayLayers = 1,
         // we want to render directly to the images, as well as copy to them
         .imageUsage = vk.api.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -220,8 +210,8 @@ fn createSwapchain(
         .format = @enumFromInt(vk_format.format),
         .present_mode = @enumFromInt(vk_present_mode),
         .extent = .{
-            .width = capabilities.currentExtent.width,
-            .height = capabilities.currentExtent.height,
+            .width = extent.width,
+            .height = extent.height,
             .depth = 1,
         },
     };
@@ -229,6 +219,7 @@ fn createSwapchain(
 
 pub const Descriptor = struct {
     surface: vk.Surface,
+    extent: vk.Extent2D,
     format: vk.ImageFormat = .B8G8R8A8Unorm,
     present_mode: vk.PresentMode = .Fifo,
 };
@@ -250,6 +241,7 @@ pub fn init(device: vk.Device, desc: Descriptor) !Swapchain {
     const result = try createSwapchain(
         device,
         desc.format,
+        desc.extent,
         desc.present_mode,
         desc.surface.vk,
         null,
@@ -311,11 +303,12 @@ pub fn deinit(self: Swapchain) void {
     self.device.allocator.free(self.views);
 }
 
-pub fn recreate(self: *Swapchain) !void {
+pub fn recreate(self: *Swapchain, extent: vk.Extent2D) !void {
     // create the new swapchain
     const result = try createSwapchain(
         self.device,
         self.format,
+        extent,
         self.present_mode,
         self.surface.vk,
         self.vk,
