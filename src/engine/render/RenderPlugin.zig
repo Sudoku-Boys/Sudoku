@@ -54,6 +54,8 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
     });
     errdefer window.deinit();
 
+    const window_state = Window.State{};
+
     const device = try vk.Device.init(.{
         .instance = instance,
         .compatible_surface = window.surface,
@@ -64,6 +66,7 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
         allocator,
         device,
         window.surface,
+        window.getSize(),
         self.present_mode,
     );
     errdefer sdr.deinit();
@@ -113,6 +116,7 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
 
     try game.world.addResource(instance);
     try game.world.addResource(window);
+    try game.world.addResource(window_state);
     try game.world.addResource(device);
     try game.world.addResource(sdr);
     try game.world.addResource(hdr);
@@ -127,12 +131,13 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
     try game.world.addResource(tonemap);
     try game.world.addResource(draw_commands);
 
-    if (!game.world.containsResource(asset.Assets(Mesh))) {
-        const meshes = asset.Assets(Mesh).init(allocator);
-        try game.world.addResource(meshes);
-    }
+    try game.addAsset(Mesh);
 
-    try game.addEvent(Window.Size);
+    try game.addEvent(Window.MouseMoved);
+    try game.addEvent(Window.SizeChanged);
+
+    const window_system = try game.addSystem(Window.eventSystem);
+    try window_system.before(Game.Phase.Start);
 
     const camera_system = try game.addSystem(Camera.Prepared.system);
     try camera_system.after(Game.Phase.Update);
@@ -155,12 +160,13 @@ fn recreate(
     device: *vk.Device,
     hdr: *Hdr,
     sdr: *Sdr,
+    window: *Window,
     tonemap: *Tonemap,
     prepared_light: *PreparedLight,
 ) !void {
     try device.waitIdle();
 
-    try sdr.recreate();
+    try sdr.recreate(window.getSize());
     try hdr.recreate(device.*, sdr.swapchain.extent);
 
     tonemap.setHdrImage(device.*, hdr.color_view);
@@ -279,11 +285,13 @@ fn recordCommandBuffer(
 }
 
 pub fn renderSystem(
+    size_changed: event.EventReader(Window.SizeChanged),
     device: *vk.Device,
     draw_commands: *DrawCommand.Queue,
     hdr: *Hdr,
     sdr: *Sdr,
     sky: *Sky,
+    window: *Window,
     tonemap: *Tonemap,
     light: *PreparedLight,
     present: *Present,
@@ -291,6 +299,18 @@ pub fn renderSystem(
         prepared_camera: *Camera.Prepared,
     }),
 ) !void {
+    // recreate when the window size changes
+    while (size_changed.next()) |_| {
+        try recreate(
+            device,
+            hdr,
+            sdr,
+            window,
+            tonemap,
+            light,
+        );
+    }
+
     try present.in_flight.wait(.{});
 
     const image_index = sdr.swapchain.acquireNextImage(.{
@@ -302,6 +322,7 @@ pub fn renderSystem(
             device,
             hdr,
             sdr,
+            window,
             tonemap,
             light,
         ),
@@ -359,6 +380,7 @@ pub fn renderSystem(
             device,
             hdr,
             sdr,
+            window,
             tonemap,
             light,
         ),

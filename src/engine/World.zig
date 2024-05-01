@@ -32,7 +32,8 @@ pub fn deinit(self: *World) void {
 }
 
 pub fn addEntity(self: *World) !EntityRef {
-    const e = try self.entities.addEntity();
+    const e = self.entities.allocEntity();
+    try self.entities.addEntity(e);
     return EntityRef.init(&self.entities, e);
 }
 

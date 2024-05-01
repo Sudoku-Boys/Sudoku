@@ -120,9 +120,17 @@ pub fn EventReader(comptime T: type) type {
         events: *Events(T),
         state: *SystemParamState,
 
-        pub fn next(self: *const Self) ?Events(T).Entry {
-            const l_index = self.state.last_event_count -| self.events.left.start_event_count;
-            const r_index = self.state.last_event_count -| self.events.right.start_event_count;
+        pub fn nextEntry(self: *const Self) ?Events(T).Entry {
+            const l_index = @min(
+                self.state.last_event_count -| self.events.left.start_event_count,
+                self.events.left.entries.items.len,
+            );
+
+            const r_index = @min(
+                self.state.last_event_count -| self.events.right.start_event_count,
+                self.events.right.entries.items.len,
+            );
+
             const l = self.events.left.entries.items[l_index..];
             const r = self.events.right.entries.items[r_index..];
 
@@ -136,6 +144,14 @@ pub fn EventReader(comptime T: type) type {
             self.state.last_event_count = @max(entry.id.index + 1, self.state.last_event_count);
 
             return entry;
+        }
+
+        pub fn next(self: *const Self) ?T {
+            if (self.nextEntry()) |entry| {
+                return entry.event;
+            }
+
+            return null;
         }
 
         pub fn len(self: *const Self) usize {

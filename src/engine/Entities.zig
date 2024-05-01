@@ -81,9 +81,11 @@ pub fn deinit(self: *Entities) void {
     self.dense.deinit(self.allocator);
 }
 
-pub fn addEntity(self: *Entities) !Entity {
-    const entity = self.entity_allocator.alloc();
+pub fn allocEntity(self: *Entities) Entity {
+    return self.entity_allocator.alloc();
+}
 
+pub fn addEntity(self: *Entities, entity: Entity) !void {
     if (self.entities.items.len <= entity.index) {
         const new_len = entity.index + 1;
         const old_len = self.entities.items.len;
@@ -93,8 +95,6 @@ pub fn addEntity(self: *Entities) !Entity {
     }
 
     self.entities.items[entity.index] = entity.generation;
-
-    return entity;
 }
 
 pub fn removeEntity(self: *Entities, entity: Entity) !void {

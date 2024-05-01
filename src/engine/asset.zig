@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const event = @import("event.zig");
+
 const TypeId = @import("TypeId.zig");
 
 fn decrementRefCount(ref_count: *u32) void {
@@ -110,6 +112,14 @@ pub fn AssetId(comptime T: type) type {
     };
 }
 
+pub fn AssetEvent(comptime T: type) type {
+    return union(enum) {
+        Added: AssetId(T),
+        Modified: AssetId(T),
+        Removed: AssetId(T),
+    };
+}
+
 /// A collection of assets, indexed by `AssetId`.
 pub fn Assets(comptime T: type) type {
     return struct {
@@ -117,11 +127,11 @@ pub fn Assets(comptime T: type) type {
 
         allocator: std.mem.Allocator,
         entries: std.AutoHashMapUnmanaged(usize, Asset),
+        events: std.ArrayListUnmanaged(AssetEvent(T)),
         next_index: usize,
 
         pub const Asset = struct {
             item: T,
-            version: u32,
             ref_count: *u32,
 
             pub fn refCount(self: Self) u32 {
@@ -153,16 +163,8 @@ pub fn Assets(comptime T: type) type {
                 return self.asset.refCount();
             }
 
-            pub fn version(self: Entry) u32 {
-                return self.asset.version;
-            }
-
             pub fn setRefCount(self: Entry, new_ref_count: u32) void {
                 self.asset.setRefCount(new_ref_count);
-            }
-
-            pub fn setVersion(self: Entry, new_version: u32) void {
-                self.asset.version = new_version;
             }
         };
 
@@ -170,6 +172,7 @@ pub fn Assets(comptime T: type) type {
             return .{
                 .allocator = allocator,
                 .entries = .{},
+                .events = .{},
                 .next_index = 0,
             };
         }
@@ -181,6 +184,7 @@ pub fn Assets(comptime T: type) type {
             }
 
             self.entries.deinit(self.allocator);
+            self.events.deinit(self.allocator);
         }
 
         pub fn len(self: Self) usize {
@@ -204,11 +208,16 @@ pub fn Assets(comptime T: type) type {
 
             const entry = Asset{
                 .item = item,
-                .version = 0,
+                .ref_count = ref_count,
+            };
+
+            const id = AssetId(T){
+                .index = index,
                 .ref_count = ref_count,
             };
 
             try self.entries.put(self.allocator, index, entry);
+            try self.events.append(self.allocator, AssetEvent(T){ .Added = id });
 
             return .{
                 .index = index,
@@ -220,10 +229,7 @@ pub fn Assets(comptime T: type) type {
         ///
         /// If `id` is invalid returns `null`.
         pub fn put(self: *Self, id: AssetId(T), item: T) !AssetId(T) {
-            var new_version: u32 = 0;
-
             if (self.contains(id)) {
-                new_version = self.version(id);
                 self.remove(id);
             }
 
@@ -232,11 +238,11 @@ pub fn Assets(comptime T: type) type {
 
             const entry = Asset{
                 .item = item,
-                .version = new_version,
                 .ref_count = ref_count,
             };
 
             try self.entries.put(self.allocator, id.index, entry);
+            try self.events.append(self.allocator, AssetEvent(T){ .Added = id });
 
             return .{
                 .index = id.index,
@@ -248,6 +254,9 @@ pub fn Assets(comptime T: type) type {
             if (self.getAsset(id)) |entry| {
                 entry.deinit(self.allocator);
                 _ = self.entries.remove(id.index);
+
+                const e = AssetEvent(T){ .Removed = id };
+                try self.events.append(self.allocator, e);
             }
         }
 
@@ -274,6 +283,18 @@ pub fn Assets(comptime T: type) type {
             invalid.deinit();
         }
 
+        /// Get the asset with the given `id`.
+        pub fn sendEvents(
+            self: *Self,
+            writer: event.EventWriter(AssetEvent(T)),
+        ) !void {
+            for (self.events.items) |e| {
+                try writer.send(e);
+            }
+
+            self.events.clearRetainingCapacity();
+        }
+
         pub fn getAsset(self: Self, id: AssetId(T)) ?*Asset {
             return self.entries.getPtr(id.index);
         }
@@ -285,36 +306,15 @@ pub fn Assets(comptime T: type) type {
         }
 
         /// Get a pointer to the asset with the given `id`.
-        ///
-        /// This will increment the version of the asset.
         pub fn getPtr(self: Self, id: AssetId(T)) ?*T {
             if (self.getAsset(id)) |entry| {
-                entry.version += 1;
+                const e = AssetEvent(T){ .Modified = id };
+                try self.events.append(self.allocator, e);
+
                 return &entry.item;
             }
 
             return null;
-        }
-
-        /// Get the version of the asset with the given `id`.
-        pub fn getVersion(self: Self, id: AssetId(T)) ?u32 {
-            const entry = self.getAsset(id) orelse return null;
-            return entry.version;
-        }
-
-        /// Get the version of the asset with the given `id`.
-        ///
-        /// # Safety
-        /// - `id` must be contained in the collection.
-        pub fn version(self: *Self, id: AssetId(T)) u32 {
-            return self.getVersion(id).?;
-        }
-
-        /// Set the version of the asset with the given `id`.
-        pub fn setVersion(self: *Self, id: AssetId(T), new_version: u32) void {
-            if (self.getAsset(id)) |entry| {
-                entry.version = new_version;
-            }
         }
 
         pub const Iterator = struct {
