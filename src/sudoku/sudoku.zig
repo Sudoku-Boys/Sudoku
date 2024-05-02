@@ -118,13 +118,17 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
 // Infer size of type to fit valid sudoku.
 // From description.
 fn SudokuBitFieldType(comptime k: u16, comptime n: u16) type {
+    const size = k * n;
+    const grid_size = pow(u64, n, 2);
+
     // assert sudoku is of valid size
     // n ** 2 has be equal to the length of the diagonal.
-    if (pow(u64, n, 2) < k * n) {
-        @compileError(std.fmt.comptimePrint("N of value {d} is too small since it provides only {d} numbers but requires {d}\n", .{ n, pow(u64, n, 2), k * n }));
+    if (size < grid_size) {
+        @compileError(std.fmt.comptimePrint("Row and column have {d} inputs but the {d}x{d} grid has {d}\n", .{ size, n, n, grid_size }));
     }
 
-    return std.meta.Int(.unsigned, k * n);
+    // The
+    return std.meta.Int(.unsigned, size);
 }
 
 fn SudokuValueRangeType(comptime k: u16, comptime n: u16) type {
@@ -236,8 +240,84 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storageType: SudokuStor
             }
         }
 
+        fn get_initial_constraint_coordinate(self: *Self, comptime C: SudokuContraint, constraint_index: u8) SudokuCoordinate {
+            return switch (C) {
+                .ROW => .{ .i = constraint_index, .j = 0 },
+                .COLUMN => .{ .i = 0, .j = constraint_index },
+                .GRID => .{ .i = (constraint_index / self.grid_size) * self.grid_size, .j = (constraint_index % self.grid_size) * self.grid_size },
+            };
+        }
+
+        pub fn set_row(self: *Self, index: u8, values: [size]ValueRangeType) void {
+            const coordinate = self.get_initial_constraint_coordinate(.ROW, index);
+            var it = self.iterator(.ROW, coordinate);
+
+            for (0..size) |i| {
+                self.set(it.next().?, values[i]);
+            }
+        }
+
+        pub fn set_col(self: *Self, index: u8, values: [size]ValueRangeType) void {
+            const coordinate = self.get_initial_constraint_coordinate(.COLUMN, index);
+            var it = self.iterator(.COLUMN, coordinate);
+
+            for (0..size) |i| {
+                self.set(it.next().?, values[i]);
+            }
+        }
+
+        pub fn set_grid(self: *Self, index: u8, values: [n * n]ValueRangeType) void {
+            const coordinate = self.get_initial_constraint_coordinate(.GRID, index);
+            var it = self.iterator(.GRID, coordinate);
+
+            for (0..(n * n)) |i| {
+                self.set(it.next().?, values[i]);
+            }
+        }
+
         // Check
-        // pub fn validate(self: *Self, comptime C: SudokuContraint, constraint_index: u8) bool {}
+        pub fn validate(self: *Self, comptime C: SudokuContraint, constraint_index: u8) bool {
+            // Find coordinate based on constraint and index, then use iterator to get
+            // every coordinate in that constraint and check for item uniqueness with get.
+            const coordinate = self.get_initial_constraint_coordinate(C, constraint_index);
+
+            var it = self.iterator(C, coordinate);
+
+            switch (storageType) {
+                .BITFIELD => {
+                    var field: BitFieldType = SudokuEmptySentinel;
+
+                    while (it.next()) |current| {
+                        const coordinate_field = self.board[current.i * self.size + current.j];
+
+                        if (field & coordinate_field != 0) {
+                            return false;
+                        }
+
+                        field |= coordinate_field;
+                    }
+                },
+                .MATRIX => {
+                    var seen = [_]bool{false} ** (size + 1);
+
+                    while (it.next()) |current| {
+                        const value = self.mget(current);
+
+                        if (value == SudokuEmptySentinel) {
+                            continue;
+                        }
+
+                        if (seen[value] != false) {
+                            return false;
+                        }
+
+                        seen[value] = true;
+                    }
+                },
+            }
+
+            return true;
+        }
 
         pub fn iterator(self: *Self, comptime C: SudokuContraint, coordinate: SudokuCoordinate) SudokuContraintIterator(Self, C) {
             return SudokuContraintIterator(Self, C).init(self, coordinate);
@@ -326,25 +406,18 @@ test "Test 9x9 Sudoku" {
 
     var s = S.init(null);
 
-    s.set(.{ .i = 0, .j = 0 }, 0);
-    s.set(.{ .i = 0, .j = 1 }, 1);
-    s.set(.{ .i = 0, .j = 2 }, 2);
-    s.set(.{ .i = 0, .j = 3 }, 3);
-    s.set(.{ .i = 0, .j = 4 }, 4);
-    s.set(.{ .i = 0, .j = 5 }, 5);
-    s.set(.{ .i = 0, .j = 6 }, 6);
-    s.set(.{ .i = 0, .j = 7 }, 7);
-    s.set(.{ .i = 0, .j = 8 }, 9);
+    s.set_row(0, .{ 1, 2, 3, 4, 5, 6, 7, 8, 9 });
 
-    try expect(s.get(.{ .i = 0, .j = 0 }) == 0);
-    try expect(s.get(.{ .i = 0, .j = 1 }) == 1);
-    try expect(s.get(.{ .i = 0, .j = 2 }) == 2);
-    try expect(s.get(.{ .i = 0, .j = 3 }) == 3);
-    try expect(s.get(.{ .i = 0, .j = 4 }) == 4);
-    try expect(s.get(.{ .i = 0, .j = 5 }) == 5);
-    try expect(s.get(.{ .i = 0, .j = 6 }) == 6);
-    try expect(s.get(.{ .i = 0, .j = 7 }) == 7);
+    try expect(s.get(.{ .i = 0, .j = 0 }) == 1);
+    try expect(s.get(.{ .i = 0, .j = 1 }) == 2);
+    try expect(s.get(.{ .i = 0, .j = 2 }) == 3);
+    try expect(s.get(.{ .i = 0, .j = 3 }) == 4);
+    try expect(s.get(.{ .i = 0, .j = 4 }) == 5);
+    try expect(s.get(.{ .i = 0, .j = 5 }) == 6);
+    try expect(s.get(.{ .i = 0, .j = 6 }) == 7);
+    try expect(s.get(.{ .i = 0, .j = 7 }) == 8);
     try expect(s.get(.{ .i = 0, .j = 8 }) == 9);
+
     var it_row = s.iterator(.ROW, .{ .i = 0, .j = 0 });
 
     try expect(it_row.next().?.equals(.{ .i = 0, .j = 0 }));
@@ -386,13 +459,42 @@ test "Test 9x9 Sudoku" {
 }
 
 test "Very large using matrix backend, does it compile?" {
-    const S = Sudoku(10, 100, .MATRIX, .STACK);
+    const S = Sudoku(32, 32, .MATRIX, .STACK);
 
     var s = S.init(null);
 
     s.set(.{ .i = 999, .j = 999 }, 1000);
 
     try expect(s.get(.{ .i = 999, .j = 999 }) == 1000);
+}
+
+test "Sudoku validation" {
+    var sb = Sudoku(3, 1, .BITFIELD, .STACK).init(null);
+
+    sb.set_row(0, .{ 1, 2, 3 });
+
+    try expect(sb.validate(.ROW, 0));
+
+    sb.set_col(0, .{ 1, 2, 1 });
+
+    try expect(sb.validate(.COLUMN, 0) == false);
+
+    sb.set(.{ .i = 2, .j = 0 }, 3);
+
+    try expect(sb.validate(.COLUMN, 0));
+
+    sb.set(.{ .i = 0, .j = 0 }, 1);
+
+    // Test basic matrix validation
+    var sm = Sudoku(3, 1, .MATRIX, .STACK).init(null);
+
+    sm.set_row(0, .{ 1, 2, 3 });
+
+    try expect(sm.validate(.ROW, 0));
+
+    sm.set_col(0, .{ 1, 1, 1 });
+
+    try expect(sm.validate(.COLUMN, 0) == false);
 }
 
 pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, alloc: *std.mem.Allocator) Sudoku(

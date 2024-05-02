@@ -11,6 +11,9 @@ pub fn main() !void {
     const writer = std.io.getStdOut().writer();
 
     s.set(.{ .i = 3, .j = 3 }, 9);
+    s.set_grid(4, .{ 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+
+    std.debug.assert(s.validate(.GRID, 4));
 
     _ = try s.display(writer);
 
