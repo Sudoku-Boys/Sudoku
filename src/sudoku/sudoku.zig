@@ -94,15 +94,20 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
                 done: bool,
 
                 pub fn initIndex(sudoku: *const T, constraint_index: usize) @This() {
-                    assert(constraint_index < sudoku.grid_count);
-                    const coord = .{ .i = (constraint_index / sudoku.grid_size) * sudoku.grid_size, .j = (constraint_index % sudoku.grid_size) * sudoku.grid_size };
+                    assert(constraint_index < sudoku.k * sudoku.k);
+
+                    const row = constraint_index / sudoku.k;
+                    const col = constraint_index % sudoku.k;
+
+                    const coord = .{ .i = row * sudoku.n, .j = col * sudoku.n };
+
                     return @This().init(sudoku, coord);
                 }
 
                 pub fn init(sudoku: *const T, coord: SudokuCoordinate) @This() {
                     return @This(){
-                        .start = .{ .i = coord.i - (coord.i % sudoku.grid_size), .j = coord.j - (coord.j % sudoku.grid_size) },
-                        .end = .{ .i = coord.i - (coord.i % sudoku.grid_size) + sudoku.grid_size - 1, .j = coord.j - (coord.j % sudoku.grid_size) + sudoku.grid_size - 1 },
+                        .start = .{ .i = coord.i - (coord.i % sudoku.n), .j = coord.j - (coord.j % sudoku.n) },
+                        .end = .{ .i = coord.i - (coord.i % sudoku.n) + sudoku.n - 1, .j = coord.j - (coord.j % sudoku.n) + sudoku.n - 1 },
                         .sudoku = sudoku,
                         .done = false,
                     };
@@ -121,7 +126,7 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
                     }
 
                     if (self.start.j == self.end.j) {
-                        self.start.j = self.end.j - (self.sudoku.grid_size - 1);
+                        self.start.j = self.end.j - (self.sudoku.n - 1);
                         self.start.i += 1;
                     } else {
                         self.start.j += 1;
@@ -136,21 +141,21 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
 
 // Infer size of type to fit valid sudoku.
 // From description.
-fn SudokuBitFieldType(comptime k: u16, comptime n: u16) type {
-    const size = k * n;
-    const grid_size = pow(usize, n, 2);
+fn SudokuBitFieldType(comptime K: u16, comptime N: u16) type {
+    const size = K * N;
+    const area = pow(usize, N, 2);
 
     // assert sudoku is of valid size
     // n ** 2 has be equal to the length of the diagonal.
-    if (size < grid_size) {
-        @compileError(std.fmt.comptimePrint("Row and column have {d} inputs but the {d}x{d} grid has {d}\n", .{ size, n, n, grid_size }));
+    if (size < area) {
+        @compileError(std.fmt.comptimePrint("Row and column have {d} inputs but the {d}x{d} grid has {d}\n", .{ size, N, N, area }));
     }
 
     return std.meta.Int(.unsigned, size);
 }
 
-pub fn SudokuValueRangeType(comptime k: u16, comptime n: u16) type {
-    return std.meta.Int(.unsigned, @bitSizeOf(usize) - @clz(@as(usize, @max(@bitSizeOf(SudokuBitFieldType(k, n)) - 1, 0))));
+pub fn SudokuValueRangeType(comptime K: u16, comptime N: u16) type {
+    return std.meta.Int(.unsigned, @bitSizeOf(usize) - @clz(@as(usize, @max(@bitSizeOf(SudokuBitFieldType(K, N)) - 1, 0))));
 }
 
 fn SudokuValidationError(comptime T: type) type {
@@ -164,9 +169,9 @@ fn SudokuValidationError(comptime T: type) type {
 // A storage type which contains size bits.
 // We store a single value as a bitfield where its index is its value.
 // We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
-pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storage: SudokuStorage, comptime memory: SudokuMemory) type {
-    const BitFieldType = SudokuBitFieldType(k, n);
-    const ValueRangeType = SudokuValueRangeType(k, n);
+pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage, comptime memory: SudokuMemory) type {
+    const BitFieldType = SudokuBitFieldType(K, N);
+    const ValueRangeType = SudokuValueRangeType(K, N);
     const ValidationErrorType = SudokuValidationError(ValueRangeType);
 
     const StorageImplType = if (storage == .BITFIELD) BitFieldType else ValueRangeType;
@@ -184,8 +189,8 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storage: SudokuStorage,
         allocator: ?*std.mem.Allocator,
         board: BoardType,
         size: usize,
-        grid_size: usize,
-        grid_count: usize,
+        k: usize,
+        n: usize,
 
         pub fn init(allocator: ?*std.mem.Allocator) Self {
             const board = switch (memory) {
@@ -203,8 +208,8 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storage: SudokuStorage,
                 .allocator = allocator,
                 .board = board,
                 .size = size,
-                .grid_size = n,
-                .grid_count = k * k,
+                .k = K,
+                .n = N,
             };
         }
 
@@ -312,10 +317,10 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storage: SudokuStorage,
             }
         }
 
-        pub fn set_grid(self: *Self, index: usize, values: [n * n]ValueRangeType) void {
+        pub fn set_grid(self: *Self, index: usize, values: [N * N]ValueRangeType) void {
             var it = self.index_iterator(.GRID, index);
 
-            for (0..(n * n)) |i| {
+            for (0..(N * N)) |i| {
                 self.set(it.next().?, values[i]);
             }
         }
@@ -344,7 +349,7 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storage: SudokuStorage,
                 }
             }
 
-            for (0..self.grid_count) |i| {
+            for (0..self.k * self.k) |i| {
                 if (self.validate(.GRID, i)) |e| {
                     try grid_errors.append(e);
                 }
@@ -414,26 +419,51 @@ pub fn Sudoku(comptime k: u16, comptime n: u16, comptime storage: SudokuStorage,
         pub fn display(self: *const Self, writer: anytype) !void {
             // Format in correct grid squares.
             // Border with | and -.
+
+            const min_text_width = std.math.log10(self.size + 1) + 1;
+            const line_width = K * N * (min_text_width + 3) + 1;
+
             for (0..self.size) |i| {
+                if (i % self.n == 0) {
+                    for (0..line_width) |_| {
+                        _ = try writer.write("-");
+                    }
+                    _ = try writer.write("\n");
+                }
+
                 for (0..self.size) |j| {
                     const value = self.get(.{ .i = i, .j = j });
 
                     if (j == 0) {
-                        _ = try writer.write("| ");
+                        _ = try writer.write("|");
+                    }
+
+                    const text_width = if (value == SudokuEmptySentinel) 1 else std.math.log10(value) + 1;
+                    const spaces = if (min_text_width - text_width <= 0) 1 else min_text_width - text_width;
+
+                    for (0..spaces) |_| {
+                        _ = try writer.write(" ");
                     }
 
                     if (value == SudokuEmptySentinel) {
-                        _ = try writer.write("? ");
+                        _ = try writer.write("?");
                     } else {
-                        _ = try writer.print("{d} ", .{value});
+                        _ = try writer.print("{d}", .{value});
                     }
 
-                    if ((j + 1) % self.grid_size == 0) {
-                        _ = try writer.write("| ");
+                    if ((j + 1) % self.n == 0) {
+                        _ = try writer.write(" |");
                     }
                 }
 
                 _ = try writer.write("\n");
+
+                if (i == self.size - 1) {
+                    for (0..line_width) |_| {
+                        _ = try writer.write("-");
+                    }
+                    _ = try writer.write("\n");
+                }
             }
 
             _ = try writer.write("\n");

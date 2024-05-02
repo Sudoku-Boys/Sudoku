@@ -5,10 +5,14 @@ const Solvers = @import("solvers.zig");
 pub fn main() !void {
     var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 
-    //var s = Sudoku.from_stencil(".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....", 3, 3, .BITFIELD, &optionalAllocator);
+    var s = Sudoku.from_stencil(".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....", 3, 3, .BITFIELD, &optionalAllocator);
 
-    var s = Sudoku.Sudoku(3, 3, .BITFIELD, .HEAP).init(&optionalAllocator);
+    // var s = Sudoku.Sudoku(3, 1, .BITFIELD, .HEAP).init(&optionalAllocator);
     defer s.deinit();
+
+    //s.set_row(0, .{ 1, 2, 3 });
+    //s.set_row(1, .{ 2, 3, 1 });
+    //s.set_row(2, .{ 3, 1, 2 });
 
     s.set_row(0, .{ 3, 0, 6, 5, 0, 8, 4, 0, 0 });
     s.set_row(1, .{ 5, 2, 0, 0, 0, 0, 0, 0, 0 });
@@ -27,6 +31,8 @@ pub fn main() !void {
     _ = Solvers.naive_solve(&s, 0, 0);
 
     _ = try s.display(writer);
+
+    std.debug.print("Grid count {d}\n", .{s.k * s.k});
 
     std.debug.print("As stencil {s}\n", .{Sudoku.to_stencil(s, &optionalAllocator)});
 
