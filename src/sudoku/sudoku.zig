@@ -416,6 +416,32 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             return SudokuContraintIterator(Self, C).init(self, coord);
         }
 
+        pub fn clear(self: *Self) void {
+            switch (storage) {
+                .BITFIELD => {
+                    for (0..self.size * self.size) |i| {
+                        self.board[i] = SudokuEmptySentinel;
+                    }
+                },
+                .MATRIX => {
+                    @memset(self.board, SudokuEmptySentinel);
+                },
+            }
+        }
+
+        pub fn fill_random_valid(self: *Self, attemps: usize, rng: *std.Random) void {
+            for (0..attemps) |_| {
+                const row = rng.intRangeLessThan(usize, 0, self.size);
+                const col = rng.intRangeLessThan(usize, 0, self.size);
+                const coord = SudokuCoordinate{ .i = row, .j = col };
+                const value = rng.intRangeLessThan(ValueRangeType, 1, @as(ValueRangeType, @intCast(self.size + 1)));
+
+                if (self.is_valid_set(coord, value)) {
+                    self.set(coord, value);
+                }
+            }
+        }
+
         pub fn display(self: *const Self, writer: anytype) !void {
             // Format in correct grid squares.
             // Border with | and -.

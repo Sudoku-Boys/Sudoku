@@ -28,9 +28,23 @@ pub fn main() !void {
 
     _ = try s.display(writer);
 
-    _ = Solvers.naive_solve(&s, 0, 0);
+    s.clear();
 
     _ = try s.display(writer);
+
+    const time: u64 = @intCast(std.time.milliTimestamp());
+    var rng = std.rand.DefaultPrng.init(time);
+    var random = rng.random();
+
+    s.fill_random_valid(1000, &random);
+
+    _ = try s.display(writer);
+
+    const solveable = Solvers.naive_solve(&s, 0, 0);
+
+    _ = try s.display(writer);
+
+    std.debug.print("Solveable: {}\n", .{solveable});
 
     std.debug.print("Grid count {d}\n", .{s.k * s.k});
 
