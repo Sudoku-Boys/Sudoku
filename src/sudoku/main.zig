@@ -13,11 +13,17 @@ pub fn main() !void {
     s.set(.{ .i = 3, .j = 3 }, 9);
     s.set_grid(4, .{ 1, 2, 3, 4, 5, 6, 7, 8, 9 });
 
-    std.debug.assert(s.validate(.GRID, 4));
+    std.debug.assert(s.validate(.GRID, 4) == null);
 
     _ = try s.display(writer);
 
     std.debug.print("As stencil {s}\n", .{Sudoku.to_stencil(s, &optionalAllocator)});
+
+    const errors = try s.validate_all(optionalAllocator);
+
+    std.debug.print("Row errors count: {d}\n", .{errors.get(.ROW).items.len});
+    std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
+    std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 }
 
 test "Test to include suduku.zig" {
