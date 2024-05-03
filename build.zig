@@ -21,14 +21,14 @@ pub fn build(b: *std.Build) !void {
     if (b.host.result.os.tag == .windows) {
         vulkan.addIncludePath(exe);
         glfw.addIncludePath(exe);
-        exe.addLibraryPath(.{ .path = "ext/win/lib" });
+        exe.root_module.addLibraryPath(.{ .path = "ext/win/lib" });
 
-        exe.linkSystemLibrary("glfw3dll");
+        exe.root_module.linkSystemLibrary("glfw3dll", .{});
     } else {
-        exe.linkSystemLibrary("glfw");
+        exe.root_module.linkSystemLibrary("glfw", .{});
     }
 
-    exe.linkSystemLibrary("vulkan");
+    exe.root_module.linkSystemLibrary("vulkan", .{});
 
     for (shaders.items) |shader| {
         exe.root_module.addAnonymousImport(shader.name, .{ .root_source_file = shader.data });

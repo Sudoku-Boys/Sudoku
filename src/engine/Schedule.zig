@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const System = @import("System.zig");
+const System = @import("system2.zig");
 const World = @import("World.zig");
 const TypeId = @import("TypeId.zig");
 
