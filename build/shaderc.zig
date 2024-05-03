@@ -122,7 +122,7 @@ pub fn compileShaders(
 }
 
 pub fn addWindowsIncludePath(s: *std.Build.Step.Compile) void {
-    s.addIncludePath(.{ .path = "ext/shaderc/libshaderc/include" });
+    s.root_module.addIncludePath(.{ .path = "ext/shaderc/libshaderc/include" });
 }
 
 pub fn addLinuxIncludePath(s: *std.Build.Step.Compile) void {
@@ -130,7 +130,7 @@ pub fn addLinuxIncludePath(s: *std.Build.Step.Compile) void {
         var it = std.mem.splitScalar(u8, ld_library_path, ':');
 
         while (it.next()) |path| {
-            s.addLibraryPath(.{ .path = path });
+            s.root_module.addLibraryPath(.{ .path = path });
         }
     }
 }

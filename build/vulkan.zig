@@ -46,6 +46,10 @@ pub fn createVulkanModule(b: *std.Build) !*std.Build.Module {
         .root_source_file = .{ .path = "vulkan/vk.zig" },
     });
 
+    if (b.host.result.os.tag == .windows) {
+        vm.addIncludePath(.{ .path = "ext/Vulkan-Headers/include" });
+    }
+
     const write = b.addWriteFiles();
     write.addCopyFileToSource(vulkan_enums, "vulkan/generated/enums.zig");
     write.addCopyFileToSource(vulkan_flags, "vulkan/generated/flags.zig");
@@ -57,5 +61,5 @@ pub fn createVulkanModule(b: *std.Build) !*std.Build.Module {
 }
 
 pub fn addIncludePath(s: *std.Build.Step.Compile) void {
-    s.addIncludePath(.{ .path = "ext/Vulkan-Headers/include" });
+    s.root_module.addIncludePath(.{ .path = "ext/Vulkan-Headers/include" });
 }
