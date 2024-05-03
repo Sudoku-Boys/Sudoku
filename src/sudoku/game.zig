@@ -28,7 +28,7 @@ const Game = struct {
 
     //Runs the asociated solver until completion or failure.
     pub fn FullySolve(self: *Game) bool {
-        var isSolved = false;
+        const isSolved = false;
         switch (self.solver) {
             //.NAIVE => isSolved = Solver.NaiveSolve(sudoku),
         }
