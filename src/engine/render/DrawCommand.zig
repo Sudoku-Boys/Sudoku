@@ -6,6 +6,7 @@ const Entity = @import("../Entity.zig");
 const DrawCommand = @This();
 
 entity: Entity,
+order: f32,
 transmissive: bool,
 pipeline: vk.GraphicsPipeline,
 bind_groups: []const vk.BindGroup,

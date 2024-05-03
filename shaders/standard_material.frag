@@ -5,7 +5,9 @@
 
 layout(location = 0) in vec3 v_position;
 layout(location = 1) in vec3 v_normal;
-layout(location = 2) in vec4 v_tex_coord;
+layout(location = 2) in vec3 v_tangent;
+layout(location = 3) in vec3 v_bitangent;
+layout(location = 4) in vec2 v_tex_coord;
 
 layout(location = 0) out vec4 o_color;
 
@@ -30,6 +32,9 @@ layout(set = 0, binding = 0) uniform StandardMaterial {
     float subsurface_power;
 } standard_material;
 
+layout(set = 0, binding = 1) uniform sampler2D base_color_map;
+layout(set = 0, binding = 2) uniform sampler2D normal_map;
+
 void main() {
     PbrMaterial material = default_pbr_material(
         gl_FragCoord,
@@ -38,7 +43,9 @@ void main() {
         camera.eye - v_position
     );
 
-    material.albedo = standard_material.base_color.rgb;
+    vec4 base_color = texture(base_color_map, v_tex_coord);
+
+    material.albedo = standard_material.base_color.rgb * base_color.rgb;
     material.metallic = standard_material.metallic;
     material.roughness = standard_material.roughness;
     material.reflectance = standard_material.reflectance;
@@ -57,12 +64,16 @@ void main() {
     material.subsurface_color = standard_material.subsurface_color.rgb;
     material.subsurface_power = standard_material.subsurface_power;
 
+    vec3 normal = texture(normal_map, v_tex_coord).xyz * 2.0 - 1.0;
+    mat3 tbn = mat3(v_tangent, v_bitangent, v_normal);
+    material.normal = normalize(tbn * normal);
+
     PbrPixel pixel = compute_pbr_pixel(material);
 
     DirectionalLight light;
     light.direction = normalize(vec3(1.0, -1.0, -1.0));
     light.color = vec3(1.0, 1.0, 1.0);
-    light.intensity = 1.0;
+    light.intensity = 5.0;
     
     vec3 color = pbr_light_directional(pixel, light);
     color += pbr_refraction(pixel, vec3(0.5));

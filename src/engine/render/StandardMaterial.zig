@@ -1,17 +1,25 @@
 const std = @import("std");
 const vk = @import("vulkan");
+
 const Color = @import("../Color.zig");
 const Mesh = @import("Mesh.zig");
+const Image = @import("../Image.zig");
+const PreparedImage = @import("PreparedImage.zig");
 
 const material = @import("material.zig");
 const math = @import("../math.zig");
+const asset = @import("../asset.zig");
 
 const StandardMaterial = @This();
 
 color: Color = Color.WHITE,
+color_texture: ?asset.AssetId(Image) = null,
+
 metallic: f32 = 0.01,
 roughness: f32 = 0.089,
 reflectance: f32 = 0.5,
+
+normal_map: ?asset.AssetId(Image) = null,
 
 emissive: Color = Color.BLACK,
 emissive_strength: f32 = 1.0,
@@ -36,10 +44,11 @@ pub fn fragmentShader() vk.Spirv {
     return vk.embedSpirv(@embedFile("shaders/standard_material.frag"));
 }
 
-pub fn vertexAttibutes() []const material.VertexAttribute {
+pub fn vertexAttributes() []const material.VertexAttribute {
     return &.{
         .{ .name = Mesh.POSITION, .format = .f32x3 },
         .{ .name = Mesh.NORMAL, .format = .f32x3 },
+        .{ .name = Mesh.TANGENT, .format = .f32x4 },
         .{ .name = Mesh.TEX_COORD_0, .format = .f32x2 },
     };
 }
@@ -49,6 +58,16 @@ pub fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
         .{
             .binding = 0,
             .type = .UniformBuffer,
+            .stages = .{ .fragment = true },
+        },
+        .{
+            .binding = 1,
+            .type = .CombinedImageSampler,
+            .stages = .{ .fragment = true },
+        },
+        .{
+            .binding = 2,
+            .type = .CombinedImageSampler,
             .stages = .{ .fragment = true },
         },
     };
@@ -89,25 +108,12 @@ pub fn initState(
     device: vk.Device,
     bind_group: vk.BindGroup,
 ) !State {
+    _ = bind_group;
+
     const uniform_buffer = try device.createBuffer(.{
         .size = @sizeOf(Uniforms),
         .usage = .{ .uniform_buffer = true, .transfer_dst = true },
         .memory = .{ .device_local = true },
-    });
-
-    device.updateBindGroups(.{
-        .writes = &.{
-            .{
-                .dst = bind_group,
-                .binding = 0,
-                .resource = .{
-                    .buffer = .{
-                        .buffer = uniform_buffer,
-                        .size = @sizeOf(Uniforms),
-                    },
-                },
-            },
-        },
     });
 
     return State{
@@ -122,7 +128,8 @@ pub fn deinitState(state: *State) void {
 pub fn update(
     self: StandardMaterial,
     state: *State,
-    staging_buffer: *vk.StagingBuffer,
+    bind_group: vk.BindGroup,
+    cx: material.Context,
 ) !void {
     const uniforms = Uniforms{
         .color = self.color.asArray(),
@@ -145,9 +152,43 @@ pub fn update(
         .subsurface = self.subsurface,
     };
 
-    try staging_buffer.write(&uniforms);
-    try staging_buffer.copyBuffer(.{
+    try cx.staging_buffer.write(&uniforms);
+    try cx.staging_buffer.copyBuffer(.{
         .dst = state.uniform_buffer,
         .size = @sizeOf(Uniforms),
+    });
+
+    const color = cx.get_image(self.color_texture);
+    const normal = cx.get_normal_map(self.normal_map);
+
+    cx.device.updateBindGroups(.{
+        .writes = &.{
+            .{
+                .dst = bind_group,
+                .binding = 0,
+                .resource = .{ .buffer = .{
+                    .buffer = state.uniform_buffer,
+                    .size = @sizeOf(Uniforms),
+                } },
+            },
+            .{
+                .dst = bind_group,
+                .binding = 1,
+                .resource = .{ .combined_image = .{
+                    .sampler = color.sampler,
+                    .view = color.view,
+                    .layout = .ShaderReadOnlyOptimal,
+                } },
+            },
+            .{
+                .dst = bind_group,
+                .binding = 2,
+                .resource = .{ .combined_image = .{
+                    .sampler = normal.sampler,
+                    .view = normal.view,
+                    .layout = .ShaderReadOnlyOptimal,
+                } },
+            },
+        },
     });
 }

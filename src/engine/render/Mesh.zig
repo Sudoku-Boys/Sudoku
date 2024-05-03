@@ -62,7 +62,7 @@ pub fn Vertices(comptime T: type) type {
         }
 
         pub fn get(self: Self, index: usize) T {
-            return self.getPtr(index).?;
+            return self.getPtr(index).*;
         }
     };
 }
@@ -74,6 +74,7 @@ pub const Attribute = struct {
 
 pub const POSITION = "position";
 pub const NORMAL = "normal";
+pub const TANGENT = "tangent";
 pub const TEX_COORD_0 = "tex_coord_0";
 pub const COLOR = "color";
 
@@ -147,6 +148,91 @@ pub fn vertexBytes(self: Mesh, name: []const u8) ?[]const u8 {
 
 pub fn indexBytes(mesh: Mesh) []const u8 {
     return std.mem.sliceAsBytes(mesh.indices.items);
+}
+
+pub fn generateNormals(self: *Mesh) !void {
+    const positions = self.getAttribute([3]f32, POSITION).?;
+    const normals = try self.addAttribute([3]f32, NORMAL);
+
+    const indices = self.indices.items;
+
+    for (0..indices.len / 3) |i| {
+        const a = positions.get(indices[i * 3 + 0]);
+        const b = positions.get(indices[i * 3 + 1]);
+        const c = positions.get(indices[i * 3 + 2]);
+
+        const av = math.Vec3{ .f = a };
+        const bv = math.Vec3{ .f = b };
+        const cv = math.Vec3{ .f = c };
+
+        const ab = bv.sub(av);
+        const ac = cv.sub(av);
+
+        const normal = ab.cross(ac).normalize();
+
+        try normals.append(normal.f);
+        try normals.append(normal.f);
+        try normals.append(normal.f);
+    }
+}
+
+pub fn generateTangents(self: *Mesh) !void {
+    const positions = self.getAttribute([3]f32, POSITION).?;
+    const tex_coords = self.getAttribute(math.Vec2, TEX_COORD_0).?;
+
+    const tangents = try self.addAttribute([4]f32, TANGENT);
+
+    try tangents.appendNTimes(.{ 0.0, 0.0, 0.0, 0.0 }, positions.len());
+
+    const indices = self.indices.items;
+
+    for (0..indices.len / 3) |i| {
+        const a = positions.get(indices[i * 3 + 0]);
+        const b = positions.get(indices[i * 3 + 1]);
+        const c = positions.get(indices[i * 3 + 2]);
+
+        const av = math.Vec3{ .f = a };
+        const bv = math.Vec3{ .f = b };
+        const cv = math.Vec3{ .f = c };
+
+        const auv = tex_coords.get(indices[i * 3 + 0]);
+        const buv = tex_coords.get(indices[i * 3 + 1]);
+        const cuv = tex_coords.get(indices[i * 3 + 2]);
+
+        const ab = bv.sub(av);
+        const ac = cv.sub(av);
+
+        const abuv = buv.sub(auv);
+        const acuv = cuv.sub(auv);
+
+        const r = 1.0 / (abuv._.x * acuv._.y - abuv._.y * acuv._.x);
+
+        const tangent = ac.mul(abuv._.x).sub(ab.mul(acuv._.x)).mul(r);
+
+        tangents.getPtr(indices[i * 3 + 0])[0] += tangent._.x;
+        tangents.getPtr(indices[i * 3 + 0])[1] += tangent._.y;
+        tangents.getPtr(indices[i * 3 + 0])[2] += tangent._.z;
+
+        tangents.getPtr(indices[i * 3 + 1])[0] += tangent._.x;
+        tangents.getPtr(indices[i * 3 + 1])[1] += tangent._.y;
+        tangents.getPtr(indices[i * 3 + 1])[2] += tangent._.z;
+
+        tangents.getPtr(indices[i * 3 + 2])[0] += tangent._.x;
+        tangents.getPtr(indices[i * 3 + 2])[1] += tangent._.y;
+        tangents.getPtr(indices[i * 3 + 2])[2] += tangent._.z;
+    }
+
+    for (0..tangents.len()) |i| {
+        const t = tangents.getPtr(i);
+        const tv = math.Vec3{ .f = t[0..3].* };
+
+        const tn = tv.normalize();
+
+        t[0] = tn._.x;
+        t[1] = tn._.y;
+        t[2] = tn._.z;
+        t[3] = 1.0;
+    }
 }
 
 pub fn plane(allocator: std.mem.Allocator, size: anytype, color: u32) !Mesh {
@@ -230,10 +316,10 @@ pub fn cube(allocator: std.mem.Allocator, size: f32, color: u32) !Mesh {
 
     const tex_coords = try mesh.addAttribute(math.Vec2, TEX_COORD_0);
     for (0..6) |_| {
-        try tex_coords.append(math.vec2(0.0, 0.0));
-        try tex_coords.append(math.vec2(1.0, 0.0));
-        try tex_coords.append(math.vec2(1.0, 1.0));
         try tex_coords.append(math.vec2(0.0, 1.0));
+        try tex_coords.append(math.vec2(1.0, 1.0));
+        try tex_coords.append(math.vec2(1.0, 0.0));
+        try tex_coords.append(math.vec2(0.0, 0.0));
     }
 
     const colors = try mesh.addAttribute(u32, COLOR);

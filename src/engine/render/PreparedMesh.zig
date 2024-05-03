@@ -18,9 +18,17 @@ index_count: u32,
 pub fn init(
     device: vk.Device,
     staging_buffer: *vk.StagingBuffer,
-    mesh: Mesh,
+    mesh: *Mesh,
     allocator: std.mem.Allocator,
 ) !PreparedMesh {
+    if (!mesh.containsAttribute(Mesh.NORMAL)) {
+        try mesh.generateNormals();
+    }
+
+    if (!mesh.containsAttribute(Mesh.TANGENT)) {
+        try mesh.generateTangents();
+    }
+
     const vertex_buffers = try allocator.alloc(
         VertexBuffer,
         mesh.attributes.items.len,

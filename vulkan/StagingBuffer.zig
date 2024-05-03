@@ -131,6 +131,7 @@ pub const CopyImageDescriptor = struct {
     base_array_layer: u32 = 0,
     layer_count: u32 = 1,
     old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout,
     extent: vk.Extent3D,
     offset: vk.Offset3D = .{},
 };
@@ -139,38 +140,17 @@ pub const CopyImageDescriptor = struct {
 fn recordTransitionImage(
     self: StagingBuffer,
     desc: CopyImageDescriptor,
-) !void {
-    var src_stage: vk.PipelineStages = .{};
-    var dst_stage: vk.PipelineStages = .{};
-    var src_access: vk.Access = .{};
-    var dst_access: vk.Access = .{};
-
-    switch (desc.old_layout) {
-        .Undefined => {
-            src_stage.top_of_pipe = true;
-            dst_stage.transfer = true;
-
-            dst_access.transfer_write = true;
-        },
-        .ShaderReadOnlyOptimal => {
-            src_stage.fragment_shader = true;
-            dst_stage.transfer = true;
-
-            src_access.shader_read = true;
-            dst_access.transfer_write = true;
-        },
-        .TransferDstOptimal => return,
-        else => return error.UnsupportedLayout,
-    }
-
-    try self.command.pipelineBarrier(.{
-        .src_stage = src_stage,
-        .dst_stage = dst_stage,
+    old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout,
+) void {
+    self.command.pipelineBarrier(.{
+        .src_stage = .{ .top_of_pipe = true },
+        .dst_stage = .{ .bottom_of_pipe = true },
         .image_barriers = &.{.{
-            .src_access = src_access,
-            .dst_access = dst_access,
-            .old_layout = desc.old_layout,
-            .new_layout = .TransferDstOptimal,
+            .src_access = .{},
+            .dst_access = .{},
+            .old_layout = old_layout,
+            .new_layout = new_layout,
             .image = desc.dst,
             .aspect = desc.aspect,
             .base_mip_level = desc.mip_level,
@@ -185,7 +165,7 @@ pub fn copyImage(self: StagingBuffer, desc: CopyImageDescriptor) !void {
     try self.command.reset();
     try self.command.begin(.{ .one_time_submit = true });
 
-    try self.recordTransitionImage(desc);
+    self.recordTransitionImage(desc, desc.old_layout, .TransferDstOptimal);
 
     self.command.copyBufferToImage(.{
         .src = self.buffer,
@@ -202,6 +182,8 @@ pub fn copyImage(self: StagingBuffer, desc: CopyImageDescriptor) !void {
             .image_offset = desc.offset,
         },
     });
+
+    self.recordTransitionImage(desc, .TransferDstOptimal, desc.new_layout);
 
     try self.command.end();
 
