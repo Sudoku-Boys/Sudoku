@@ -6,7 +6,7 @@ const ImageView = @This();
 pub const Descriptor = struct {
     type: vk.ViewType = .Image2D,
     format: ?vk.ImageFormat = null,
-    aspect: vk.ImageAspects = vk.ImageAspects.ALL,
+    aspect: vk.ImageAspects,
     base_mip_level: u32 = 0,
     mip_levels: u32 = 1,
     base_array_layer: u32 = 0,

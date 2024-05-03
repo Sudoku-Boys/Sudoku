@@ -4,6 +4,7 @@ pub const Entities = @import("engine/Entities.zig");
 pub const Entity = @import("engine/Entity.zig");
 pub const EntityRef = @import("engine/EntityRef.zig");
 pub const Dense = @import("engine/Dense.zig");
+pub const Image = @import("engine/Image.zig");
 pub const Schedule = @import("engine/Schedule.zig");
 pub const System = @import("engine/System.zig");
 pub const Time = @import("engine/Time.zig");

@@ -494,6 +494,8 @@ pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) void {
     std.debug.assert(desc.writes.len <= UpdateBindGroupsDescriptor.MAX_WRITES);
 
     var writes: [UpdateBindGroupsDescriptor.MAX_WRITES]vk.api.VkWriteDescriptorSet = undefined;
+    var buffer_infos: [UpdateBindGroupsDescriptor.MAX_WRITES]vk.api.VkDescriptorBufferInfo = undefined;
+    var image_infos: [UpdateBindGroupsDescriptor.MAX_WRITES]vk.api.VkDescriptorImageInfo = undefined;
 
     for (desc.writes, 0..) |write, i| {
         writes[i] = vk.api.VkWriteDescriptorSet{
@@ -511,32 +513,40 @@ pub fn updateBindGroups(self: Device, desc: UpdateBindGroupsDescriptor) void {
 
         switch (write.resource) {
             .buffer => |resource| {
-                writes[i].pBufferInfo = &vk.api.VkDescriptorBufferInfo{
+                buffer_infos[i] = vk.api.VkDescriptorBufferInfo{
                     .buffer = resource.buffer.vk,
                     .offset = resource.offset,
                     .range = resource.size,
                 };
+
+                writes[i].pBufferInfo = &buffer_infos[i];
             },
             .sampled_image, .storage_image => |resource| {
-                writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
+                image_infos[i] = vk.api.VkDescriptorImageInfo{
                     .sampler = null,
                     .imageView = resource.view.vk,
                     .imageLayout = @intFromEnum(resource.layout),
                 };
+
+                writes[i].pImageInfo = &image_infos[i];
             },
             .sampler => |resource| {
-                writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
+                image_infos[i] = vk.api.VkDescriptorImageInfo{
                     .sampler = resource.sampler.vk,
                     .imageView = null,
                     .imageLayout = vk.api.VK_IMAGE_LAYOUT_UNDEFINED,
                 };
+
+                writes[i].pImageInfo = &image_infos[i];
             },
             .combined_image => |resource| {
-                writes[i].pImageInfo = &vk.api.VkDescriptorImageInfo{
+                image_infos[i] = vk.api.VkDescriptorImageInfo{
                     .sampler = resource.sampler.vk,
                     .imageView = resource.view.vk,
                     .imageLayout = @intFromEnum(resource.layout),
                 };
+
+                writes[i].pImageInfo = &image_infos[i];
             },
         }
     }

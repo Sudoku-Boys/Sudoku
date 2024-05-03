@@ -14,7 +14,7 @@ fn testSystem(
 ) !void {
     var it = query.iterator();
     while (it.next()) |q| {
-        q.transform.rotation.mulEq(engine.Quat.rotateY(time.dt));
+        q.transform.rotation.mulEq(engine.Quat.rotateY(time.dt * 0.2));
     }
 }
 
@@ -38,8 +38,16 @@ pub fn main() !void {
     const t = try game.addSystem(testSystem);
     try t.label(engine.Game.Phase.Update);
 
+    const images = game.world.resourcePtr(engine.Assets(engine.Image));
+    const image = try images.add(try engine.Image.load_qoi(allocator, "img.qoi"));
+    const normal = try images.add(try engine.Image.load_qoi(allocator, "norm.qoi"));
+
     const materials = game.world.resourcePtr(engine.Assets(engine.StandardMaterial));
-    const mat = try materials.add(engine.StandardMaterial{});
+    const mat = try materials.add(engine.StandardMaterial{
+        .color_texture = image,
+        .normal_map = normal,
+        .roughness = 0.9,
+    });
 
     const meshes = game.world.resourcePtr(engine.Assets(engine.Mesh));
     const mesh = try meshes.add(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
@@ -47,7 +55,9 @@ pub fn main() !void {
     const box = try game.world.addEntity();
     try box.addComponent(mat);
     try box.addComponent(mesh);
-    try box.addComponent(engine.Transform{});
+    try box.addComponent(engine.Transform{
+        .translation = engine.Vec3.init(0.0, -0.2, 0.0),
+    });
     try box.addComponent(Rotate{});
 
     const camera = try game.world.addEntity();

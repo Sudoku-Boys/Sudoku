@@ -2,6 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const Entity = @import("../Entity.zig");
+const Image = @import("../Image.zig");
 const Game = @import("../Game.zig");
 const Transform = @import("../Transform.zig");
 
@@ -10,6 +11,7 @@ const DrawCommand = @import("DrawCommand.zig");
 const Hdr = @import("Hdr.zig");
 const Mesh = @import("Mesh.zig");
 const RenderPlugin = @import("RenderPlugin.zig");
+const PreparedImage = @import("PreparedImage.zig");
 const PreparedMeshes = @import("PreparedMeshes.zig");
 const PreparedTransform = @import("PreparedTransform.zig");
 const PreparedLight = @import("PreparedLight.zig");
@@ -32,6 +34,50 @@ pub const MaterialPipeline = struct {
         .depth_write = true,
     },
     color_attachment: vk.GraphicsPipeline.ColorBlendAttachment = .{},
+};
+
+pub const Context = struct {
+    device: vk.Device,
+    staging_buffer: *vk.StagingBuffer,
+    images: asset.Assets(PreparedImage),
+    white_image: PreparedImage,
+    normal_image: PreparedImage,
+
+    pub fn get_image(self: Context, optional_id: ?asset.AssetId(Image)) PreparedImage {
+        if (optional_id) |id| {
+            return self.images.get(id.cast(PreparedImage)) orelse self.white_image;
+        } else {
+            return self.white_image;
+        }
+    }
+
+    pub fn get_normal_map(self: Context, optional_id: ?asset.AssetId(Image)) PreparedImage {
+        if (optional_id) |id| {
+            return self.images.get(id.cast(PreparedImage)) orelse self.normal_image;
+        } else {
+            return self.normal_image;
+        }
+    }
+};
+
+pub const FallbackImages = struct {
+    white: PreparedImage,
+    normal: PreparedImage,
+
+    pub fn init(device: vk.Device, staging_buffer: *vk.StagingBuffer) !FallbackImages {
+        const white = try PreparedImage.fallback(device, staging_buffer, 0xffffffff);
+        const normal = try PreparedImage.fallback(device, staging_buffer, 0x8080ffff);
+
+        return FallbackImages{
+            .white = white,
+            .normal = normal,
+        };
+    }
+
+    pub fn deinit(self: FallbackImages) void {
+        self.white.deinit();
+        self.normal.deinit();
+    }
 };
 
 pub const MaterialPhase = enum {
@@ -177,7 +223,17 @@ pub fn MaterialPlugin(comptime T: type) type {
             pipeline: *Pipeline,
             materials: *asset.Assets(T),
             prepared: *PreparedAssets,
+            images: *asset.Assets(PreparedImage),
+            fallabck_images: *FallbackImages,
         ) !void {
+            const context = Context{
+                .device = device.*,
+                .staging_buffer = staging_buffer,
+                .images = images.*,
+                .white_image = fallabck_images.white,
+                .normal_image = fallabck_images.normal,
+            };
+
             while (events.next()) |e| {
                 switch (e) {
                     .Added => |id| {
@@ -224,7 +280,8 @@ pub fn MaterialPlugin(comptime T: type) type {
                         // update the state
                         try material.update(
                             &state,
-                            staging_buffer,
+                            group,
+                            context,
                         );
 
                         // add the prepared material to the prepared assets
@@ -241,7 +298,8 @@ pub fn MaterialPlugin(comptime T: type) type {
                         // update the state
                         try material.update(
                             &prepared_asset.state,
-                            staging_buffer,
+                            prepared_asset.group,
+                            context,
                         );
                     },
                     .Removed => |id| {
@@ -257,6 +315,7 @@ pub fn MaterialPlugin(comptime T: type) type {
         fn queue(
             draw_commands: *DrawCommand.Queue,
             pipeline: *Pipeline,
+            materials: *asset.Assets(T),
             prepared_assets: *PreparedAssets,
             prepared_meshes: *PreparedMeshes,
             prepared_light: *PreparedLight,
@@ -276,7 +335,11 @@ pub fn MaterialPlugin(comptime T: type) type {
 
             var it = query.iterator();
             while (it.next()) |q| {
-                const material = prepared_assets.assets.get(q.material.*) orelse {
+                const material = materials.get(q.material.*) orelse {
+                    continue;
+                };
+
+                const prepared_material = prepared_assets.assets.get(q.material.*) orelse {
                     continue;
                 };
 
@@ -296,14 +359,17 @@ pub fn MaterialPlugin(comptime T: type) type {
                 }
 
                 const bind_groups = try draw_commands.allocator.alloc(vk.BindGroup, 4);
-                bind_groups[0] = material.group;
+                bind_groups[0] = prepared_material.group;
                 bind_groups[1] = q.prepared_transform.bind_group;
                 bind_groups[2] = camera.prepared_camera.bind_group;
                 bind_groups[3] = prepared_light.bind_group;
 
+                const transmissive = readsTransmissionImage(T, material);
+
                 const draw = DrawCommand{
                     .entity = q.entity,
-                    .transmissive = false,
+                    .order = 0.0,
+                    .transmissive = transmissive,
                     .pipeline = pipeline.pipeline,
                     .bind_groups = bind_groups,
                     .vertex_buffers = vertex_buffers,
@@ -319,6 +385,14 @@ pub fn MaterialPlugin(comptime T: type) type {
             _ = self;
             // make sure the render plugin is added
             game.requirePlugin(RenderPlugin);
+
+            if (!game.world.containsResource(FallbackImages)) {
+                const device = game.world.resource(vk.Device);
+                const staging_buffer = game.world.resourcePtr(vk.StagingBuffer);
+
+                const fallback = try FallbackImages.init(device, staging_buffer);
+                try game.world.addResource(fallback);
+            }
 
             // add the prepare system
             const s = try game.addSystem(prepare);
@@ -358,6 +432,22 @@ pub fn MaterialPlugin(comptime T: type) type {
     };
 }
 
+fn vertexShader(comptime T: type) vk.Spirv {
+    if (@hasDecl(T, "vertexShader")) {
+        return T.vertexShader();
+    } else {
+        return vk.embedSpirv(@embedFile("shaders/default.vert"));
+    }
+}
+
+fn fragmentShader(comptime T: type) vk.Spirv {
+    if (@hasDecl(T, "fragmentShader")) {
+        return T.fragmentShader();
+    } else {
+        return vk.embedSpirv(@embedFile("shaders/default.frag"));
+    }
+}
+
 fn vertexAttributes(comptime T: type) []const VertexAttribute {
     if (@hasDecl(T, "vertexAttributes")) {
         return T.vertexAttributes();
@@ -370,19 +460,19 @@ fn vertexAttributes(comptime T: type) []const VertexAttribute {
     }
 }
 
-fn vertexShader(comptime T: type) vk.Spirv {
-    if (@hasDecl(T, "vertexShader")) {
-        return T.vertexShader();
+fn bindGroupLayoutEntries(comptime T: type) []const vk.BindGroupLayout.Entry {
+    if (@hasDecl(T, "bindGroupLayoutEntries")) {
+        return T.bindGroupLayoutEntries();
     } else {
-        return .{};
+        return &.{};
     }
 }
 
-fn fragmentShader(comptime T: type) vk.Spirv {
-    if (@hasDecl(T, "fragmentShader")) {
-        return T.fragmentShader();
+fn readsTransmissionImage(comptime T: type, material: T) bool {
+    if (@hasDecl(T, "readsTransmissionImage")) {
+        return material.readsTransmissionImage();
     } else {
-        return .{};
+        return false;
     }
 }
 

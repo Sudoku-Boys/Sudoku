@@ -7,6 +7,7 @@ const material = @import("material.zig");
 const event = @import("../event.zig");
 
 const Game = @import("../Game.zig");
+const Image = @import("../Image.zig");
 const Window = @import("../Window.zig");
 const Query = @import("../query.zig").Query;
 
@@ -18,6 +19,7 @@ const Present = @import("Present.zig");
 const PreparedLight = @import("PreparedLight.zig");
 const PreparedTransform = @import("PreparedTransform.zig");
 const PreparedMeshes = @import("PreparedMeshes.zig");
+const PreparedImage = @import("PreparedImage.zig");
 const Sdr = @import("Sdr.zig");
 const Sky = @import("Sky.zig");
 const Tonemap = @import("Tonemap.zig");
@@ -132,6 +134,8 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
     try game.world.addResource(draw_commands);
 
     try game.addAsset(Mesh);
+    try game.addAsset(Image);
+    try game.addAsset(PreparedImage);
 
     try game.addEvent(Window.MouseMoved);
     try game.addEvent(Window.SizeChanged);
@@ -150,6 +154,10 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
     const mesh_system = try game.addSystem(PreparedMeshes.system);
     try mesh_system.after(Game.Phase.Update);
     try mesh_system.before(Game.Phase.Render);
+
+    const image_system = try game.addSystem(PreparedImage.system);
+    try image_system.after(Game.Phase.Update);
+    try image_system.before(Game.Phase.Render);
 
     const render_system = try game.addSystem(renderSystem);
     try render_system.after(Game.Phase.Update);

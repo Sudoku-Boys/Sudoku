@@ -230,7 +230,7 @@ pub fn Assets(comptime T: type) type {
         /// If `id` is invalid returns `null`.
         pub fn put(self: *Self, id: AssetId(T), item: T) !AssetId(T) {
             if (self.contains(id)) {
-                self.remove(id);
+                try self.remove(id);
             }
 
             const ref_count = try self.allocator.create(u32);
@@ -250,7 +250,7 @@ pub fn Assets(comptime T: type) type {
             };
         }
 
-        pub fn remove(self: *Self, id: AssetId(T)) void {
+        pub fn remove(self: *Self, id: AssetId(T)) !void {
             if (self.getAsset(id)) |entry| {
                 entry.deinit(self.allocator);
                 _ = self.entries.remove(id.index);

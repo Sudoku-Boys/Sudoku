@@ -47,7 +47,7 @@ pub fn system(
         const prepared_mesh = try PreparedMesh.init(
             device.*,
             staging_buffer,
-            entry.item(),
+            &entry.asset.item,
             allocator,
         );
         errdefer prepared_mesh.deinit();
