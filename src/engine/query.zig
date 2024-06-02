@@ -74,7 +74,53 @@ pub fn QueryItem(comptime T: type) type {
     };
 }
 
+pub fn With(comptime C: type) type {
+    return struct {
+        pub const FilterState = Entities.Storage;
+
+        pub fn initState(world: *World) !FilterState {
+            return try world.entities.registerComponent(C);
+        }
+
+        pub fn filter(world: *World, state: FilterState, entity: Entity) bool {
+            return world.entities.containsComponentRegistered(state, entity);
+        }
+    };
+}
+
+pub fn Without(comptime C: type) type {
+    return struct {
+        pub const FilterState = Entities.Storage;
+
+        pub fn initState(world: *World) !FilterState {
+            return try world.entities.registerComponent(C);
+        }
+
+        pub fn filter(world: *World, state: FilterState, entity: Entity) bool {
+            return !world.entities.containsComponentRegistered(state, entity);
+        }
+    };
+}
+
+pub fn FilterItem(comptime T: type) type {
+    return struct {
+        pub const State = T.FilterState;
+
+        pub fn initState(world: *World) !State {
+            return T.initState(world);
+        }
+
+        pub fn filter(world: *World, state: State, entity: Entity) bool {
+            return T.filter(world, state, entity);
+        }
+    };
+}
+
 pub fn Query(comptime Q: type) type {
+    return QueryFilter(Q, .{});
+}
+
+pub fn QueryFilter(comptime Q: type, comptime F: anytype) type {
     const query_info = @typeInfo(Q);
 
     if (query_info != .Struct) {
@@ -83,7 +129,8 @@ pub fn Query(comptime Q: type) type {
 
     const query_struct = query_info.Struct;
 
-    comptime var state_fields: []const std.builtin.Type.StructField = &.{};
+    comptime var query_state_fields: []const std.builtin.Type.StructField = &.{};
+    comptime var query_filter_fields: []const std.builtin.Type.StructField = &.{};
 
     for (query_struct.fields) |field| {
         const Item = QueryItem(field.type);
@@ -96,21 +143,45 @@ pub fn Query(comptime Q: type) type {
             .alignment = 0,
         };
 
-        state_fields = state_fields ++ .{state_field};
+        query_state_fields = query_state_fields ++ .{state_field};
+    }
+
+    for (F, 0..) |field, i| {
+        const Item = FilterItem(field);
+
+        const filter_field = std.builtin.Type.StructField{
+            .name = std.fmt.comptimePrint("{}", .{i}),
+            .type = Item.State,
+            .default_value = null,
+            .is_comptime = false,
+            .alignment = 0,
+        };
+
+        query_filter_fields = query_filter_fields ++ .{filter_field};
     }
 
     return struct {
         const Self = @This();
 
         /// The state of the query.
-        pub const State = @Type(std.builtin.Type{
-            .Struct = .{
-                .layout = .auto,
-                .fields = state_fields,
-                .decls = &.{},
-                .is_tuple = false,
-            },
-        });
+        pub const State = struct {
+            query: @Type(std.builtin.Type{
+                .Struct = .{
+                    .layout = .auto,
+                    .fields = query_state_fields,
+                    .decls = &.{},
+                    .is_tuple = false,
+                },
+            }),
+            filter: @Type(std.builtin.Type{
+                .Struct = .{
+                    .layout = .auto,
+                    .fields = query_filter_fields,
+                    .decls = &.{},
+                    .is_tuple = true,
+                },
+            }),
+        };
 
         pub const SystemParamState = State;
 
@@ -124,7 +195,12 @@ pub fn Query(comptime Q: type) type {
 
             inline for (query_struct.fields) |field| {
                 const Item = QueryItem(field.type);
-                @field(state, field.name) = try Item.initState(world);
+                @field(state.query, field.name) = try Item.initState(world);
+            }
+
+            inline for (F, 0..) |field, i| {
+                const Item = FilterItem(field);
+                state.filter[i] = try Item.initState(world);
             }
 
             return state;
@@ -135,7 +211,7 @@ pub fn Query(comptime Q: type) type {
         }
 
         pub fn systemParamFetch(world: *World, state: *SystemParamState) !Self {
-            return world.query(Q, state.*);
+            return world.queryFilter(Q, F, state.*);
         }
 
         pub fn systemParamApply(world: *World, state: *SystemParamState) !void {
@@ -149,9 +225,19 @@ pub fn Query(comptime Q: type) type {
         pub fn contains(self: *const Self, entity: Entity) bool {
             inline for (query_struct.fields) |field| {
                 const Item = QueryItem(field.type);
-                const state = @field(self.state, field.name);
+                const state = @field(self.state.query, field.name);
 
                 if (!Item.contains(self.world, state, entity)) {
+                    return false;
+                }
+            }
+
+            inline for (F, 0..) |field, i| {
+                const Item = FilterItem(field);
+
+                const state = self.state.filter[i];
+
+                if (!Item.filter(self.world, state, entity)) {
                     return false;
                 }
             }
@@ -163,9 +249,19 @@ pub fn Query(comptime Q: type) type {
         pub fn fetch(self: *const Self, entity: Entity) ?Q {
             var query: Q = undefined;
 
+            inline for (F, 0..) |field, i| {
+                const Item = FilterItem(field);
+
+                const state = self.state.filter[i];
+
+                if (!Item.filter(self.world, state, entity)) {
+                    return null;
+                }
+            }
+
             inline for (query_struct.fields) |field| {
                 const Item = QueryItem(field.type);
-                const state = @field(self.state, field.name);
+                const state = @field(self.state.query, field.name);
 
                 const item = Item.fetch(self.world, state, entity) orelse return null;
 
@@ -202,5 +298,9 @@ pub fn Query(comptime Q: type) type {
 ///
 /// This is a shorthand for `Query(Q).State`.
 pub fn QueryState(comptime Q: type) type {
-    return Query(Q).State;
+    return QueryFilterState(Q, .{});
+}
+
+pub fn QueryFilterState(comptime Q: type, comptime filter: anytype) type {
+    return QueryFilter(Q, filter).State;
 }

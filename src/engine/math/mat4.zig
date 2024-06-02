@@ -416,12 +416,14 @@ pub const Mat4 = extern union {
         const t3 = intrinsic.movehl(tr23b, tr01b);
 
         // permute column vector into rows
-        const p0 = intrinsic.permute(b, .{ 0, 0, 0, 0 });
-        const p1 = intrinsic.permute(b, .{ 1, 1, 1, 1 });
-        const p2 = intrinsic.permute(b, .{ 2, 2, 2, 2 });
-        const p3 = intrinsic.permute(b, .{ 3, 3, 3, 3 });
+        const p0 = intrinsic.permute(b.v, .{ 0, 0, 0, 0 });
+        const p1 = intrinsic.permute(b.v, .{ 1, 1, 1, 1 });
+        const p2 = intrinsic.permute(b.v, .{ 2, 2, 2, 2 });
+        const p3 = intrinsic.permute(b.v, .{ 3, 3, 3, 3 });
 
         // mathimus maximus
-        return (p0 * t0) + (p1 * t1) + (p2 * t2) + (p3 * t3);
+        return Vec4{
+            .v = (p0 * t0) + (p1 * t1) + (p2 * t2) + (p3 * t3),
+        };
     }
 };

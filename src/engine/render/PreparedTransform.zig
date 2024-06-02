@@ -4,7 +4,7 @@ const vk = @import("vulkan");
 const Commands = @import("../Commands.zig");
 const Entity = @import("../Entity.zig");
 const Query = @import("../query.zig").Query;
-const Transform = @import("../Transform.zig");
+const GlobalTransform = @import("../GlobalTransform.zig");
 
 const PreparedTransform = @This();
 
@@ -60,7 +60,7 @@ pub fn deinit(self: PreparedTransform) void {
 pub fn update(
     self: PreparedTransform,
     staging_buffer: *vk.StagingBuffer,
-    transform: Transform,
+    transform: GlobalTransform,
 ) !void {
     const u = Uniforms{
         .model = transform.computeMatrix().f,
@@ -80,7 +80,7 @@ pub fn system(
     pipeline: *Pipeline,
     transform_query: Query(struct {
         entity: Entity,
-        transform: *Transform,
+        transform: *GlobalTransform,
     }),
     prepared_query: Query(struct {
         prepared: *PreparedTransform,

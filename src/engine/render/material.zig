@@ -396,15 +396,17 @@ pub fn MaterialPlugin(comptime T: type) type {
 
             // add the prepare system
             const s = try game.addSystem(prepare);
-            try s.label(MaterialPhase.Prepare);
-            try s.after(Game.Phase.Update);
-            try s.before(Game.Phase.Render);
+            s.name(std.fmt.comptimePrint("Prepare: {}", .{T}));
+            s.label(MaterialPhase.Prepare);
+            s.after(Game.Phase.Update);
+            s.before(Game.Phase.Render);
 
             // add the queue system
             const q = try game.addSystem(queue);
-            try q.label(MaterialPhase.Queue);
-            try q.after(MaterialPhase.Prepare);
-            try q.before(Game.Phase.Render);
+            q.name(std.fmt.comptimePrint("Queue: {}", .{T}));
+            q.label(MaterialPhase.Queue);
+            q.after(MaterialPhase.Prepare);
+            q.before(Game.Phase.Render);
 
             try game.addAsset(T);
 

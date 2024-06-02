@@ -22,10 +22,16 @@ const SystemLabel = struct {
             .hash = hasher.final(),
         };
     }
+
+    pub fn eql(self: SystemLabel, other: SystemLabel) bool {
+        return self.type_id.eql(other.type_id) and self.hash == other.hash;
+    }
 };
 
 const Entry = struct {
     system: System,
+    name: []const u8,
+
     labels: std.ArrayListUnmanaged(SystemLabel),
     before: std.ArrayListUnmanaged(SystemLabel),
     after: std.ArrayListUnmanaged(SystemLabel),
@@ -71,16 +77,20 @@ pub const AddedSystem = struct {
     allocator: std.mem.Allocator,
     entry: *Entry,
 
-    pub fn label(self: AddedSystem, l: anytype) !void {
-        try self.entry.labels.append(self.allocator, SystemLabel.of(l));
+    pub fn name(self: AddedSystem, new_name: []const u8) void {
+        self.entry.name = new_name;
     }
 
-    pub fn before(self: AddedSystem, l: anytype) !void {
-        try self.entry.before.append(self.allocator, SystemLabel.of(l));
+    pub fn label(self: AddedSystem, l: anytype) void {
+        self.entry.labels.append(self.allocator, SystemLabel.of(l)) catch unreachable;
     }
 
-    pub fn after(self: AddedSystem, l: anytype) !void {
-        try self.entry.after.append(self.allocator, SystemLabel.of(l));
+    pub fn before(self: AddedSystem, l: anytype) void {
+        self.entry.before.append(self.allocator, SystemLabel.of(l)) catch unreachable;
+    }
+
+    pub fn after(self: AddedSystem, l: anytype) void {
+        self.entry.after.append(self.allocator, SystemLabel.of(l)) catch unreachable;
     }
 };
 
@@ -90,6 +100,7 @@ pub fn addSystem(self: *Schedule, system: anytype) !AddedSystem {
 
     try self.entries.append(self.allocator, .{
         .system = sys,
+        .name = "unnamed",
         .labels = .{},
         .before = .{},
         .after = .{},
@@ -101,6 +112,43 @@ pub fn addSystem(self: *Schedule, system: anytype) !AddedSystem {
         .allocator = self.allocator,
         .entry = &self.entries.items[index],
     };
+}
+
+pub fn writeGraphvis(self: *Schedule, writer: std.io.AnyWriter) !void {
+    try writer.print("digraph G {{\n", .{});
+
+    for (self.entries.items, 0..) |entry, i| {
+        try writer.print("  node{} [label=\"{s}\"];\n", .{ i, entry.name });
+    }
+
+    for (self.entries.items, 0..) |entry, i| {
+        for (entry.before.items) |before| {
+            for (self.entries.items, 0..) |other, j| {
+                for (other.labels.items) |label| {
+                    if (label.eql(before)) {
+                        try writer.print("  node{} -> node{};\n", .{ i, j });
+                    }
+                }
+            }
+        }
+
+        for (entry.after.items) |after| {
+            for (self.entries.items, 0..) |other, j| {
+                for (other.labels.items) |label| {
+                    if (label.eql(after)) {
+                        try writer.print("  node{} -> node{};\n", .{ j, i });
+                    }
+                }
+            }
+        }
+    }
+
+    try writer.print("}}\n", .{});
+}
+
+pub fn printGraphvis(self: *Schedule) !void {
+    var writer = std.io.getStdOut().writer();
+    try self.writeGraphvis(writer.any());
 }
 
 // shorthands for ease of use

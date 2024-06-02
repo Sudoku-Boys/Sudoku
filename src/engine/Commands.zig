@@ -24,11 +24,19 @@ pub fn AddComponent(comptime T: type) type {
     };
 }
 
-pub const AddEntity = struct {
+pub const Spawn = struct {
     entity: Entity,
 
-    fn apply(self: *AddEntity, world: *World) !void {
+    fn apply(self: *Spawn, world: *World) !void {
         try world.entities.addEntity(self.entity);
+    }
+};
+
+pub const Despawn = struct {
+    entity: Entity,
+
+    fn apply(self: *Despawn, world: *World) !void {
+        try world.despawn(self.entity);
     }
 };
 
@@ -45,10 +53,18 @@ pub fn add(self: *const Commands, command: anytype) !void {
     try self.state.queue.append(self.state.allocator, cmd);
 }
 
-pub fn addEntity(self: *const Commands) !Entity {
+pub fn spawn(self: *const Commands) !Entity {
     const entity = self.world.entities.allocEntity();
 
-    const cmd = AddEntity{
+    const cmd = Spawn{
+        .entity = entity,
+    };
+
+    try self.add(cmd);
+}
+
+pub fn despawn(self: *const Commands, entity: Entity) !void {
+    const cmd = Despawn{
         .entity = entity,
     };
 

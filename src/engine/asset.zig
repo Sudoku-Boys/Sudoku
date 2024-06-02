@@ -8,7 +8,11 @@ fn decrementRefCount(ref_count: *u32) void {
     while (true) {
         // load the `ref_count` atomically
         const current_ref_count = @atomicLoad(u32, ref_count, .seq_cst);
-        std.debug.assert(current_ref_count > 0);
+
+        if (current_ref_count == 0) {
+            std.log.warn("Reference count is already 0", .{});
+            return;
+        }
 
         // calculate the new `ref_count`
         const new_ref_count = current_ref_count - 1;

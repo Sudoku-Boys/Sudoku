@@ -14,3 +14,7 @@ pub fn of(comptime T: type) TypeId {
         .id = id,
     };
 }
+
+pub fn eql(a: TypeId, b: TypeId) bool {
+    return a.id == b.id;
+}
