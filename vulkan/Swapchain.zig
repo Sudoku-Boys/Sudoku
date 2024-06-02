@@ -116,10 +116,14 @@ fn createSwapchain(
         &capabilities,
     ));
 
-    const min_image_count = @min(
-        capabilities.minImageCount + 1,
-        capabilities.maxImageCount,
-    );
+    var min_image_count = capabilities.minImageCount + 1;
+
+    // If max image count is not defined (ei. 0)
+    // Don't clamp the min image count as that produces
+    // invalid state.
+    if (capabilities.maxImageCount > 0) {
+        min_image_count = @min(min_image_count, capabilities.maxImageCount);
+    }
 
     var formats_count: u32 = 0;
     try vk.check(vk.api.vkGetPhysicalDeviceSurfaceFormatsKHR(
