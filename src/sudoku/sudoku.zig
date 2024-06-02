@@ -165,6 +165,49 @@ fn SudokuValidationError(comptime T: type) type {
     };
 }
 
+pub fn AnySudoku() type {
+    return struct {
+        const Self = @This();
+
+        board: *anyopaque,
+        _get: *const fn (*anyopaque, SudokuCoordinate) usize,
+        _set: *const fn (*anyopaque, SudokuCoordinate, usize) void,
+
+        pub fn init(sudoku: anytype) Self {
+            const T = @TypeOf(sudoku.*);
+
+            return Self{
+                .board = @ptrCast(sudoku),
+                //
+                ._get = @ptrCast(&T.get),
+                //
+                ._set = @ptrCast(&T.set),
+            };
+        }
+
+        pub fn get(self: *const Self, coord: SudokuCoordinate) usize {
+            return self._get(self.board, coord);
+        }
+
+        pub fn set(self: *const Self, coord: SudokuCoordinate, value: usize) void {
+            self._set(self.board, coord, value);
+        }
+    };
+}
+
+test "Type errasure" {
+    const Sudoku3x3 = Sudoku(3, 3, .MATRIX, .STACK);
+    var s = Sudoku3x3.init(null);
+    const c = SudokuCoordinate{ .i = 0, .j = 0 };
+
+    const a = AnySudoku().init(&s);
+
+    a.set(c, 9);
+
+    try expect(s.get(c) == 9);
+    try expect(a.get(c) == 9);
+}
+
 // Internal representation of Sudoku.
 // A storage type which contains size bits.
 // We store a single value as a bitfield where its index is its value.
@@ -274,7 +317,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             }
         }
 
-        pub fn is_valid_set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) bool {
+        pub fn is_valid_then_set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) bool {
             var is_valid = true;
 
             const prev = self.get(coordinate);
@@ -294,9 +337,10 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             if (is_valid) {
                 var it = self.coord_iterator(.GRID, coordinate);
                 is_valid = is_valid and self.validate_iterator(.GRID, &it) == null;
+            } else {
+                // Rollback
+                self.set(coordinate, prev);
             }
-
-            self.set(coordinate, prev);
 
             return is_valid;
         }
@@ -436,9 +480,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
                 const coord = SudokuCoordinate{ .i = row, .j = col };
                 const value = rng.intRangeLessThan(ValueRangeType, 1, @as(ValueRangeType, @intCast(self.size + 1)));
 
-                if (self.is_valid_set(coord, value)) {
-                    self.set(coord, value);
-                }
+                _ = self.is_valid_then_set(coord, value);
             }
         }
 
