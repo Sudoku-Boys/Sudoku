@@ -114,27 +114,12 @@ pub const Quat = extern struct {
     }
 
     pub fn mulVec3(self: Quat, v: Vec3) Vec3 {
-        const x2 = self.x * self.x;
-        const y2 = self.y * self.y;
-        const z2 = self.z * self.z;
-        const xy = self.x * self.y;
-        const xz = self.x * self.z;
-        const yz = self.y * self.z;
-        const wx = self.w * self.x;
-        const wy = self.w * self.y;
-        const wz = self.w * self.z;
+        const qv = Vec3.init(self.x, self.y, self.z);
 
-        const x = v._.x;
-        const y = v._.y;
-        const z = v._.z;
+        const uv = qv.cross(v);
+        const uuv = qv.cross(uv);
 
-        return .{
-            ._ = .{
-                .x = (1.0 - 2.0 * (y2 + z2)) * x + (2.0 * (xy - wz)) * y + (2.0 * (xz + wy)) * z,
-                .y = (2.0 * (xy + wz)) * x + (1.0 - 2.0 * (x2 + z2)) * y + (2.0 * (yz - wx)) * z,
-                .z = (2.0 * (xz - wy)) * x + (2.0 * (yz + wx)) * y + (1.0 - 2.0 * (x2 + y2)) * z,
-            },
-        };
+        return v.add(uv.mul(2.0 * self.w)).add(uuv.mul(2.0));
     }
 
     pub fn asMat4(self: Quat) Mat4 {
@@ -154,14 +139,17 @@ pub const Quat = extern struct {
                 .m01 = 2.0 * (xy - wz),
                 .m02 = 2.0 * (xz + wy),
                 .m03 = 0.0,
+
                 .m10 = 2.0 * (xy + wz),
                 .m11 = 1.0 - 2.0 * (x2 + z2),
                 .m12 = 2.0 * (yz - wx),
                 .m13 = 0.0,
+
                 .m20 = 2.0 * (xz - wy),
                 .m21 = 2.0 * (yz + wx),
                 .m22 = 1.0 - 2.0 * (x2 + y2),
                 .m23 = 0.0,
+
                 .m30 = 0.0,
                 .m31 = 0.0,
                 .m32 = 0.0,

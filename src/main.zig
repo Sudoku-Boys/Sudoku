@@ -30,13 +30,13 @@ pub fn main() !void {
     var game = try engine.Game.init(allocator);
     defer game.deinit();
 
+    try game.addPlugin(engine.HirachyPlugin{});
     try game.addPlugin(engine.RenderPlugin{});
     try game.addPlugin(engine.MaterialPlugin(engine.StandardMaterial){});
 
-    try game.addEvent(u32);
-
     const t = try game.addSystem(testSystem);
-    try t.label(engine.Game.Phase.Update);
+    t.name("testSystem");
+    t.label(engine.Game.Phase.Update);
 
     const images = game.world.resourcePtr(engine.Assets(engine.Image));
     const image = try images.add(try engine.Image.load_qoi(allocator, "img.qoi"));
@@ -52,18 +52,33 @@ pub fn main() !void {
     const meshes = game.world.resourcePtr(engine.Assets(engine.Mesh));
     const mesh = try meshes.add(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
 
-    const box = try game.world.addEntity();
+    const box = try game.world.spawn();
     try box.addComponent(mat);
     try box.addComponent(mesh);
     try box.addComponent(engine.Transform{
         .translation = engine.Vec3.init(0.0, -0.2, 0.0),
     });
+    try box.addComponent(engine.GlobalTransform{});
     try box.addComponent(Rotate{});
 
-    const camera = try game.world.addEntity();
+    mat.increment();
+    mesh.increment();
+
+    const box2 = try game.world.spawn();
+    try box2.addComponent(mat);
+    try box2.addComponent(mesh);
+    try box2.addComponent(engine.Transform{
+        .translation = engine.Vec3.init(2.0, 0.2, 0.0),
+    });
+    try box2.addComponent(engine.GlobalTransform{});
+    try box2.addComponent(Rotate{});
+
+    try game.world.set_parent(box2.entity, box.entity);
+
+    const camera = try game.world.spawn();
     try camera.addComponent(engine.Camera{});
     try camera.addComponent(engine.Transform{
-        .translation = engine.Vec3.init(0.0, 0.0, 5.0),
+        .translation = engine.Vec3.init(0.0, 0.0, 10.0),
     });
 
     while (true) {

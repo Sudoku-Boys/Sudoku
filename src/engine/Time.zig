@@ -37,6 +37,7 @@ pub const Plugin = struct {
         try game.world.addResource(try Time.init());
 
         const s = try game.addSystem(system);
-        try s.before(Game.Phase.Start);
+        s.name("Time System");
+        s.before(Game.Phase.Start);
     }
 };

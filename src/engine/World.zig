@@ -6,6 +6,7 @@ const EntityRef = @import("EntityRef.zig");
 const Resources = @import("Resources.zig");
 
 const q = @import("query.zig");
+const h = @import("hirachy.zig");
 
 const World = @This();
 
@@ -31,13 +32,25 @@ pub fn deinit(self: *World) void {
     self.resources.deinit();
 }
 
-pub fn addEntity(self: *World) !EntityRef {
+pub fn spawn(self: *World) !EntityRef {
     const e = self.entities.allocEntity();
     try self.entities.addEntity(e);
     return EntityRef.init(&self.entities, e);
 }
 
-pub fn removeEntity(self: *World, e: Entity) !void {
+pub fn despawn(self: *World, e: Entity) !void {
+    if (self.entity(e).getComponent(h.Children)) |c| {
+        for (c.children.items) |child| {
+            try self.despawn(child);
+        }
+    }
+
+    if (self.entity(e).getComponent(h.Parent)) |p| {
+        if (self.entity(p.entity).getComponent(h.Children)) |c| {
+            c.remove(e);
+        }
+    }
+
     try self.entities.removeEntity(e);
 }
 
@@ -85,17 +98,50 @@ pub fn query(
     comptime Q: type,
     state: q.QueryState(Q),
 ) q.Query(Q) {
+    return self.queryFilter(Q, .{}, state);
+}
+
+pub fn queryFilter(
+    self: *World,
+    comptime Q: type,
+    comptime F: anytype,
+    state: q.QueryFilterState(Q, F),
+) q.QueryFilter(Q, F) {
     return .{
         .world = self,
         .state = state,
     };
 }
 
+pub fn set_parent(self: *World, child: Entity, parent: Entity) !void {
+    if (!self.containsEntity(child) or !self.containsEntity(parent)) {
+        return;
+    }
+
+    if (self.entity(child).getComponent(h.Parent)) |p| {
+        const prev = p.entity;
+        p.entity = parent;
+
+        const children = self.entity(parent).getComponent(h.Children).?;
+        children.remove(prev);
+    } else {
+        try self.entity(child).addComponent(h.Parent{ .entity = parent });
+    }
+
+    if (self.entity(parent).getComponent(h.Children)) |c| {
+        try c.add(child);
+    } else {
+        var children = h.Children.init(self.allocator);
+        try children.add(child);
+        try self.entity(parent).addComponent(children);
+    }
+}
+
 /// Create a query for the given query type `Q`, initializing the query state.
 ///
 /// This should only be used when the query state cannot be reused.
 pub fn queryOnce(self: *World, comptime Q: type) !q.Query(Q) {
-    const state = try q.Query(Q).initState(self);
+    const state = try q.QueryFilter(Q).initState(self);
     return self.query(Q, state);
 }
 
