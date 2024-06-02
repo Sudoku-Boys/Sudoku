@@ -17,25 +17,23 @@ pub const SudokuCoordinate = struct {
     }
 };
 
-fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
+fn SudokuContraintIterator(comptime C: SudokuContraint) type {
     switch (C) {
         .ROW => {
             return struct {
                 start: SudokuCoordinate,
                 end: SudokuCoordinate,
-                sudoku: *const T,
 
-                pub fn initIndex(sudoku: *const T, constraint_index: usize) @This() {
+                pub fn initIndex(sudoku: anytype, constraint_index: usize) @This() {
                     assert(constraint_index < sudoku.size);
                     const coord = .{ .i = constraint_index, .j = 0 };
                     return @This().init(sudoku, coord);
                 }
 
-                pub fn init(sudoku: *const T, coord: SudokuCoordinate) @This() {
+                pub fn init(sudoku: anytype, coord: SudokuCoordinate) @This() {
                     return @This(){
                         .start = .{ .i = coord.i, .j = 0 },
                         .end = .{ .i = coord.i, .j = sudoku.size },
-                        .sudoku = sudoku,
                     };
                 }
 
@@ -56,20 +54,18 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
             return struct {
                 start: SudokuCoordinate,
                 end: SudokuCoordinate,
-                sudoku: *const T,
 
-                pub fn initIndex(sudoku: *const T, constraint_index: usize) @This() {
+                pub fn initIndex(sudoku: anytype, constraint_index: usize) @This() {
                     // The size of the sudoku is the same as the row column count.
                     assert(constraint_index < sudoku.size);
                     const coord = .{ .i = 0, .j = constraint_index };
                     return @This().init(sudoku, coord);
                 }
 
-                pub fn init(sudoku: *const T, coord: SudokuCoordinate) @This() {
+                pub fn init(sudoku: anytype, coord: SudokuCoordinate) @This() {
                     return @This(){
                         .start = .{ .i = 0, .j = coord.j },
                         .end = .{ .i = sudoku.size, .j = coord.j },
-                        .sudoku = sudoku,
                     };
                 }
 
@@ -90,10 +86,11 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
             return struct {
                 start: SudokuCoordinate,
                 end: SudokuCoordinate,
-                sudoku: *const T,
-                done: bool,
+                n: usize,
 
-                pub fn initIndex(sudoku: *const T, constraint_index: usize) @This() {
+                /// TODO: We started with init() only, so initIndex and init contain
+                /// duplicate / negated logic. We should refactor this.
+                pub fn initIndex(sudoku: anytype, constraint_index: usize) @This() {
                     assert(constraint_index < sudoku.k * sudoku.k);
 
                     const row = constraint_index / sudoku.k;
@@ -104,29 +101,23 @@ fn SudokuContraintIterator(comptime T: type, comptime C: SudokuContraint) type {
                     return @This().init(sudoku, coord);
                 }
 
-                pub fn init(sudoku: *const T, coord: SudokuCoordinate) @This() {
+                pub fn init(sudoku: anytype, coord: SudokuCoordinate) @This() {
                     return @This(){
                         .start = .{ .i = coord.i - (coord.i % sudoku.n), .j = coord.j - (coord.j % sudoku.n) },
-                        .end = .{ .i = coord.i - (coord.i % sudoku.n) + sudoku.n - 1, .j = coord.j - (coord.j % sudoku.n) + sudoku.n - 1 },
-                        .sudoku = sudoku,
-                        .done = false,
+                        .end = .{ .i = coord.i - (coord.i % sudoku.n) + sudoku.n, .j = coord.j - (coord.j % sudoku.n) + sudoku.n },
+                        .n = sudoku.n,
                     };
                 }
 
                 pub fn next(self: *@This()) ?SudokuCoordinate {
-                    if (self.done) {
-                        return null;
-                    }
-
                     const current = self.start;
 
                     if (current.equals(self.end)) {
-                        self.done = true;
-                        return self.end;
+                        return null;
                     }
 
                     if (self.start.j == self.end.j) {
-                        self.start.j = self.end.j - (self.sudoku.n - 1);
+                        self.start.j = self.end.j - (self.n - 1);
                         self.start.i += 1;
                     } else {
                         self.start.j += 1;
@@ -165,42 +156,81 @@ fn SudokuValidationError(comptime T: type) type {
     };
 }
 
-pub fn AnySudoku() type {
-    return struct {
-        const Self = @This();
-
-        board: *anyopaque,
-        _get: *const fn (*anyopaque, SudokuCoordinate) usize,
-        _set: *const fn (*anyopaque, SudokuCoordinate, usize) void,
-
-        pub fn init(sudoku: anytype) Self {
-            const T = @TypeOf(sudoku.*);
-
-            return Self{
-                .board = @ptrCast(sudoku),
-                //
-                ._get = @ptrCast(&T.get),
-                //
-                ._set = @ptrCast(&T.set),
-            };
-        }
-
-        pub fn get(self: *const Self, coord: SudokuCoordinate) usize {
-            return self._get(self.board, coord);
-        }
-
-        pub fn set(self: *const Self, coord: SudokuCoordinate, value: usize) void {
-            self._set(self.board, coord, value);
-        }
-    };
+fn IndexIteratorFn(comptime C: SudokuContraint) type {
+    return fn (*anyopaque, C, usize) SudokuContraintIterator(C);
 }
 
+fn CoordIteratorFn(comptime C: SudokuContraint) type {
+    return fn (*anyopaque, C, SudokuCoordinate) SudokuContraintIterator(C);
+}
+
+pub const Sudoku = struct {
+    const Self = @This();
+
+    board: *anyopaque,
+    board_get: *const fn (*anyopaque, SudokuCoordinate) usize,
+    board_set: *const fn (*anyopaque, SudokuCoordinate, usize) void,
+    board_clear: *const fn (*anyopaque) void,
+    //board_index_iterator: *const fn (*anyopaque, comptime C: SudokuContraint, usize) SudokuContraintIterator,
+    //board_coord_iterator: *const fn (*anyopaque, comptime C: SudokuContraint, SudokuCoordinate) SudokuContraintIterator,
+    board_set_row: *const fn (*anyopaque, usize, []usize) void,
+    board_set_col: *const fn (*anyopaque, usize, []usize) void,
+    board_set_grid: *const fn (*anyopaque, usize, []usize) void,
+    board_is_valid_then_set: *const fn (*anyopaque, SudokuCoordinate, usize) bool,
+    // The rest of the functions are not so important rn.
+
+    pub fn init(board: anytype) Self {
+        const T = @TypeOf(board.*);
+
+        return Self{
+            .board = @ptrCast(board),
+            .board_get = @ptrCast(&T.get),
+            .board_set = @ptrCast(&T.set),
+            .board_clear = @ptrCast(&T.clear),
+            //.board_index_iterator = @ptrCast(&T.index_iterator),
+            //.board_coord_iterator = @ptrCast(&T.coord_iterator),
+            .board_set_row = @ptrCast(&T.set_row),
+            .board_set_col = @ptrCast(&T.set_col),
+            .board_set_grid = @ptrCast(&T.set_grid),
+            .board_is_valid_then_set = @ptrCast(&T.is_valid_then_set),
+        };
+    }
+
+    pub fn get(self: *const Self, coord: SudokuCoordinate) usize {
+        return self.board_get(self.board, coord);
+    }
+
+    pub fn set(self: *const Self, coord: SudokuCoordinate, value: usize) void {
+        self.board_set(self.board, coord, value);
+    }
+
+    pub fn clear(self: *const Self) void {
+        self.board_clear(self.board);
+    }
+
+    pub fn set_row(self: *const Self, index: usize, values: []usize) void {
+        self.board_set_row(self.board, index, values);
+    }
+
+    pub fn set_col(self: *const Self, index: usize, values: []usize) void {
+        self.board_set_col(self.board, index, values);
+    }
+
+    pub fn set_grid(self: *const Self, index: usize, values: []usize) void {
+        self.board_set_grid(self.board, index, values);
+    }
+
+    pub fn is_valid_then_set(self: *const Self, coord: SudokuCoordinate, value: usize) bool {
+        return self.board_is_valid_then_set(self.board, coord, value);
+    }
+};
+
 test "Type errasure" {
-    const Sudoku3x3 = Sudoku(3, 3, .MATRIX, .STACK);
+    const Sudoku3x3 = Board(3, 3, .MATRIX, .STACK);
     var s = Sudoku3x3.init(null);
     const c = SudokuCoordinate{ .i = 0, .j = 0 };
 
-    const a = AnySudoku().init(&s);
+    const a = Sudoku.init(&s);
 
     a.set(c, 9);
 
@@ -212,7 +242,7 @@ test "Type errasure" {
 // A storage type which contains size bits.
 // We store a single value as a bitfield where its index is its value.
 // We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
-pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage, comptime memory: SudokuMemory) type {
+pub fn Board(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage, comptime memory: SudokuMemory) type {
     const BitFieldType = SudokuBitFieldType(K, N);
     const ValueRangeType = SudokuValueRangeType(K, N);
     const ValidationErrorType = SudokuValidationError(ValueRangeType);
@@ -266,57 +296,99 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             }
         }
 
-        // Matrix getters and setters
-        fn mget(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
-            return self.board[coordinate.i * self.size + coordinate.j];
-        }
-
-        fn mset(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
-            assert(value <= self.size);
-            self.board[coordinate.i * self.size + coordinate.j] = value;
-        }
-
-        // Bitfield getters and setters
-        fn bget(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
+        /// Get the value of the field at i, j.
+        pub fn get(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
             const field = self.board[coordinate.i * self.size + coordinate.j];
 
-            if (field == SudokuEmptySentinel) {
-                return SudokuEmptySentinel;
-            }
+            switch (storage) {
+                .BITFIELD => {
+                    if (field == SudokuEmptySentinel) {
+                        return SudokuEmptySentinel;
+                    }
 
-            return @intCast(@ctz(field) + 1);
+                    return @intCast(@ctz(field) + 1);
+                },
+                .MATRIX => return field,
+            }
         }
 
-        fn bset(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
+        /// Set the value of the field at i, j to value.
+        pub fn set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
             assert(value <= self.size);
 
-            // Ignore the previous value as we are setting a new value.
-            // We set value - 1 as the bit field is 0 indexed.
-            // The index 0 (first bit) is the first value.
-            if (value == SudokuEmptySentinel) {
-                self.board[coordinate.i * self.size + coordinate.j] = SudokuEmptySentinel;
-                return;
-            }
+            const index = coordinate.i * self.size + coordinate.j;
 
-            self.board[coordinate.i * self.size + coordinate.j] = 0 | @shlExact(@as(BitFieldType, 1), value - 1);
-        }
-
-        // Get the value of the field at i, j.
-        pub fn get(self: *const Self, coordinate: SudokuCoordinate) ValueRangeType {
             switch (storage) {
-                .BITFIELD => return self.bget(coordinate),
-                .MATRIX => return self.mget(coordinate),
+                .BITFIELD => {
+                    // Ignore the previous value as we are setting a new value.
+                    // We set value - 1 as the bit field is 0 indexed.
+                    // The index 0 (first bit) is the first value.
+                    if (value == SudokuEmptySentinel) {
+                        self.board[index] = SudokuEmptySentinel;
+                        return;
+                    }
+
+                    self.board[index] = 0 | @shlExact(@as(BitFieldType, 1), value - 1);
+                },
+                .MATRIX => {
+                    self.board[index] = value;
+                },
             }
         }
 
-        // Set the value of the field at i, j to value.
-        pub fn set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) void {
+        pub fn clear(self: *Self) void {
             switch (storage) {
-                .BITFIELD => self.bset(coordinate, value),
-                .MATRIX => self.mset(coordinate, value),
+                .BITFIELD => {
+                    for (0..self.size * self.size) |i| {
+                        self.board[i] = SudokuEmptySentinel;
+                    }
+                },
+                .MATRIX => {
+                    @memset(self.board, SudokuEmptySentinel);
+                },
             }
         }
 
+        /// Access a constraint based on its index
+        /// So row N, col N or grid N.
+        pub fn index_iterator(self: *Self, comptime C: SudokuContraint, constraint_index: usize) SudokuContraintIterator(C) {
+            return SudokuContraintIterator(C).initIndex(self, constraint_index);
+        }
+
+        /// Access the constraint based on any value from inside of it.
+        /// Ei. coordinate X belongs to contraint N in row / col / grid.
+        pub fn coord_iterator(self: *Self, comptime C: SudokuContraint, coord: SudokuCoordinate) SudokuContraintIterator(C) {
+            return SudokuContraintIterator(C).init(self, coord);
+        }
+
+        /// Set entire row based on its index and a list of values.
+        pub fn set_row(self: *Self, index: usize, values: [size]ValueRangeType) void {
+            var it = self.index_iterator(.ROW, index);
+
+            for (0..size) |i| {
+                self.set(it.next().?, values[i]);
+            }
+        }
+
+        /// Set entire col based on its index and a list of values.
+        pub fn set_col(self: *Self, index: usize, values: [size]ValueRangeType) void {
+            var it = self.index_iterator(.COLUMN, index);
+
+            for (0..size) |i| {
+                self.set(it.next().?, values[i]);
+            }
+        }
+
+        /// Set entire grid based on its index and a list of values.
+        pub fn set_grid(self: *Self, index: usize, values: [N * N]ValueRangeType) void {
+            var it = self.index_iterator(.GRID, index);
+
+            for (0..(N * N)) |i| {
+                self.set(it.next().?, values[i]);
+            }
+        }
+
+        /// Make a move, check if it's valid, if not roll it back.
         pub fn is_valid_then_set(self: *Self, coordinate: SudokuCoordinate, value: ValueRangeType) bool {
             var is_valid = true;
 
@@ -345,31 +417,57 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             return is_valid;
         }
 
-        pub fn set_row(self: *Self, index: usize, values: [size]ValueRangeType) void {
-            var it = self.index_iterator(.ROW, index);
+        /// Check if constraint is valid, if not return the first invalid coordinate.
+        /// This decides how many errors we generate, if we want to show ALL incompatible
+        /// positions we have to change it here.
+        fn validate_iterator(self: *Self, comptime C: SudokuContraint, it: *SudokuContraintIterator(C)) ?ValidationErrorType {
+            // Find coordinate based on constraint and index, then use iterator to get
+            // every coordinate in that constraint and check for item uniqueness with get.
+            switch (storage) {
+                .BITFIELD => {
+                    var field: BitFieldType = SudokuEmptySentinel;
 
-            for (0..size) |i| {
-                self.set(it.next().?, values[i]);
+                    while (it.next()) |current| {
+                        const coordinate_field = self.board[current.i * self.size + current.j];
+
+                        if (field & coordinate_field != 0) {
+                            return ValidationErrorType{ .coordinate = current, .value = self.get(current) };
+                        }
+
+                        field |= coordinate_field;
+                    }
+                },
+                .MATRIX => {
+                    var seen = [_]bool{false} ** (size + 1);
+
+                    while (it.next()) |current| {
+                        const value = self.get(current);
+
+                        if (value == SudokuEmptySentinel) {
+                            continue;
+                        }
+
+                        if (seen[value]) {
+                            return ValidationErrorType{ .coordinate = current, .value = value };
+                        }
+
+                        seen[value] = true;
+                    }
+                },
             }
+
+            return null;
         }
 
-        pub fn set_col(self: *Self, index: usize, values: [size]ValueRangeType) void {
-            var it = self.index_iterator(.COLUMN, index);
-
-            for (0..size) |i| {
-                self.set(it.next().?, values[i]);
-            }
-        }
-
-        pub fn set_grid(self: *Self, index: usize, values: [N * N]ValueRangeType) void {
-            var it = self.index_iterator(.GRID, index);
-
-            for (0..(N * N)) |i| {
-                self.set(it.next().?, values[i]);
-            }
+        /// TODO Sudoku Constraint + index should probably be collected as a struct / tuple
+        pub fn validate(self: *Self, comptime C: SudokuContraint, index: usize) ?ValidationErrorType {
+            var it = self.index_iterator(C, index);
+            return self.validate_iterator(C, &it);
         }
 
         /// Caller needs to deallocate result.
+        /// Should probably extract return type into its own struct
+        /// to enforce alloc + dealloc.
         pub fn validate_all(self: *Self, allocator: std.mem.Allocator) !std.EnumArray(SudokuContraint, std.ArrayList(ValidationErrorType)) {
             var row_errors = std.ArrayList(ValidationErrorType).init(allocator);
             var column_errors = std.ArrayList(ValidationErrorType).init(allocator);
@@ -406,73 +504,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             });
         }
 
-        /// TODO Sudoku Constraint + index should probably be collected as a struct / tuple
-        pub fn validate(self: *Self, comptime C: SudokuContraint, index: usize) ?ValidationErrorType {
-            var it = self.index_iterator(C, index);
-            return self.validate_iterator(C, &it);
-        }
-
-        // Check if constraint is valid, if not returnt the first invalid coordinate.
-        fn validate_iterator(self: *Self, comptime C: SudokuContraint, it: *SudokuContraintIterator(Self, C)) ?ValidationErrorType {
-            // Find coordinate based on constraint and index, then use iterator to get
-            // every coordinate in that constraint and check for item uniqueness with get.
-            switch (storage) {
-                .BITFIELD => {
-                    var field: BitFieldType = SudokuEmptySentinel;
-
-                    while (it.next()) |current| {
-                        const coordinate_field = self.board[current.i * self.size + current.j];
-
-                        if (field & coordinate_field != 0) {
-                            return ValidationErrorType{ .coordinate = current, .value = self.bget(current) };
-                        }
-
-                        field |= coordinate_field;
-                    }
-                },
-                .MATRIX => {
-                    var seen = [_]bool{false} ** (size + 1);
-
-                    while (it.next()) |current| {
-                        const value = self.mget(current);
-
-                        if (value == SudokuEmptySentinel) {
-                            continue;
-                        }
-
-                        if (seen[value]) {
-                            return ValidationErrorType{ .coordinate = current, .value = value };
-                        }
-
-                        seen[value] = true;
-                    }
-                },
-            }
-
-            return null;
-        }
-
-        pub fn index_iterator(self: *Self, comptime C: SudokuContraint, constraint_index: usize) SudokuContraintIterator(Self, C) {
-            return SudokuContraintIterator(Self, C).initIndex(self, constraint_index);
-        }
-
-        pub fn coord_iterator(self: *Self, comptime C: SudokuContraint, coord: SudokuCoordinate) SudokuContraintIterator(Self, C) {
-            return SudokuContraintIterator(Self, C).init(self, coord);
-        }
-
-        pub fn clear(self: *Self) void {
-            switch (storage) {
-                .BITFIELD => {
-                    for (0..self.size * self.size) |i| {
-                        self.board[i] = SudokuEmptySentinel;
-                    }
-                },
-                .MATRIX => {
-                    @memset(self.board, SudokuEmptySentinel);
-                },
-            }
-        }
-
+        /// Random fill, not real puzzle generation.
         pub fn fill_random_valid(self: *Self, attemps: usize, rng: *std.Random) void {
             for (0..attemps) |_| {
                 const row = rng.intRangeLessThan(usize, 0, self.size);
@@ -484,6 +516,7 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
             }
         }
 
+        /// Debug function to print board.
         pub fn display(self: *const Self, writer: anytype) !void {
             // Format in correct grid squares.
             // Border with | and -.
@@ -540,13 +573,13 @@ pub fn Sudoku(comptime K: u16, comptime N: u16, comptime storage: SudokuStorage,
 }
 
 test "Validate certain sudoku board sizes" {
-    _ = Sudoku(2, 2, .BITFIELD, .STACK);
-    _ = Sudoku(3, 3, .BITFIELD, .STACK);
+    _ = Board(2, 2, .BITFIELD, .STACK);
+    _ = Board(3, 3, .BITFIELD, .STACK);
 }
 
 test "Test 4x4 Sudoku" {
     // Also test memory leaks.
-    const S = Sudoku(2, 2, .BITFIELD, .HEAP);
+    const S = Board(2, 2, .BITFIELD, .HEAP);
 
     var allocator = std.testing.allocator;
     var s = S.init(&allocator);
@@ -588,7 +621,7 @@ test "Test 4x4 Sudoku" {
 }
 
 test "Test 9x9 Sudoku" {
-    const S = Sudoku(3, 3, .BITFIELD, .STACK);
+    const S = Board(3, 3, .BITFIELD, .STACK);
 
     var s = S.init(null);
 
@@ -645,7 +678,7 @@ test "Test 9x9 Sudoku" {
 }
 
 test "Very large using matrix backend, does it compile?" {
-    const S = Sudoku(32, 32, .MATRIX, .STACK);
+    const S = Board(32, 32, .MATRIX, .STACK);
 
     var s = S.init(null);
 
@@ -655,7 +688,7 @@ test "Very large using matrix backend, does it compile?" {
 }
 
 test "Sudoku validation" {
-    var sb = Sudoku(3, 1, .BITFIELD, .STACK).init(null);
+    var sb = Board(3, 1, .BITFIELD, .STACK).init(null);
 
     sb.set_row(0, .{ 1, 2, 3 });
 
@@ -672,7 +705,7 @@ test "Sudoku validation" {
     sb.set(.{ .i = 0, .j = 0 }, 1);
 
     // Test basic matrix validation
-    var sm = Sudoku(3, 1, .MATRIX, .STACK).init(null);
+    var sm = Board(3, 1, .MATRIX, .STACK).init(null);
 
     sm.set_row(0, .{ 1, 2, 3 });
 
@@ -683,13 +716,13 @@ test "Sudoku validation" {
     try expect(sm.validate(.COLUMN, 0) != null);
 }
 
-pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, allocator: *std.mem.Allocator) Sudoku(
+pub fn from_stencil(stencil: []const u8, comptime k: u16, comptime n: u16, comptime S: SudokuStorage, allocator: *std.mem.Allocator) Board(
     k,
     n,
     S,
     .HEAP,
 ) {
-    const SudokuT = Sudoku(k, n, S, .HEAP);
+    const SudokuT = Board(k, n, S, .HEAP);
     const ValueRangeType = SudokuValueRangeType(k, n);
 
     var s = SudokuT.init(allocator);
