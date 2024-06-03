@@ -33,22 +33,26 @@ pub fn init(alloc: std.mem.Allocator) !Game {
     try game.addPlugin(Time.Plugin{});
 
     const start_phase = try game.addSystem(EmptySystem{});
-    try start_phase.label(Phase.Start);
-    try start_phase.before(Phase.Update);
+    start_phase.name("Start");
+    start_phase.label(Phase.Start);
+    start_phase.before(Phase.Update);
 
     const update_phase = try game.addSystem(EmptySystem{});
-    try update_phase.label(Phase.Update);
-    try update_phase.after(Phase.Start);
-    try update_phase.before(Phase.Render);
+    update_phase.name("Update");
+    update_phase.label(Phase.Update);
+    update_phase.after(Phase.Start);
+    update_phase.before(Phase.Render);
 
     const render_phase = try game.addSystem(EmptySystem{});
-    try render_phase.label(Phase.Render);
-    try render_phase.after(Phase.Update);
-    try render_phase.before(Phase.End);
+    render_phase.name("Render");
+    render_phase.label(Phase.Render);
+    render_phase.after(Phase.Update);
+    render_phase.before(Phase.End);
 
     const end_phase = try game.addSystem(EmptySystem{});
-    try end_phase.label(Phase.End);
-    try end_phase.after(Phase.Render);
+    end_phase.name("End");
+    end_phase.label(Phase.End);
+    end_phase.after(Phase.Render);
 
     return game;
 }
@@ -97,7 +101,8 @@ pub fn addEvent(self: *Game, comptime T: type) !void {
     try self.world.addResource(events);
 
     const system = try self.addSystem(event.Events(T).system);
-    try system.before(Phase.Start);
+    system.name(std.fmt.comptimePrint("Event: {}", .{T}));
+    system.before(Phase.Start);
 }
 
 pub fn addAsset(self: *Game, comptime T: type) !void {
@@ -109,10 +114,12 @@ pub fn addAsset(self: *Game, comptime T: type) !void {
     try self.world.addResource(assets);
 
     const clean = try self.addSystem(asset.Assets(T).clean);
-    try clean.after(Phase.End);
+    clean.name(std.fmt.comptimePrint("Clean: {}", .{T}));
+    clean.after(Phase.End);
 
     const events = try self.addSystem(asset.Assets(T).sendEvents);
-    try events.before(Phase.Start);
+    events.name(std.fmt.comptimePrint("AssetEvents: {}", .{T}));
+    events.before(Phase.Start);
 }
 
 pub fn addSystem(self: *Game, system: anytype) !Schedule.AddedSystem {

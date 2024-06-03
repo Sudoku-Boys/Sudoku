@@ -2,6 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const asset = @import("../asset.zig");
+const hirachy = @import("../hirachy.zig");
 const system = @import("../system.zig");
 const material = @import("material.zig");
 const event = @import("../event.zig");
@@ -141,27 +142,33 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
     try game.addEvent(Window.SizeChanged);
 
     const window_system = try game.addSystem(Window.eventSystem);
-    try window_system.before(Game.Phase.Start);
+    window_system.name("Window Event System");
+    window_system.before(Game.Phase.Start);
 
     const camera_system = try game.addSystem(Camera.Prepared.system);
-    try camera_system.after(Game.Phase.Update);
-    try camera_system.before(Game.Phase.Render);
+    camera_system.name("Prepare Camera System");
+    camera_system.after(Game.Phase.Update);
+    camera_system.before(Game.Phase.Render);
 
     const transform_system = try game.addSystem(PreparedTransform.system);
-    try transform_system.after(Game.Phase.Update);
-    try transform_system.before(Game.Phase.Render);
+    transform_system.name("Prepare Transform System");
+    transform_system.after(hirachy.HirachyPhase.Transform);
+    transform_system.before(Game.Phase.Render);
 
     const mesh_system = try game.addSystem(PreparedMeshes.system);
-    try mesh_system.after(Game.Phase.Update);
-    try mesh_system.before(Game.Phase.Render);
+    mesh_system.name("Prepare Mesh System");
+    mesh_system.after(Game.Phase.Update);
+    mesh_system.before(Game.Phase.Render);
 
     const image_system = try game.addSystem(PreparedImage.system);
-    try image_system.after(Game.Phase.Update);
-    try image_system.before(Game.Phase.Render);
+    image_system.name("Prepare Image System");
+    image_system.after(Game.Phase.Update);
+    image_system.before(Game.Phase.Render);
 
     const render_system = try game.addSystem(renderSystem);
-    try render_system.after(Game.Phase.Update);
-    try render_system.label(Game.Phase.Render);
+    render_system.name("Render System");
+    render_system.after(Game.Phase.Update);
+    render_system.label(Game.Phase.Render);
 }
 
 fn recreate(
