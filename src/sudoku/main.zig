@@ -8,7 +8,7 @@ const sudoku = @import("Sudoku.zig");
 test "Wow" {
     const T = board.Board(3, 3, .MATRIX, .STACK);
     var b = T.init(null);
-    const s = sudoku.Sudoku.init(&b);
+    const s = sudoku.Sudoku(3, 3).init(&b);
 
     s.clear();
 }
