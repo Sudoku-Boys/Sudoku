@@ -13,13 +13,13 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
         board_get: *const fn (*anyopaque, Coordinate) Storage.ValueType,
         board_set: *const fn (*anyopaque, Coordinate, Storage.ValueType) void,
         board_clear: *const fn (*anyopaque) void,
-        //board_index_iterator: *const fn (*anyopaque, comptime C: SudokuContraint, usize) SudokuContraintIterator,
-        //board_coord_iterator: *const fn (*anyopaque, comptime C: SudokuContraint, Coordinate) SudokuContraintIterator,
+        // The rest of the functions are not so important rn.
+        // board_index_iterator: *const fn (*anyopaque, comptime C: SudokuContraint, usize) SudokuContraintIterator,
+        // board_coord_iterator: *const fn (*anyopaque, comptime C: SudokuContraint, Coordinate) SudokuContraintIterator,
         board_set_row: *const fn (*anyopaque, usize, []Storage.ValueType) void,
         board_set_col: *const fn (*anyopaque, usize, []Storage.ValueType) void,
         board_set_grid: *const fn (*anyopaque, usize, []Storage.ValueType) void,
         board_is_valid_then_set: *const fn (*anyopaque, Coordinate, Storage.ValueType) bool,
-        // The rest of the functions are not so important rn.
 
         /// Allocate the board with a layout, memory and allocator.
         pub fn initBoard(comptime S: board.StorageLayout, comptime M: board.StorageMemory, allocator: ?*std.mem.Allocator) Self {
