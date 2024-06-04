@@ -10,7 +10,7 @@ const Self = @This();
 fn assert_is_ptr(any: anytype) void {
     switch (@typeInfo(@TypeOf(any))) {
         .Pointer => {},
-        else => @panic("Expected pointer type"),
+        else => @compileError("Expected pointer type"),
     }
 }
 
