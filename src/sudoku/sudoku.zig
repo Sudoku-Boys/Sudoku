@@ -19,7 +19,6 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
         board_set_row: *const fn (*anyopaque, usize, []Storage.ValueType) void,
         board_set_col: *const fn (*anyopaque, usize, []Storage.ValueType) void,
         board_set_grid: *const fn (*anyopaque, usize, []Storage.ValueType) void,
-        board_is_valid_then_set: *const fn (*anyopaque, Coordinate, Storage.ValueType) bool,
 
         /// Allocate the board with a layout, memory and allocator.
         pub fn initBoard(comptime S: board.StorageLayout, comptime M: board.StorageMemory, allocator: ?*std.mem.Allocator) Self {
@@ -44,7 +43,6 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
                 .board_set_row = @ptrCast(&T.set_row),
                 .board_set_col = @ptrCast(&T.set_col),
                 .board_set_grid = @ptrCast(&T.set_grid),
-                .board_is_valid_then_set = @ptrCast(&T.is_valid_then_set),
             };
         }
 
@@ -74,10 +72,6 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
 
         pub fn set_grid(self: *const Self, index: usize, values: []Storage.ValueType) void {
             self.board_set_grid(self.board, index, values);
-        }
-
-        pub fn is_valid_then_set(self: *const Self, coord: Coordinate, value: Storage.ValueType) bool {
-            return self.board_is_valid_then_set(self.board, coord, value);
         }
     };
 }

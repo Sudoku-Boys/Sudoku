@@ -47,11 +47,11 @@ pub fn main() !void {
     var rng = std.rand.DefaultPrng.init(time);
     var random = rng.random();
 
-    b.fill_random_valid(1000, &random);
+    b.fill_random_valid(10, &random);
 
     _ = try b.display(writer);
 
-    const solveable = solve.solve(.NAIVE, &b);
+    const solveable = solve.solve(.BASIC, &b);
 
     _ = try b.display(writer);
 

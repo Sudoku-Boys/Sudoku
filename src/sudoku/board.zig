@@ -303,6 +303,46 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
             }
         }
 
+        /// TODO optimize this and is_safe_move when in bitfield mode.
+        fn iterator_contains(self: *Self, iterator: anytype, value: Storage.ValueType) bool {
+            while (iterator.next()) |current| {
+                if (self.get(current) == value) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        pub fn is_safe_move(self: *Self, coordinate: Coordinate, value: Storage.ValueType) bool {
+            const current_value = self.get(coordinate);
+
+            // Cannot set a field that is already set.
+            // Maybe this should return true if the value is the same.
+            // Most likely not.
+            if (current_value != EmptySentinel) {
+                return false;
+            }
+
+            // Loop over all constraints.
+            var it_row = self.coord_iterator(.ROW, coordinate);
+            if (self.iterator_contains(&it_row, value)) {
+                return false;
+            }
+
+            var it_col = self.coord_iterator(.COLUMN, coordinate);
+            if (self.iterator_contains(&it_col, value)) {
+                return false;
+            }
+
+            var it_grid = self.coord_iterator(.GRID, coordinate);
+            if (self.iterator_contains(&it_grid, value)) {
+                return false;
+            }
+
+            return true;
+        }
+
         /// Make a move, check if it's valid, if not roll it back.
         pub fn is_valid_then_set(self: *Self, coordinate: Coordinate, value: Storage.ValueType) bool {
             var is_valid = true;
@@ -427,7 +467,9 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
                 const coord = Coordinate{ .i = row, .j = col };
                 const value = rng.intRangeLessThan(Storage.ValueType, 1, @as(Storage.ValueType, @intCast(self.size + 1)));
 
-                _ = self.is_valid_then_set(coord, value);
+                if (self.is_safe_move(coord, value)) {
+                    self.set(coord, value);
+                }
             }
         }
 

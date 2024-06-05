@@ -14,13 +14,18 @@ fn assert_is_ptr(any: anytype) void {
     }
 }
 
+/// TODOs:
+/// - Add uniqueness / multiple solution handeling
+/// - Prevent infinite loops etc
+///
+///
 pub fn solve(solver: Solvers, sudoku: anytype) bool {
     // Solve takes a pointer reference, as it needs to modify the sudoku in place.
     assert_is_ptr(sudoku);
 
     return switch (solver) {
-        .NAIVE => naive.solve(sudoku),
-        //.BASIC => basic.solve(sudoku),
+        .NAIVE => naive.init().solve(sudoku),
+        .BASIC => basic.init().solve(sudoku),
         //.SIMD => simd.solve(sudoku),
         else => unreachable,
     };
