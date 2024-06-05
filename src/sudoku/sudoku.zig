@@ -50,6 +50,10 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
             self.board_deinit(self.board);
         }
 
+        pub fn get_board(self: *Self, comptime S: board.StorageLayout, comptime M: board.StorageMemory) *board.Board(K, N, S, M) {
+            return @as(*board.Board(K, N, S, M), self.board);
+        }
+
         pub fn get(self: *const Self, coord: Coordinate) Storage.ValueType {
             return self.board_get(self.board, coord);
         }

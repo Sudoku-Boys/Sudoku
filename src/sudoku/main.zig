@@ -6,6 +6,7 @@ const board = @import("board.zig");
 const sudoku = @import("sudoku.zig");
 const parse = @import("parse.zig");
 const solve = @import("solve.zig");
+const puzzle_gen = @import("puzzle_gen.zig");
 
 pub fn main() !void {
     var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
@@ -31,18 +32,6 @@ pub fn main() !void {
 
     _ = try b.display(writer);
 
-    //b.clear();
-    //
-    //_ = try b.display(writer);
-    //
-    //const time: u64 = @intCast(std.time.milliTimestamp());
-    //var rng = std.rand.DefaultPrng.init(time);
-    //var random = rng.random();
-    //
-    //b.fill_random_valid(10, &random);
-    //
-    //_ = try b.display(writer);
-
     const solveable = try solve.solve(.ADVANCED, &b, &optionalAllocator);
 
     _ = try b.display(writer);
@@ -58,4 +47,8 @@ pub fn main() !void {
     std.debug.print("Row errors count: {d}\n", .{errors.get(.ROW).items.len});
     std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
+
+    var b2 = try puzzle_gen.generate_puzzle(3, 3, 81, &optionalAllocator);
+
+    _ = try b2.display(writer);
 }

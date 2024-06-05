@@ -9,6 +9,7 @@ pub const StorageLayout = enum { BITFIELD, MATRIX };
 pub const StorageMemory = enum { STACK, HEAP };
 pub const EmptySentinel = 0;
 
+/// TODO rewrite type.
 fn BoardContraintIterator(comptime C: BoardContraint) type {
     switch (C) {
         .ROW => {
@@ -464,15 +465,21 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
         }
 
         /// Random fill, not real puzzle generation.
-        pub fn fill_random_valid(self: *Self, attemps: usize, rng: *std.Random) void {
-            for (0..attemps) |_| {
-                const row = rng.intRangeLessThan(usize, 0, self.size);
-                const col = rng.intRangeLessThan(usize, 0, self.size);
-                const coord = Coordinate{ .i = row, .j = col };
+        pub fn fill_random_valid(self: *Self, max_filled: usize, max_attemps: usize, rng: *std.Random) void {
+            var succesful_fills: usize = 0;
+
+            for (0..max_attemps) |_| {
+                if (succesful_fills >= max_filled) {
+                    break;
+                }
+
+                const coord = Coordinate.random(size, rng);
+
                 const value = rng.intRangeLessThan(Storage.ValueType, 1, @as(Storage.ValueType, @intCast(self.size + 1)));
 
                 if (self.is_safe_move(coord, value)) {
                     self.set(coord, value);
+                    succesful_fills += 1;
                 }
             }
         }
