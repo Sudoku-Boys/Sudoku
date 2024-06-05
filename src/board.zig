@@ -263,6 +263,20 @@ pub fn boardInputSystem(
                     _ = try solve.solve(.ADVANCED, &q.board.sudoku, allocator);
                     try updateBoardNumbers(q.board, resources, materials);
                 },
+                .C => {
+                    q.board.sudoku.clear();
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .R => {
+                    q.board.sudoku.deinit();
+
+                    var sudoku = try puzzle_gen.generate_puzzle(3, 3, 20, allocator);
+                    errdefer sudoku.deinit();
+
+                    q.board.sudoku = sudoku;
+
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
                 .Num1, .Num2, .Num3, .Num4, .Num5, .Num6, .Num7, .Num8, .Num9 => {
                     const number = @intFromEnum(key) - @intFromEnum(engine.Window.Key.Num0);
                     const coord = .{
