@@ -17,12 +17,29 @@ pub fn addSudokuExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: s
 }
 
 pub fn addSudokuTests(b: *std.Build, test_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.Mode) void {
-    const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/sudoku/main.zig" },
+    const parse_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/sudoku/parse.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    const run_main_tests = b.addRunArtifact(main_tests);
-    test_step.dependOn(&run_main_tests.step);
+    const solve_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/sudoku/solve.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const board_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/sudoku/board.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const run_parse_tests = b.addRunArtifact(parse_tests);
+    const run_solve_tests = b.addRunArtifact(solve_tests);
+    const run_board_tests = b.addRunArtifact(board_tests);
+
+    test_step.dependOn(&run_parse_tests.step);
+    test_step.dependOn(&run_solve_tests.step);
+    test_step.dependOn(&run_board_tests.step);
 }

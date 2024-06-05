@@ -7,14 +7,6 @@ const sudoku = @import("sudoku.zig");
 const parse = @import("parse.zig");
 const solve = @import("solve.zig");
 
-test "Wow" {
-    const T = board.Board(3, 3, .MATRIX, .STACK);
-    var b = T.init(null);
-    const s = sudoku.Sudoku(3, 3).init(&b);
-
-    s.clear();
-}
-
 pub fn main() !void {
     var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 

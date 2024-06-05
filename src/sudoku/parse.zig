@@ -55,17 +55,6 @@ pub fn Stencil(comptime k: u16, comptime n: u16, comptime layout: board.StorageL
     };
 }
 
-// test "9x9 Stencil" {
-//     const stencil = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
-//     var alloc = std.testing.allocator;
-//     var sudoku = from_stencil(stencil, 3, 3, .BITFIELD, &alloc);
-//     defer sudoku.deinit();
-//
-//     const stencil_res = to_stencil(sudoku, &alloc);
-//     try std.testing.expect(std.mem.eql(u8, stencil_res, stencil));
-//     alloc.free(stencil_res);
-// }
-
 /// Semi-colon format.
 pub fn Custom(comptime k: u16, comptime n: u16, comptime layout: board.StorageLayout) type {
     return struct {

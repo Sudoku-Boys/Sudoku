@@ -36,3 +36,21 @@ pub fn solve(solver: Solvers, sudoku: anytype, allocator: *std.mem.Allocator) !b
         else => unreachable,
     };
 }
+
+test "Backtrack solve advanced" {
+    var allocator = std.testing.allocator;
+
+    const puzzle = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
+    var parser = @import("parse.zig").Stencil(3, 3, .BITFIELD).init(allocator);
+    var board = parser.from(puzzle);
+
+    var solver = advanced.init(&allocator);
+
+    const has_solution = try solver.solve(&board);
+
+    try std.testing.expect(has_solution);
+
+    const expected = "938541762625379841147862935512796483863254197794138256459627318371485629286913574";
+
+    try std.testing.expect(std.mem.eql(u8, try parser.into(board), expected));
+}
