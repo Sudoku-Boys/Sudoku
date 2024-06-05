@@ -34,6 +34,9 @@ pub fn setupGame(game: *engine.Game, allocator: std.mem.Allocator) !void {
     try box2.addComponent(engine.GlobalTransform{});
     try box2.addComponent(sudokuComponent.Rotate{});
 
+    mat.increment();
+    mesh.increment();
+
     //The sudoku controller has no mesh, but has the logic.
     const sudokuController = try game.world.spawn();
     try sudokuController.addComponent(engine.GlobalTransform{});
@@ -46,6 +49,7 @@ pub fn setupGame(game: *engine.Game, allocator: std.mem.Allocator) !void {
     //We make a 9x9 sudoku grid
     //const sudokuCubes = [_]*const engine.EntityRef{&try game.world.spawn()} ** 81;
     var sudokuCubes = std.ArrayList(*const engine.EntityRef).init(allocator);
+    defer sudokuCubes.deinit();
 
     for (0..9) |i| {
         for (0..9) |j| {
