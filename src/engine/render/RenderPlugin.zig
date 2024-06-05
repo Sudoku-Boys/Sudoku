@@ -140,6 +140,7 @@ pub fn buildPlugin(self: RenderPlugin, game: *Game) !void {
 
     try game.addEvent(Window.MouseMoved);
     try game.addEvent(Window.SizeChanged);
+    try game.addEvent(Window.KeyInput);
 
     const window_system = try game.addSystem(Window.eventSystem);
     window_system.name("Window Event System");

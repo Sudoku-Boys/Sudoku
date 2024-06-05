@@ -40,6 +40,15 @@ pub const Despawn = struct {
     }
 };
 
+pub const SetParent = struct {
+    child: Entity,
+    parent: Entity,
+
+    fn apply(self: *SetParent, world: *World) !void {
+        try world.setParent(self.child, self.parent);
+    }
+};
+
 pub const SystemParamState = struct {
     allocator: std.mem.Allocator,
     queue: std.ArrayListUnmanaged(Command),
@@ -48,19 +57,24 @@ pub const SystemParamState = struct {
 world: *World,
 state: *SystemParamState,
 
-pub fn add(self: *const Commands, command: anytype) !void {
+pub fn append(self: *const Commands, command: anytype) !void {
     const cmd = try Command.init(command, self.state.allocator);
     try self.state.queue.append(self.state.allocator, cmd);
 }
 
-pub fn spawn(self: *const Commands) !Entity {
+pub fn spawn(self: *const Commands) !EntityCommands {
     const entity = self.world.entities.allocEntity();
 
     const cmd = Spawn{
         .entity = entity,
     };
 
-    try self.add(cmd);
+    try self.append(cmd);
+
+    return .{
+        .entity = entity,
+        .commands = self,
+    };
 }
 
 pub fn despawn(self: *const Commands, entity: Entity) !void {
@@ -68,7 +82,7 @@ pub fn despawn(self: *const Commands, entity: Entity) !void {
         .entity = entity,
     };
 
-    try self.add(cmd);
+    try self.append(cmd);
 }
 
 pub fn addComponent(self: *const Commands, entity: Entity, component: anytype) !void {
@@ -78,7 +92,16 @@ pub fn addComponent(self: *const Commands, entity: Entity, component: anytype) !
         .component = component,
     };
 
-    try self.add(cmd);
+    try self.append(cmd);
+}
+
+pub fn setParent(self: *const Commands, child: Entity, parent: Entity) !void {
+    const cmd = SetParent{
+        .child = child,
+        .parent = parent,
+    };
+
+    try self.append(cmd);
 }
 
 pub fn systemParamInit(world: *World) !SystemParamState {
@@ -106,6 +129,29 @@ pub fn systemParamApply(world: *World, state: *SystemParamState) !void {
 pub fn systemParamDeinit(state: *SystemParamState) void {
     state.queue.deinit(state.allocator);
 }
+
+pub const EntityCommands = struct {
+    entity: Entity,
+    commands: *const Commands,
+
+    pub fn entity(self: *const EntityCommands) Entity {
+        return self.entity;
+    }
+
+    pub fn addComponent(self: *const EntityCommands, component: anytype) !void {
+        try self.commands.addComponent(self.entity, component);
+    }
+
+    pub fn despawn(self: *const EntityCommands) !void {
+        try self.commands.despawn(self.entity);
+    }
+
+    pub fn spawnChild(self: *const EntityCommands) !EntityCommands {
+        const child = self.commands.spawn();
+        try self.commands.setParent(child.entity, self.entity);
+        return child;
+    }
+};
 
 const Command = struct {
     data: *u8,

@@ -77,5 +77,6 @@ void main() {
     
     vec3 color = pbr_light_directional(pixel, light);
     color += pbr_refraction(pixel, vec3(0.5));
+    color += material.emissive;
     o_color = vec4(color, 1.0);
 }

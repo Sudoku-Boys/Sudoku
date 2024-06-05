@@ -1,4 +1,5 @@
 pub const Color = @import("engine/Color.zig");
+pub const Commands = @import("engine/Commands.zig");
 pub const Game = @import("engine/Game.zig");
 pub const Entities = @import("engine/Entities.zig");
 pub const Entity = @import("engine/Entity.zig");

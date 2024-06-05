@@ -49,7 +49,7 @@ pub const DynamicAssetId = struct {
     ref_count: *u32,
 
     pub fn deinit(self: Self) void {
-        decrementRefCount(self.ref_count);
+        self.decrement();
     }
 
     pub fn eql(a: Self, b: Self) bool {
@@ -58,6 +58,10 @@ pub const DynamicAssetId = struct {
 
     pub fn increment(self: Self) void {
         incrementRefCount(self.ref_count);
+    }
+
+    pub fn decrement(self: Self) void {
+        decrementRefCount(self.ref_count);
     }
 
     /// Try to cast the `DynamicAssetId` to an `AssetId`, with type `T`.
@@ -88,7 +92,7 @@ pub fn AssetId(comptime T: type) type {
         pub const Item = T;
 
         pub fn deinit(self: Self) void {
-            decrementRefCount(self.ref_count);
+            self.decrement();
         }
 
         pub fn eql(a: Self, b: Self) bool {
@@ -97,6 +101,10 @@ pub fn AssetId(comptime T: type) type {
 
         pub fn increment(self: Self) void {
             incrementRefCount(self.ref_count);
+        }
+
+        pub fn decrement(self: Self) void {
+            decrementRefCount(self.ref_count);
         }
 
         pub fn dynamic(self: Self) DynamicAssetId {

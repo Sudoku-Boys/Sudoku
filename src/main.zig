@@ -2,20 +2,19 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
+const board = @import("board.zig");
 
-const Rotate = struct {};
-
-fn testSystem(
-    time: *engine.Time,
-    query: engine.Query(struct {
-        transform: *engine.Transform,
-        rotate: *Rotate,
-    }),
+fn startup(
+    commands: engine.Commands,
 ) !void {
-    var it = query.iterator();
-    while (it.next()) |q| {
-        q.transform.rotation.mulEq(engine.Quat.rotateY(time.dt * 0.2));
-    }
+    const camera = try commands.spawn();
+    try camera.addComponent(engine.Camera{});
+    try camera.addComponent(engine.Transform{
+        .translation = engine.Vec3.init(0.0, 0.0, 10.0),
+    });
+    try camera.addComponent(engine.GlobalTransform{});
+
+    _ = try board.spawnBoard(commands);
 }
 
 pub fn main() !void {
@@ -34,52 +33,10 @@ pub fn main() !void {
     try game.addPlugin(engine.RenderPlugin{});
     try game.addPlugin(engine.MaterialPlugin(engine.StandardMaterial){});
 
-    const t = try game.addSystem(testSystem);
-    t.name("testSystem");
-    t.label(engine.Game.Phase.Update);
+    _ = try game.addSystem(board.boardInputSystem);
+    _ = try game.addStartupSystem(startup);
 
-    const images = game.world.resourcePtr(engine.Assets(engine.Image));
-    const image = try images.add(try engine.Image.load_qoi(allocator, "img.qoi"));
-    const normal = try images.add(try engine.Image.load_qoi(allocator, "norm.qoi"));
-
-    const materials = game.world.resourcePtr(engine.Assets(engine.StandardMaterial));
-    const mat = try materials.add(engine.StandardMaterial{
-        .color_texture = image,
-        .normal_map = normal,
-        .roughness = 0.9,
-    });
-
-    const meshes = game.world.resourcePtr(engine.Assets(engine.Mesh));
-    const mesh = try meshes.add(try engine.Mesh.cube(allocator, 1.0, 0xffffffff));
-
-    const box = try game.world.spawn();
-    try box.addComponent(mat);
-    try box.addComponent(mesh);
-    try box.addComponent(engine.Transform{
-        .translation = engine.Vec3.init(0.0, -0.2, 0.0),
-    });
-    try box.addComponent(engine.GlobalTransform{});
-    try box.addComponent(Rotate{});
-
-    mat.increment();
-    mesh.increment();
-
-    const box2 = try game.world.spawn();
-    try box2.addComponent(mat);
-    try box2.addComponent(mesh);
-    try box2.addComponent(engine.Transform{
-        .translation = engine.Vec3.init(2.0, 0.2, 0.0),
-    });
-    try box2.addComponent(engine.GlobalTransform{});
-    try box2.addComponent(Rotate{});
-
-    try game.world.set_parent(box2.entity, box.entity);
-
-    const camera = try game.world.spawn();
-    try camera.addComponent(engine.Camera{});
-    try camera.addComponent(engine.Transform{
-        .translation = engine.Vec3.init(0.0, 0.0, 10.0),
-    });
+    try game.start();
 
     while (true) {
         engine.Window.pollEvents();

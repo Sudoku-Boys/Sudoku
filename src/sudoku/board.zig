@@ -4,6 +4,8 @@ const assert = std.debug.assert;
 const expect = std.testing.expect;
 const Coordinate = @import("Coordinate.zig");
 
+pub const DefaultBoard = Board(3, 3, .MATRIX, .HEAP);
+
 pub const BoardContraint = enum { ROW, COLUMN, GRID };
 pub const StorageLayout = enum { BITFIELD, MATRIX };
 pub const StorageMemory = enum { STACK, HEAP };
@@ -176,13 +178,13 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
             .HEAP => []StorageImplType,
         };
 
-        allocator: ?*std.mem.Allocator,
+        allocator: ?std.mem.Allocator,
         board: BoardType,
         size: usize,
         k: usize,
         n: usize,
 
-        pub fn init(allocator: ?*std.mem.Allocator) Self {
+        pub fn init(allocator: ?std.mem.Allocator) Self {
             const board = switch (memory) {
                 .STACK => [_]StorageImplType{EmptySentinel} ** (size * size),
                 .HEAP => allocator.?.alloc(StorageImplType, size * size) catch |err| {
@@ -553,8 +555,8 @@ test "Test 4x4 Sudoku" {
     // Also test memory leaks.
     const S = Board(2, 2, .BITFIELD, .HEAP);
 
-    var allocator = std.testing.allocator;
-    var s = S.init(&allocator);
+    const allocator = std.testing.allocator;
+    var s = S.init(allocator);
     defer s.deinit();
 
     s.set(.{ .i = 0, .j = 0 }, 1);
