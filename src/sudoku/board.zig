@@ -215,7 +215,10 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
         /// Get the value of the field at i, j.
         pub fn get(self: *const Self, coordinate: Coordinate) Storage.ValueType {
-            const field = self.board[coordinate.i * self.size + coordinate.j];
+            assert(self.size == size);
+            assert(coordinate.i < size and coordinate.j < size);
+
+            const field = self.board[coordinate.i * size + coordinate.j];
 
             switch (storage) {
                 .BITFIELD => {
@@ -231,9 +234,10 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
         /// Set the value of the field at i, j to value.
         pub fn set(self: *Self, coordinate: Coordinate, value: Storage.ValueType) void {
-            assert(value <= self.size);
+            assert(self.size == size);
+            assert(value <= self.size and coordinate.i < size and coordinate.j < size);
 
-            const index = coordinate.i * self.size + coordinate.j;
+            const index = coordinate.i * size + coordinate.j;
 
             switch (storage) {
                 .BITFIELD => {
@@ -256,7 +260,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
         pub fn clear(self: *Self) void {
             switch (memory) {
                 .STACK => {
-                    for (0..self.size * self.size) |i| {
+                    for (0..size * size) |i| {
                         self.board[i] = EmptySentinel;
                     }
                 },
@@ -388,7 +392,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
                     var field: Storage.BitFieldType = EmptySentinel;
 
                     while (it.next()) |current| {
-                        const coordinate_field = self.board[current.i * self.size + current.j];
+                        const coordinate_field = self.board[current.i * size + current.j];
 
                         if (field & coordinate_field != 0) {
                             return ValidationErrorType{ .coordinate = current, .value = self.get(current) };
@@ -439,19 +443,19 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
                 grid_errors.deinit();
             }
 
-            for (0..self.size) |i| {
+            for (0..size) |i| {
                 if (self.validate(.ROW, i)) |e| {
                     try row_errors.append(e);
                 }
             }
 
-            for (0..self.size) |i| {
+            for (0..size) |i| {
                 if (self.validate(.COLUMN, i)) |e| {
                     try column_errors.append(e);
                 }
             }
 
-            for (0..self.k * self.k) |i| {
+            for (0..K * K) |i| {
                 if (self.validate(.GRID, i)) |e| {
                     try grid_errors.append(e);
                 }
@@ -475,7 +479,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
                 const coord = Coordinate.random(size, rng);
 
-                const value = rng.intRangeLessThan(Storage.ValueType, 1, @as(Storage.ValueType, @intCast(self.size + 1)));
+                const value = rng.intRangeLessThan(Storage.ValueType, 1, @as(Storage.ValueType, @intCast(size + 1)));
 
                 if (self.is_safe_move(coord, value)) {
                     self.set(coord, value);
@@ -489,10 +493,14 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
             // Format in correct grid squares.
             // Border with | and -.
 
-            const min_text_width = std.math.log10(self.size + 1) + 1;
-            const line_width = K * N * (min_text_width + 3) + 1;
+            const min_text_width = std.math.log10(size + 1) + 1;
+            const line_width = K * N * (min_text_width) + 7;
 
-            for (0..self.size) |i| {
+            for (0..size) |i| {
+                if (self.size != size) {
+                    @panic(try std.fmt.allocPrint(std.heap.page_allocator, "SHIT IS WRONG IN THIS ITERATION", .{}));
+                }
+
                 if (i % self.n == 0) {
                     for (0..line_width) |_| {
                         _ = try writer.write("-");
@@ -500,7 +508,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
                     _ = try writer.write("\n");
                 }
 
-                for (0..self.size) |j| {
+                for (0..size) |j| {
                     const value = self.get(.{ .i = i, .j = j });
 
                     if (j == 0) {
@@ -515,7 +523,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
                     }
 
                     if (value == EmptySentinel) {
-                        _ = try writer.write("?");
+                        _ = try writer.write(".");
                     } else {
                         _ = try writer.print("{d}", .{value});
                     }
@@ -527,7 +535,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
                 _ = try writer.write("\n");
 
-                if (i == self.size - 1) {
+                if (i == size - 1) {
                     for (0..line_width) |_| {
                         _ = try writer.write("-");
                     }
