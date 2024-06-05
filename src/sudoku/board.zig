@@ -497,10 +497,6 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
             const line_width = K * N * (min_text_width) + 7;
 
             for (0..size) |i| {
-                if (self.size != size) {
-                    @panic(try std.fmt.allocPrint(std.heap.page_allocator, "SHIT IS WRONG IN THIS ITERATION", .{}));
-                }
-
                 if (i % self.n == 0) {
                     for (0..line_width) |_| {
                         _ = try writer.write("-");
