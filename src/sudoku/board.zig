@@ -555,8 +555,8 @@ test "Test 4x4 Sudoku" {
     // Also test memory leaks.
     const S = Board(2, 2, .BITFIELD, .HEAP);
 
-    var allocator = std.testing.allocator;
-    var s = S.init(&allocator);
+    const allocator = std.testing.allocator;
+    var s = S.init(allocator);
     defer s.deinit();
 
     s.set(.{ .i = 0, .j = 0 }, 1);

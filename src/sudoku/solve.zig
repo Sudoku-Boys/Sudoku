@@ -45,7 +45,7 @@ test "Backtrack solve advanced" {
     var board = parser.from(puzzle);
     defer board.deinit();
 
-    var solver = advanced.init(&allocator);
+    var solver = advanced.init(allocator);
     defer solver.deinit();
 
     const has_solution = try solver.solve(&board);

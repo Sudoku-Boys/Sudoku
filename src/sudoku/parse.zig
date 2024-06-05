@@ -15,7 +15,7 @@ pub fn Stencil(comptime k: u16, comptime n: u16, comptime layout: board.StorageL
         }
 
         pub fn from(self: *Self, str: []const u8) board.Board(k, n, layout, .HEAP) {
-            var b = board.Board(k, n, layout, .HEAP).init(&self.allocator);
+            var b = board.Board(k, n, layout, .HEAP).init(self.allocator);
             const ValueType = @TypeOf(b).Storage.ValueType;
 
             for (0..str.len) |i| {
