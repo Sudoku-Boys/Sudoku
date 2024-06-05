@@ -39,19 +39,19 @@ pub fn main() !void {
 
     _ = try b.display(writer);
 
-    b.clear();
+    //b.clear();
+    //
+    //_ = try b.display(writer);
+    //
+    //const time: u64 = @intCast(std.time.milliTimestamp());
+    //var rng = std.rand.DefaultPrng.init(time);
+    //var random = rng.random();
+    //
+    //b.fill_random_valid(10, &random);
+    //
+    //_ = try b.display(writer);
 
-    _ = try b.display(writer);
-
-    const time: u64 = @intCast(std.time.milliTimestamp());
-    var rng = std.rand.DefaultPrng.init(time);
-    var random = rng.random();
-
-    b.fill_random_valid(10, &random);
-
-    _ = try b.display(writer);
-
-    const solveable = solve.solve(.BASIC, &b);
+    const solveable = solve.solve(.ADVANCED, &b);
 
     _ = try b.display(writer);
 

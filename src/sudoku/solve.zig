@@ -1,9 +1,10 @@
 const std = @import("std");
 const naive = @import("solvers/naive.zig");
 const basic = @import("solvers/basic.zig");
+const advanced = @import("solvers/advanced.zig");
 const simd = @import("solvers/simd.zig");
 
-pub const Solvers = enum { NAIVE, BASIC, SIMD };
+pub const Solvers = enum { NAIVE, BASIC, ADVANCED, SIMD };
 
 const Self = @This();
 
@@ -26,6 +27,7 @@ pub fn solve(solver: Solvers, sudoku: anytype) bool {
     return switch (solver) {
         .NAIVE => naive.init().solve(sudoku),
         .BASIC => basic.init().solve(sudoku),
+        .ADVANCED => advanced.init().solve(sudoku),
         //.SIMD => simd.solve(sudoku),
         else => unreachable,
     };

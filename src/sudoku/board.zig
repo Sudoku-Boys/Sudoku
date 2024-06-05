@@ -343,33 +343,22 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
             return true;
         }
 
-        /// Make a move, check if it's valid, if not roll it back.
-        pub fn is_valid_then_set(self: *Self, coordinate: Coordinate, value: Storage.ValueType) bool {
-            var is_valid = true;
+        /// Get a list of all possible values for a coordinate.
+        /// This is used for backtracking.
+        pub fn get_possibilities(self: *Self, coord: Coordinate) []Storage.ValueType {
+            var possibilities: [size]Storage.ValueType = [_]Storage.ValueType{EmptySentinel} ** size;
 
-            const prev = self.get(coordinate);
+            for (0..size) |i| {
+                const v: Storage.ValueType = @intCast(i + 1);
 
-            self.set(coordinate, value);
+                if (!self.is_safe_move(coord, v)) {
+                    continue;
+                }
 
-            if (is_valid) {
-                var it = self.coord_iterator(.ROW, coordinate);
-                is_valid = is_valid and self.validate_iterator(.ROW, &it) == null;
+                possibilities[i] = v;
             }
 
-            if (is_valid) {
-                var it = self.coord_iterator(.COLUMN, coordinate);
-                is_valid = is_valid and self.validate_iterator(.COLUMN, &it) == null;
-            }
-
-            if (is_valid) {
-                var it = self.coord_iterator(.GRID, coordinate);
-                is_valid = is_valid and self.validate_iterator(.GRID, &it) == null;
-            } else {
-                // Rollback
-                self.set(coordinate, prev);
-            }
-
-            return is_valid;
+            return &possibilities;
         }
 
         /// Check if constraint is valid, if not return the first invalid coordinate.
