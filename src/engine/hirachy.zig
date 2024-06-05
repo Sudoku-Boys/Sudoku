@@ -68,7 +68,6 @@ pub fn transform_system(
     root: q.QueryFilter(
         struct {
             entity: Entity,
-            children: Children,
             transform: Transform,
             global_transform: *GlobalTransform,
         },
@@ -83,14 +82,16 @@ pub fn transform_system(
         r.global_transform.rotation = r.transform.rotation;
         r.global_transform.scale = r.transform.scale;
 
-        for (r.children.children.items) |child| {
-            try propagate_recursive(
-                child,
-                r.entity,
-                r.global_transform.*,
-                transform,
-                children,
-            );
+        if (children.fetch(r.entity)) |c| {
+            for (c.children.children.items) |child| {
+                try propagate_recursive(
+                    child,
+                    r.entity,
+                    r.global_transform.*,
+                    transform,
+                    children,
+                );
+            }
         }
     }
 }

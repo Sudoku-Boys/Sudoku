@@ -26,7 +26,7 @@ fn count_clues(sudoku: anytype) usize {
 
 /// Generate a solvable sudoku puzzle with a given number of clues.
 /// TODO: Maybe change the calling convention to take a preallocated board, although this is cleaner.
-pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: *std.mem.Allocator) !board.Board(K, N, .MATRIX, .HEAP) {
+pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) !board.Board(K, N, .MATRIX, .HEAP) {
     var has_solution = false;
 
     var b = board.Board(K, N, .MATRIX, .HEAP).init(allocator);

@@ -5,8 +5,8 @@ const Coordinate = @import("../Coordinate.zig");
 
 arena: std.heap.ArenaAllocator,
 
-pub fn init(allocator: *std.mem.Allocator) Self {
-    return Self{ .arena = std.heap.ArenaAllocator.init(allocator.*) };
+pub fn init(allocator: std.mem.Allocator) Self {
+    return Self{ .arena = std.heap.ArenaAllocator.init(allocator) };
 }
 
 pub fn deinit(self: Self) void {

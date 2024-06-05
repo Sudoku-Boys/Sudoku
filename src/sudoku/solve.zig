@@ -20,7 +20,7 @@ fn assert_is_ptr(any: anytype) void {
 /// - Prevent infinite loops etc
 ///
 ///
-pub fn solve(solver: Solvers, sudoku: anytype, allocator: *std.mem.Allocator) !bool {
+pub fn solve(solver: Solvers, sudoku: anytype, allocator: std.mem.Allocator) !bool {
     // Solve takes a pointer reference, as it needs to modify the sudoku in place.
     assert_is_ptr(sudoku);
 

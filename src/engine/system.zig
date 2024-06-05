@@ -30,7 +30,7 @@ pub fn systemParamFetch(comptime T: type, world: *World, state: *SystemParamStat
     if (T == std.mem.Allocator) return world.allocator;
 
     switch (type_info) {
-        .Pointer => |pointer| return world.resourcePtr(pointer.child),
+        .Pointer => |pointer| return world.resourcePtrOrInit(pointer.child),
         else => return T.systemParamFetch(world, state),
     }
 }
