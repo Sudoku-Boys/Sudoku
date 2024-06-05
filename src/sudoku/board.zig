@@ -155,10 +155,11 @@ pub fn StorageType(comptime K: u16, comptime N: u16) type {
     };
 }
 
-// Internal representation of Sudoku.
-// A storage type which contains size bits.
-// We store a single value as a bitfield where its index is its value.
-// We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
+/// Internal representation of Sudoku.
+/// A storage type which contains size bits.
+/// We store a single value as a bitfield where its index is its value.
+/// We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
+/// TODO: Actually optimize bitfield storage to store multiple values in a single field.
 pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, comptime memory: StorageMemory) type {
     return struct {
         const Self = @This();
@@ -343,22 +344,36 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
             return true;
         }
 
+        pub fn get_possibility_count(self: *Self, coord: Coordinate) usize {
+            var count: usize = 0;
+
+            for (0..size) |i| {
+                const v: Storage.ValueType = @intCast(i + 1);
+
+                if (self.is_safe_move(coord, v)) {
+                    count += 1;
+                }
+            }
+
+            return count;
+        }
+
         /// Get a list of all possible values for a coordinate.
         /// This is used for backtracking.
-        pub fn get_possibilities(self: *Self, coord: Coordinate) []Storage.ValueType {
-            var possibilities: [size]Storage.ValueType = [_]Storage.ValueType{EmptySentinel} ** size;
+        pub fn get_possibilities(self: *Self, coord: Coordinate, allocator: std.mem.Allocator) ![]Storage.ValueType {
+            var possibilities: []Storage.ValueType = try allocator.alloc(Storage.ValueType, size);
 
             for (0..size) |i| {
                 const v: Storage.ValueType = @intCast(i + 1);
 
                 if (!self.is_safe_move(coord, v)) {
-                    continue;
+                    possibilities[i] = EmptySentinel;
+                } else {
+                    possibilities[i] = v;
                 }
-
-                possibilities[i] = v;
             }
 
-            return &possibilities;
+            return possibilities;
         }
 
         /// Check if constraint is valid, if not return the first invalid coordinate.

@@ -8,7 +8,7 @@ pub fn deinit(self: Self) void {
     _ = self;
 }
 
-pub fn solve(self: Self, sudoku: anytype) bool {
+pub fn solve(self: Self, sudoku: anytype) !bool {
     return self.naive_solve(sudoku, 0, 0);
 }
 

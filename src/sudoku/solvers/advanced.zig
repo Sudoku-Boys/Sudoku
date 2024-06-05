@@ -3,12 +3,14 @@ const Self = @This();
 const board = @import("../board.zig");
 const Coordinate = @import("../Coordinate.zig");
 
-pub fn init() Self {
-    return Self{};
+arena: std.heap.ArenaAllocator,
+
+pub fn init(allocator: *std.mem.Allocator) Self {
+    return Self{ .arena = std.heap.ArenaAllocator.init(allocator.*) };
 }
 
 pub fn deinit(self: Self) void {
-    _ = self;
+    self.arena.deinit();
 }
 
 // Find an unassigned coordinate with the minimum possible values (MRV heuristic)
@@ -21,7 +23,7 @@ fn find_unassigned_coord(sudoku: anytype) ?Coordinate {
             const pos = Coordinate{ .i = i, .j = j };
 
             if (sudoku.get(pos) == board.EmptySentinel) {
-                const possibilities = sudoku.get_possibilities(pos).len;
+                const possibilities = sudoku.get_possibility_count(pos);
                 if (possibilities < min_possibilities) {
                     min_pos = pos;
                     min_possibilities = possibilities;
@@ -33,22 +35,18 @@ fn find_unassigned_coord(sudoku: anytype) ?Coordinate {
     return min_pos;
 }
 
-// This helper function checks if placing a number at a given position is valid
-fn is_valid(sudoku: anytype, pos: Coordinate, num: anytype) bool {
-    return sudoku.is_safe_move(pos, num);
-}
-
-pub fn solve(self: Self, sudoku: anytype) bool {
+pub fn solve(self: *Self, sudoku: anytype) !bool {
     if (find_unassigned_coord(sudoku)) |coord| {
-        const possibilities = sudoku.get_possibilities(coord);
+        const allocator = self.arena.allocator();
+
+        const possibilities = try sudoku.get_possibilities(coord, allocator);
+        defer allocator.free(possibilities);
 
         for (possibilities) |num| {
-
-
-            if (is_valid(sudoku, coord, num)) {
+            if (sudoku.is_safe_move(coord, num)) {
                 sudoku.set(coord, num);
 
-                if (self.solve(sudoku)) {
+                if (try self.solve(sudoku)) {
                     return true;
                 }
 
