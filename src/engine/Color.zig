@@ -9,6 +9,7 @@ a: f32 = 0.0,
 
 pub const WHITE = Color.rgb(1.0, 1.0, 1.0);
 pub const BLACK = Color.rgb(0.0, 0.0, 0.0);
+pub const LIGHT_GRAY = Color.rgb(0.85, 0.85, 0.85);
 
 pub fn mul(self: Color, other: f32) Color {
     return .{
