@@ -494,7 +494,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
         pub fn display(self: *const Self, writer: anytype) !void {
             // Format in correct grid squares.
             // Border with | and -.
-
+            var int_buf: [1]u8 = [_]u8{0};
             const min_text_width = std.math.log10(size + 1) + 1;
             const line_width = K * N * (min_text_width) + 7;
 
@@ -523,7 +523,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
                     if (value == EmptySentinel) {
                         _ = try writer.write(".");
                     } else {
-                        _ = try writer.print("{d}", .{value});
+                        _ = try writer.write(try std.fmt.bufPrint(&int_buf, "{d}", .{value}));
                     }
 
                     if ((j + 1) % self.n == 0) {

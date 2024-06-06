@@ -13,7 +13,7 @@ pub fn deinit(self: Self) void {
     self.arena.deinit();
 }
 
-// Find an unassigned coordinate with the minimum possible values (MRV heuristic)
+// Find an unassigned coordinate with the minimum possible values (MRV/Minimum Remaining Values heuristic)
 fn find_unassigned_coord(sudoku: anytype) ?Coordinate {
     var min_pos: ?Coordinate = null;
     var min_possibilities = sudoku.size + 1;

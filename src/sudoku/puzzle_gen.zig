@@ -24,6 +24,19 @@ fn count_clues(sudoku: anytype) usize {
     return count;
 }
 
+pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) board.Board(K, N, .MATRIX, .HEAP) {
+    var attemps: usize = 10;
+
+    while (attemps > 0) {
+        return generate_puzzle(K, N, clues, allocator) catch {
+            attemps -= 1;
+            continue;
+        };
+    }
+
+    @panic("Could not generate a puzzle in 10 attemps (Unlucky) Use WFC instead.");
+}
+
 /// Generate a solvable sudoku puzzle with a given number of clues.
 /// TODO: Maybe change the calling convention to take a preallocated board, although this is cleaner.
 pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) !board.Board(K, N, .MATRIX, .HEAP) {
@@ -32,19 +45,28 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
     var b = board.Board(K, N, .MATRIX, .HEAP).init(allocator);
 
     // Clean up the board if the generation fails
-    defer {
-        if (!has_solution) {
-            b.deinit();
-        }
-    }
+    defer if (!has_solution) b.deinit();
 
     // Generate initial board
     var rng = std.rand.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
     var rand = rng.random();
 
-    b.fill_random_valid(20, 20, &rand);
+    b.fill_random_valid(clues, clues, &rand);
 
-    has_solution = try solve.solve(.ADVANCED, &b, allocator);
+    std.debug.print("Solving generated initial conditions:\n", .{});
+    const stderr_writer = std.io.getStdErr().writer();
+    var buffer_writer = std.io.bufferedWriter(stderr_writer);
+
+    _ = try b.display(&buffer_writer);
+    try buffer_writer.flush();
+
+    const start_time = std.time.milliTimestamp();
+
+    has_solution = try solve.solve(.MRV, &b, allocator);
+
+    const total_time = std.time.milliTimestamp() - start_time;
+
+    std.debug.print("Solved in {d} milliseconds\n", .{total_time});
 
     // Not all valid moves leads to a solvable board.
     if (!has_solution) {
@@ -55,11 +77,11 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
     while (count_clues(b) > clues) {
         const c = Coordinate.random(K * K, &rand);
 
-        if (b.get(c) == 0) {
+        if (b.get(c) == board.EmptySentinel) {
             continue;
         }
 
-        b.set(c, 0);
+        b.set(c, board.EmptySentinel);
     }
 
     // Return newly allocated board.

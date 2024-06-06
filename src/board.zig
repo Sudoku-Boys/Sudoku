@@ -124,7 +124,7 @@ pub const SpawnBoard = struct {
 
         var numbers = std.ArrayList(engine.Entity).init(world.allocator);
 
-        var sudoku = try puzzle_gen.generate_puzzle(3, 3, 70, world.allocator);
+        var sudoku = puzzle_gen.generate_puzzle_safe(3, 3, 20, world.allocator);
         errdefer sudoku.deinit();
 
         const size = engine.Vec3.init(
@@ -260,7 +260,21 @@ pub fn boardInputSystem(
                     selected %= size;
                 },
                 .P => {
-                    _ = try solve.solve(.ADVANCED, &q.board.sudoku, allocator);
+                    _ = try solve.solve(.MRV, &q.board.sudoku, allocator);
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .C => {
+                    q.board.sudoku.clear();
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .R => {
+                    q.board.sudoku.deinit();
+
+                    var sudoku = puzzle_gen.generate_puzzle_safe(3, 3, 20, allocator);
+                    errdefer sudoku.deinit();
+
+                    q.board.sudoku = sudoku;
+
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .Num1, .Num2, .Num3, .Num4, .Num5, .Num6, .Num7, .Num8, .Num9 => {
