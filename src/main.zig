@@ -2,21 +2,19 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
-const sudokuGame = @import("sudoku/sudoku-game.zig");
+const board = @import("board.zig");
 
-const Rotate = struct {};
-
-fn testSystem(
-    time: *engine.Time,
-    query: engine.Query(struct {
-        transform: *engine.Transform,
-        rotate: *Rotate,
-    }),
+fn startup(
+    commands: engine.Commands,
 ) !void {
-    var it = query.iterator();
-    while (it.next()) |q| {
-        q.transform.rotation.mulEq(engine.Quat.rotateY(time.dt * 0.2));
-    }
+    const camera = try commands.spawn();
+    try camera.addComponent(engine.Camera{});
+    try camera.addComponent(engine.Transform{
+        .translation = engine.Vec3.init(0.0, 0.0, 10.0),
+    });
+    try camera.addComponent(engine.GlobalTransform{});
+
+    _ = try board.spawnBoard(commands);
 }
 
 pub fn main() !void {
@@ -35,11 +33,10 @@ pub fn main() !void {
     try game.addPlugin(engine.RenderPlugin{});
     try game.addPlugin(engine.MaterialPlugin(engine.StandardMaterial){});
 
-    const t = try game.addSystem(testSystem);
-    t.name("testSystem");
-    t.label(engine.Game.Phase.Update);
+    _ = try game.addSystem(board.boardInputSystem);
+    _ = try game.addStartupSystem(startup);
 
-    try sudokuGame.setupGame(&game, allocator);
+    try game.start();
 
     while (true) {
         engine.Window.pollEvents();

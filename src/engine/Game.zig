@@ -20,12 +20,14 @@ pub const Phase = enum {
 };
 
 plugins: std.AutoHashMap(TypeId, void),
+startup: Schedule,
 schedule: Schedule,
 world: World,
 
 pub fn init(alloc: std.mem.Allocator) !Game {
     var game = Game{
         .plugins = std.AutoHashMap(TypeId, void).init(alloc),
+        .startup = Schedule.init(alloc),
         .schedule = Schedule.init(alloc),
         .world = World.init(alloc),
     };
@@ -59,6 +61,7 @@ pub fn init(alloc: std.mem.Allocator) !Game {
 
 pub fn deinit(self: *Game) void {
     self.plugins.deinit();
+    self.startup.deinit();
     self.schedule.deinit();
     self.world.deinit();
 }
@@ -124,6 +127,14 @@ pub fn addAsset(self: *Game, comptime T: type) !void {
 
 pub fn addSystem(self: *Game, system: anytype) !Schedule.AddedSystem {
     return self.schedule.addSystem(system);
+}
+
+pub fn addStartupSystem(self: *Game, system: anytype) !Schedule.AddedSystem {
+    return self.startup.addSystem(system);
+}
+
+pub fn start(self: *Game) !void {
+    try self.startup.run(&self.world);
 }
 
 pub fn update(self: *Game) !void {

@@ -113,7 +113,7 @@ pub fn queryFilter(
     };
 }
 
-pub fn set_parent(self: *World, child: Entity, parent: Entity) !void {
+pub fn setParent(self: *World, child: Entity, parent: Entity) !void {
     if (!self.containsEntity(child) or !self.containsEntity(parent)) {
         return;
     }
@@ -164,4 +164,23 @@ pub fn resourcePtr(self: *World, comptime T: type) *T {
 
 pub fn resource(self: *World, comptime T: type) T {
     return self.resourcePtr(T).*;
+}
+
+pub fn resourceOrInit(self: *World, comptime T: type) !T {
+    if (!self.containsResource(T) and @hasDecl(T, "fromWorld")) {
+        const res = try T.fromWorld(self);
+        try self.addResource(res);
+        return res;
+    }
+
+    return self.resource(T);
+}
+
+pub fn resourcePtrOrInit(self: *World, comptime T: type) !*T {
+    if (!self.containsResource(T) and @hasDecl(T, "fromWorld")) {
+        const res = try T.fromWorld(self);
+        try self.addResource(res);
+    }
+
+    return self.resourcePtr(T);
 }

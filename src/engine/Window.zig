@@ -29,6 +29,107 @@ fn glfwErrorCallback(
     std.debug.print("GLFW error {}: {s}\n", .{ err, description });
 }
 
+pub const Key = enum(u32) {
+    A = glfw.GLFW_KEY_A,
+    B = glfw.GLFW_KEY_B,
+    C = glfw.GLFW_KEY_C,
+    D = glfw.GLFW_KEY_D,
+    E = glfw.GLFW_KEY_E,
+    F = glfw.GLFW_KEY_F,
+    G = glfw.GLFW_KEY_G,
+    H = glfw.GLFW_KEY_H,
+    I = glfw.GLFW_KEY_I,
+    J = glfw.GLFW_KEY_J,
+    K = glfw.GLFW_KEY_K,
+    L = glfw.GLFW_KEY_L,
+    M = glfw.GLFW_KEY_M,
+    N = glfw.GLFW_KEY_N,
+    O = glfw.GLFW_KEY_O,
+    P = glfw.GLFW_KEY_P,
+    Q = glfw.GLFW_KEY_Q,
+    R = glfw.GLFW_KEY_R,
+    S = glfw.GLFW_KEY_S,
+    T = glfw.GLFW_KEY_T,
+    U = glfw.GLFW_KEY_U,
+    V = glfw.GLFW_KEY_V,
+    W = glfw.GLFW_KEY_W,
+    X = glfw.GLFW_KEY_X,
+    Y = glfw.GLFW_KEY_Y,
+    Z = glfw.GLFW_KEY_Z,
+
+    Num0 = glfw.GLFW_KEY_0,
+    Num1 = glfw.GLFW_KEY_1,
+    Num2 = glfw.GLFW_KEY_2,
+    Num3 = glfw.GLFW_KEY_3,
+    Num4 = glfw.GLFW_KEY_4,
+    Num5 = glfw.GLFW_KEY_5,
+    Num6 = glfw.GLFW_KEY_6,
+    Num7 = glfw.GLFW_KEY_7,
+    Num8 = glfw.GLFW_KEY_8,
+    Num9 = glfw.GLFW_KEY_9,
+
+    Right = glfw.GLFW_KEY_RIGHT,
+    Left = glfw.GLFW_KEY_LEFT,
+    Up = glfw.GLFW_KEY_UP,
+    Down = glfw.GLFW_KEY_DOWN,
+
+    fn fromInt(int: c_int) ?Key {
+        switch (int) {
+            glfw.GLFW_KEY_A => return .A,
+            glfw.GLFW_KEY_B => return .B,
+            glfw.GLFW_KEY_C => return .C,
+            glfw.GLFW_KEY_D => return .D,
+            glfw.GLFW_KEY_E => return .E,
+            glfw.GLFW_KEY_F => return .F,
+            glfw.GLFW_KEY_G => return .G,
+            glfw.GLFW_KEY_H => return .H,
+            glfw.GLFW_KEY_I => return .I,
+            glfw.GLFW_KEY_J => return .J,
+            glfw.GLFW_KEY_K => return .K,
+            glfw.GLFW_KEY_L => return .L,
+            glfw.GLFW_KEY_M => return .M,
+            glfw.GLFW_KEY_N => return .N,
+            glfw.GLFW_KEY_O => return .O,
+            glfw.GLFW_KEY_P => return .P,
+            glfw.GLFW_KEY_Q => return .Q,
+            glfw.GLFW_KEY_R => return .R,
+            glfw.GLFW_KEY_S => return .S,
+            glfw.GLFW_KEY_T => return .T,
+            glfw.GLFW_KEY_U => return .U,
+            glfw.GLFW_KEY_V => return .V,
+            glfw.GLFW_KEY_W => return .W,
+            glfw.GLFW_KEY_X => return .X,
+            glfw.GLFW_KEY_Y => return .Y,
+            glfw.GLFW_KEY_Z => return .Z,
+            glfw.GLFW_KEY_0 => return .Num0,
+            glfw.GLFW_KEY_1 => return .Num1,
+            glfw.GLFW_KEY_2 => return .Num2,
+            glfw.GLFW_KEY_3 => return .Num3,
+            glfw.GLFW_KEY_4 => return .Num4,
+            glfw.GLFW_KEY_5 => return .Num5,
+            glfw.GLFW_KEY_6 => return .Num6,
+            glfw.GLFW_KEY_7 => return .Num7,
+            glfw.GLFW_KEY_8 => return .Num8,
+            glfw.GLFW_KEY_9 => return .Num9,
+            glfw.GLFW_KEY_RIGHT => return .Right,
+            glfw.GLFW_KEY_LEFT => return .Left,
+            glfw.GLFW_KEY_UP => return .Up,
+            glfw.GLFW_KEY_DOWN => return .Down,
+            else => return null,
+        }
+    }
+};
+
+pub const KeyInput = struct {
+    key: ?Key,
+    scan_code: u32,
+    name: ?[]const u8,
+    is_pressed: bool,
+};
+
+var glfw_keyboard_mutex: std.Thread.Mutex = std.Thread.Mutex{};
+var glfw_keyboard_input: std.ArrayList(KeyInput) = undefined;
+
 /// Initialize GLFW, this can be called multiple times, but will only initialize GLFW once.
 pub fn initGlfw() !void {
     if (is_glfw_initialized) {
@@ -42,6 +143,9 @@ pub fn initGlfw() !void {
     }
 
     is_glfw_initialized = true;
+
+    // initialize the keyboard input list
+    glfw_keyboard_input = std.ArrayList(KeyInput).init(std.heap.page_allocator);
 }
 
 /// Deinitialize GLFW, this can be called multiple times, but will only deinitialize GLFW once.
@@ -154,6 +258,9 @@ pub fn init(desc: Descriptor) !Window {
         null,
     ) orelse return Error.GlfwCreateWindow;
 
+    // set the key callback
+    _ = glfw.glfwSetKeyCallback(window, glfwKeyCallback);
+
     // create the vulkan surface
     const surface = try createVkSurface(window, desc.instance.vk);
 
@@ -162,6 +269,57 @@ pub fn init(desc: Descriptor) !Window {
         .surface = .{ .vk = surface, .instance = desc.instance.vk },
         .instance = desc.instance,
     };
+}
+
+fn glfwKeyCallback(
+    window: ?*glfw.GLFWwindow,
+    key_code: c_int,
+    scan_code: c_int,
+    action: c_int,
+    mods: c_int,
+) callconv(.C) void {
+    _ = window;
+    _ = mods;
+
+    const c_name = glfw.glfwGetKeyName(key_code, 0);
+
+    var name: ?[]const u8 = null;
+
+    if (c_name != null) {
+        name = std.mem.span(c_name);
+    }
+
+    const input = KeyInput{
+        .key = Key.fromInt(key_code),
+        .scan_code = @intCast(scan_code),
+        .name = name,
+        .is_pressed = action == glfw.GLFW_PRESS,
+    };
+
+    // lock the mutex and push the input
+    glfw_keyboard_mutex.lock();
+    glfw_keyboard_input.append(input) catch {};
+
+    // unlock the mutex
+    glfw_keyboard_mutex.unlock();
+}
+
+pub fn getKeyInput(self: *const Window, allocator: std.mem.Allocator) ![]const KeyInput {
+    _ = self;
+
+    // lock the mutex
+    glfw_keyboard_mutex.lock();
+
+    // copy the input
+    const input = try allocator.dupe(KeyInput, glfw_keyboard_input.items);
+
+    // clear the input
+    glfw_keyboard_input.clearRetainingCapacity();
+
+    // unlock the mutex
+    glfw_keyboard_mutex.unlock();
+
+    return input;
 }
 
 pub fn shouldClose(self: *const Window) bool {
@@ -225,8 +383,10 @@ pub const State = struct {
 };
 
 pub fn eventSystem(
+    allocator: std.mem.Allocator,
     size_changed: event.EventWriter(SizeChanged),
     mouse_moved: event.EventWriter(MouseMoved),
+    key_input: event.EventWriter(KeyInput),
     window: *Window,
     state: *State,
 ) !void {
@@ -251,4 +411,12 @@ pub fn eventSystem(
             .size = state.window_size,
         });
     }
+
+    const input = try window.getKeyInput(allocator);
+
+    for (input) |key| {
+        try key_input.send(key);
+    }
+
+    allocator.free(input);
 }
