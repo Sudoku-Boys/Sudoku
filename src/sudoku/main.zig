@@ -47,7 +47,7 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    for (0..std.math.maxInt(u32)) |_| {
+    for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
         var b2 = puzzle_gen.generate_puzzle_safe(3, 3, 20, optionalAllocator);
         b2.deinit();
