@@ -4,6 +4,23 @@ const engine = @import("engine.zig");
 const board = @import("sudoku/board.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 const solve = @import("sudoku/solve.zig");
+const actionLayer = @import("sudoku/actionLayer.zig");
+
+pub const Board = struct {
+    selected: ?usize,
+
+    numbers: std.ArrayList(engine.Entity),
+
+    sudoku: board.DefaultBoard,
+
+    actionLayer: actionLayer.ActionLayer,
+
+    pub fn deinit(self: *Board) void {
+        self.sudoku.deinit();
+        self.numbers.deinit();
+        self.actionLayer.deinit();
+    }
+};
 
 pub const BoardResources = struct {
     mesh: engine.AssetId(engine.Mesh),
@@ -103,19 +120,6 @@ pub const BoardResources = struct {
     }
 };
 
-pub const Board = struct {
-    selected: ?usize,
-
-    numbers: std.ArrayList(engine.Entity),
-
-    sudoku: board.DefaultBoard,
-
-    pub fn deinit(self: *Board) void {
-        self.sudoku.deinit();
-        self.numbers.deinit();
-    }
-};
-
 pub const SpawnBoard = struct {
     entity: engine.Entity,
 
@@ -183,6 +187,7 @@ pub const SpawnBoard = struct {
             .sudoku = sudoku,
             .selected = null,
             .numbers = numbers,
+            .actionLayer = actionLayer.ActionLayer.init(world.allocator),
         });
     }
 };
