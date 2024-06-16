@@ -4,7 +4,8 @@ const std = @import("std");
 pub const PlayerActions = enum { SET, UNDO, CLEAR, REGENERATE, PSOLVE }; // The P in PSOLVE is left as an excersise for the reader
 
 pub const Action = struct {
-    playerAction: PlayerActions,
+    playerAction: PlayerActions, //what type of action is this?
+
 };
 
 //All player-to-board interactions happen through the methods in this struct.

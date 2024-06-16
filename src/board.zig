@@ -2,9 +2,10 @@ const std = @import("std");
 
 const engine = @import("engine.zig");
 const board = @import("sudoku/board.zig");
+const Coordinate = @import("sudoku/Coordinate.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 const solve = @import("sudoku/solve.zig");
-const actionLayer = @import("sudoku/actionLayer.zig");
+//const actionLayer = @import("sudoku/actionLayer.zig");
 
 pub const Board = struct {
     selected: ?usize,
@@ -13,7 +14,7 @@ pub const Board = struct {
 
     sudoku: board.DefaultBoard,
 
-    actionLayer: actionLayer.ActionLayer,
+    actionLayer: ActionLayer,
 
     pub fn deinit(self: *Board) void {
         self.sudoku.deinit();
@@ -187,7 +188,7 @@ pub const SpawnBoard = struct {
             .sudoku = sudoku,
             .selected = null,
             .numbers = numbers,
-            .actionLayer = actionLayer.ActionLayer.init(world.allocator),
+            .actionLayer = ActionLayer.init(world.allocator),
         });
     }
 };
@@ -290,7 +291,11 @@ pub fn boardInputSystem(
                     };
 
                     if (q.board.sudoku.is_safe_move(coord, @intCast(number))) {
-                        q.board.sudoku.set(coord, @intCast(number));
+                        q.board.actionLayer.performAction(&q.board.sudoku, Action{
+                            .playerAction = PlayerActions.SET,
+                            .coord = coord,
+                            .value = @intCast(number),
+                        });
                     }
                 },
                 else => {},
@@ -324,3 +329,48 @@ pub fn boardInputSystem(
         }
     }
 }
+
+//The player actions are the players interactions with the sudoku that modifies it in any way
+pub const PlayerActions = enum { SET, UNDO, CLEAR, REGENERATE, PSOLVE }; // The P in PSOLVE is left as an excersise for the reader
+
+pub const Action = struct {
+    playerAction: PlayerActions, //what type of action is this?
+    coord: Coordinate,
+    value: usize,
+};
+
+//All player-to-board interactions happen through the methods in this struct.
+//This enables the action stack to record player actions and to potentially reverse them later.
+//When a game is finished, the actionstack serves as a representation of the entire game
+// allowing it to be replayed.
+pub const ActionLayer = struct {
+
+    //The action stack is a stack where all the players actions get pushed to.
+    actionStack: std.ArrayList(usize),
+
+    pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) void {
+        _ = self;
+        switch (action.playerAction) {
+            .SET => {
+                sudoku.set(action.coord, @intCast(action.value));
+            },
+            else => {},
+        }
+    }
+
+    pub fn undoAction(self: *ActionLayer, sudoku: *Board, action: Action) void {
+        _ = sudoku;
+        _ = action;
+        _ = self;
+    }
+
+    pub fn init(allocator: std.mem.Allocator) ActionLayer {
+        return .{
+            .actionStack = std.ArrayList(usize).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *ActionLayer) void {
+        self.actionStack.deinit();
+    }
+};
