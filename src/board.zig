@@ -266,11 +266,15 @@ pub fn boardInputSystem(
                     selected %= size;
                 },
                 .P => {
-                    _ = try solve.solve(.ADVANCED, &q.board.sudoku, allocator);
+                    try q.board.actionLayer.performAction(&q.board.sudoku, Action{
+                        .playerAction = PlayerActions.PSOLVE,
+                    });
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .C => {
-                    q.board.sudoku.clear();
+                    try q.board.actionLayer.performAction(&q.board.sudoku, Action{
+                        .playerAction = PlayerActions.CLEAR,
+                    });
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .R => {
@@ -280,6 +284,11 @@ pub fn boardInputSystem(
                     errdefer sudoku.deinit();
 
                     q.board.sudoku = sudoku;
+
+                    //We need to inform the actionlayer that we made a new sudoku
+                    try q.board.actionLayer.performAction(&q.board.sudoku, Action{
+                        .playerAction = PlayerActions.REGENERATE,
+                    });
 
                     try updateBoardNumbers(q.board, resources, materials);
                 },
@@ -291,7 +300,7 @@ pub fn boardInputSystem(
                     };
 
                     if (q.board.sudoku.is_safe_move(coord, @intCast(number))) {
-                        q.board.actionLayer.performAction(&q.board.sudoku, Action{
+                        try q.board.actionLayer.performAction(&q.board.sudoku, Action{
                             .playerAction = PlayerActions.SET,
                             .coord = coord,
                             .value = @intCast(number),
@@ -331,12 +340,12 @@ pub fn boardInputSystem(
 }
 
 //The player actions are the players interactions with the sudoku that modifies it in any way
-pub const PlayerActions = enum { SET, UNDO, CLEAR, REGENERATE, PSOLVE }; // The P in PSOLVE is left as an excersise for the reader
+pub const PlayerActions = enum { SET, CLEAR, REGENERATE, PSOLVE }; // The P in PSOLVE is left as an excersise for the reader
 
 pub const Action = struct {
     playerAction: PlayerActions, //what type of action is this?
-    coord: Coordinate,
-    value: usize,
+    coord: Coordinate = Coordinate{ .i = 0, .j = 0 }, //Where on the board?
+    value: usize = 0, //Any value connected to the action?
 };
 
 //All player-to-board interactions happen through the methods in this struct.
@@ -346,15 +355,23 @@ pub const Action = struct {
 pub const ActionLayer = struct {
 
     //The action stack is a stack where all the players actions get pushed to.
-    actionStack: std.ArrayList(usize),
+    actionStack: std.ArrayList(Action),
+    allocator: std.mem.Allocator,
 
-    pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) void {
-        _ = self;
+    pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
         switch (action.playerAction) {
             .SET => {
                 sudoku.set(action.coord, @intCast(action.value));
             },
-            else => {},
+            .CLEAR => {
+                sudoku.clear();
+            },
+            .PSOLVE => {
+                _ = try solve.solve(.ADVANCED, sudoku, self.allocator);
+            },
+            .REGENERATE => {
+                //We don't actually generate the new sudoku here
+            },
         }
     }
 
@@ -366,7 +383,8 @@ pub const ActionLayer = struct {
 
     pub fn init(allocator: std.mem.Allocator) ActionLayer {
         return .{
-            .actionStack = std.ArrayList(usize).init(allocator),
+            .actionStack = std.ArrayList(Action).init(allocator),
+            .allocator = allocator,
         };
     }
 
