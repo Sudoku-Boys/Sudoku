@@ -307,6 +307,14 @@ pub fn boardInputSystem(
                         });
                     }
                 },
+                .Z => {
+                    try q.board.actionLayer.undoLast(&q.board.sudoku);
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .Y => {
+                    try q.board.actionLayer.attemptRedo(&q.board.sudoku);
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
                 else => {},
             }
 
@@ -346,6 +354,7 @@ pub const Action = struct {
     playerAction: PlayerActions, //what type of action is this?
     coord: Coordinate = Coordinate{ .i = 0, .j = 0 }, //Where on the board?
     value: usize = 0, //Any value connected to the action?
+    oldValue: usize = 0,
 };
 
 //All player-to-board interactions happen through the methods in this struct.
@@ -356,11 +365,20 @@ pub const ActionLayer = struct {
 
     //The action stack is a stack where all the players actions get pushed to.
     actionStack: std.ArrayList(Action),
+    redoStack: std.ArrayList(Action),
     allocator: std.mem.Allocator,
 
-    pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
+    pub fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
         switch (action.playerAction) {
             .SET => {
+                //We save the current value of the square to action, before adding the action to the stack
+                try self.actionStack.append(Action{
+                    .playerAction = PlayerActions.SET,
+                    .coord = action.coord,
+                    .value = action.value,
+                    .oldValue = sudoku.get(action.coord),
+                });
+
                 sudoku.set(action.coord, @intCast(action.value));
             },
             .CLEAR => {
@@ -374,21 +392,54 @@ pub const ActionLayer = struct {
             },
         }
     }
+    pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
+        //When we perform an action after undoing, then we shouln't be able to redo afterwards
+        self.redoStack.clearAndFree();
 
-    pub fn undoAction(self: *ActionLayer, sudoku: *Board, action: Action) void {
-        _ = sudoku;
-        _ = action;
+        try self.executeAction(sudoku, action);
+    }
+
+    pub fn undoLast(self: *ActionLayer, sudoku: anytype) !void {
+        if (self.actionStack.items.len > 0) {
+            self.undoAction(sudoku, self.actionStack.getLast());
+            try self.redoStack.append(self.actionStack.pop());
+        }
+    }
+
+    pub fn attemptRedo(self: *ActionLayer, sudoku: anytype) !void {
+        if (self.redoStack.items.len > 0) {
+            try self.executeAction(sudoku, self.redoStack.pop());
+        }
+    }
+
+    fn undoAction(self: *ActionLayer, sudoku: anytype, action: Action) void {
         _ = self;
+        switch (action.playerAction) {
+            .SET => {
+                sudoku.set(action.coord, @intCast(action.oldValue));
+            },
+            .CLEAR => {
+                //sudoku.clear();
+            },
+            .PSOLVE => {
+                //_ = try solve.solve(.ADVANCED, sudoku, self.allocator);
+            },
+            .REGENERATE => {
+                //We don't actually generate the new sudoku here
+            },
+        }
     }
 
     pub fn init(allocator: std.mem.Allocator) ActionLayer {
         return .{
             .actionStack = std.ArrayList(Action).init(allocator),
+            .redoStack = std.ArrayList(Action).init(allocator),
             .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *ActionLayer) void {
         self.actionStack.deinit();
+        self.redoStack.deinit();
     }
 };
