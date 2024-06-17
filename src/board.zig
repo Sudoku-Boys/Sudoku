@@ -5,6 +5,7 @@ const board = @import("sudoku/board.zig");
 const Coordinate = @import("sudoku/Coordinate.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 const solve = @import("sudoku/solve.zig");
+const parse = @import("sudoku/parse.zig");
 //const actionLayer = @import("sudoku/actionLayer.zig");
 
 pub const Board = struct {
@@ -362,10 +363,9 @@ pub const Action = struct {
 //When a game is finished, the actionstack serves as a representation of the entire game
 // allowing it to be replayed.
 pub const ActionLayer = struct {
-
-    //The action stack is a stack where all the players actions get pushed to.
-    actionStack: std.ArrayList(Action),
-    redoStack: std.ArrayList(Action),
+    actionStack: std.ArrayList(Action), //The action stack is where all the players actions get pushed to.
+    redoStack: std.ArrayList(Action), //The redo stack is where undone actions are pushed to
+    boardStack: std.ArrayList(*board.DefaultBoard), //if a board asociated with an action should be kept, it goes here
     allocator: std.mem.Allocator,
 
     pub fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
@@ -382,16 +382,32 @@ pub const ActionLayer = struct {
                 sudoku.set(action.coord, @intCast(action.value));
             },
             .CLEAR => {
+                //Before we clear the board we make a copy and store a pointer to it in the boardStack
+                try self.boardStack.append(sudoku.copy(self.allocator));
+
+                //self.oldBoards.put(self.actionStack.items.len, sudoku.copy());
+                try self.actionStack.append(Action{
+                    .playerAction = PlayerActions.CLEAR,
+                    .coord = action.coord,
+                    .value = action.value,
+                });
+
                 sudoku.clear();
             },
             .PSOLVE => {
+                //Before we solve the board we make a copy and store a pointer to it in the boardStack
+                try self.boardStack.append(sudoku.copy(self.allocator));
                 _ = try solve.solve(.ADVANCED, sudoku, self.allocator);
             },
             .REGENERATE => {
-                //We don't actually generate the new sudoku here
+                //We don't actually generate the new sudoku here, but clear the stacks
+                self.redoStack.clearAndFree();
+                self.boardStack.clearAndFree();
+                self.actionStack.clearAndFree();
             },
         }
     }
+
     pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
         //When we perform an action after undoing, then we shouln't be able to redo afterwards
         self.redoStack.clearAndFree();
@@ -413,19 +429,20 @@ pub const ActionLayer = struct {
     }
 
     fn undoAction(self: *ActionLayer, sudoku: anytype, action: Action) void {
-        _ = self;
         switch (action.playerAction) {
             .SET => {
                 sudoku.set(action.coord, @intCast(action.oldValue));
             },
-            .CLEAR => {
-                //sudoku.clear();
-            },
-            .PSOLVE => {
-                //_ = try solve.solve(.ADVANCED, sudoku, self.allocator);
+            .CLEAR, .PSOLVE => {
+                const oldBoard = self.boardStack.pop();
+
+                std.debug.print("{}\n", .{(oldBoard.*.board.len)});
+                std.debug.print("{}\n", .{(sudoku.board.len)});
+
+                @memcpy(sudoku.board, oldBoard.*.board);
             },
             .REGENERATE => {
-                //We don't actually generate the new sudoku here
+                //JK. No undoing that
             },
         }
     }
@@ -434,6 +451,7 @@ pub const ActionLayer = struct {
         return .{
             .actionStack = std.ArrayList(Action).init(allocator),
             .redoStack = std.ArrayList(Action).init(allocator),
+            .boardStack = std.ArrayList(*board.DefaultBoard).init(allocator),
             .allocator = allocator,
         };
     }
@@ -441,5 +459,17 @@ pub const ActionLayer = struct {
     pub fn deinit(self: *ActionLayer) void {
         self.actionStack.deinit();
         self.redoStack.deinit();
+
+        //Deinitting the old boards is gonna take some real cursed fuckery.
+        //The below code segfaults. It wouldn't allow running .deinit() on the dereferenced
+        //pointers, which are board pointers that have deinit, as we're technically dereferencing anyopaque pointers.
+        //So for now, the code just has a memory leak. yay
+        //TODO: cry
+
+        //Deinit old boards
+        //for (self.boardStack.items) |value| {
+        //    @as(*Board, @ptrCast(@alignCast(value))).*.deinit();
+        //}
+        self.boardStack.deinit();
     }
 };

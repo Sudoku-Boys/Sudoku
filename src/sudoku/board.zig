@@ -543,6 +543,13 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
             _ = try writer.write("\n");
         }
+
+        // Returns a pointer to a copy of this struct
+        pub fn copy(self: *Self, allocator: ?std.mem.Allocator) *Self {
+            var output = init(allocator);
+            @memcpy(output.board, self.board);
+            return &output;
+        }
     };
 }
 
