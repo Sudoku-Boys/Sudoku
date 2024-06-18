@@ -3,6 +3,7 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 const board = @import("board.zig");
+const movement = @import("movement.zig");
 
 fn startup(
     commands: engine.Commands,
@@ -13,6 +14,10 @@ fn startup(
         .translation = engine.Vec3.init(0.0, 0.0, 10.0),
     });
     try camera.addComponent(engine.GlobalTransform{});
+
+    //Adding movement to the camera
+    const winPtr = commands.world.resourcePtr(engine.Window);
+    try camera.addComponent(movement.moveInfo{ .mouseSensitivity = 0.3, .window = winPtr });
 
     _ = try board.spawnBoard(commands);
 }
@@ -35,6 +40,11 @@ pub fn main() !void {
 
     _ = try game.addSystem(board.boardInputSystem);
     _ = try game.addStartupSystem(startup);
+
+    //Camera movement
+    const movecam = try game.addSystem(movement.moveSystem);
+    movecam.name("movecam");
+    movecam.label(engine.Game.Phase.Update);
 
     try game.start();
 

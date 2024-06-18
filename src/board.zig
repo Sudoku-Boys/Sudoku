@@ -2,8 +2,27 @@ const std = @import("std");
 
 const engine = @import("engine.zig");
 const board = @import("sudoku/board.zig");
+const Coordinate = @import("sudoku/Coordinate.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 const solve = @import("sudoku/solve.zig");
+const parse = @import("sudoku/parse.zig");
+const aLayer = @import("actionLayer.zig");
+
+pub const Board = struct {
+    selected: ?usize,
+
+    numbers: std.ArrayList(engine.Entity),
+
+    sudoku: board.DefaultBoard,
+
+    actionLayer: aLayer.ActionLayer,
+
+    pub fn deinit(self: *Board) void {
+        self.sudoku.deinit();
+        self.numbers.deinit();
+        self.actionLayer.deinit();
+    }
+};
 
 pub const BoardResources = struct {
     mesh: engine.AssetId(engine.Mesh),
@@ -103,19 +122,6 @@ pub const BoardResources = struct {
     }
 };
 
-pub const Board = struct {
-    selected: ?usize,
-
-    numbers: std.ArrayList(engine.Entity),
-
-    sudoku: board.DefaultBoard,
-
-    pub fn deinit(self: *Board) void {
-        self.sudoku.deinit();
-        self.numbers.deinit();
-    }
-};
-
 pub const SpawnBoard = struct {
     entity: engine.Entity,
 
@@ -191,6 +197,7 @@ pub const SpawnBoard = struct {
             .sudoku = sudoku,
             .selected = null,
             .numbers = numbers,
+            .actionLayer = aLayer.ActionLayer.init(world.allocator),
         });
     }
 };
@@ -278,11 +285,15 @@ pub fn boardInputSystem(
                     selected %= size;
                 },
                 .P => {
-                    _ = try solve.solve(.ADVANCED, &q.board.sudoku, allocator);
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.PSOLVE,
+                    });
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .C => {
-                    q.board.sudoku.clear();
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.CLEAR,
+                    });
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .R => {
@@ -302,6 +313,11 @@ pub fn boardInputSystem(
 
                     q.board.sudoku = sudoku;
 
+                    //We need to inform the actionlayer that we made a new sudoku
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.REGENERATE,
+                    });
+
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .Num1, .Num2, .Num3, .Num4, .Num5, .Num6, .Num7, .Num8, .Num9 => {
@@ -312,8 +328,20 @@ pub fn boardInputSystem(
                     };
 
                     if (q.board.sudoku.is_safe_move(coord, @intCast(number))) {
-                        q.board.sudoku.set(coord, @intCast(number));
+                        try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                            .playerAction = aLayer.PlayerActions.SET,
+                            .coord = coord,
+                            .value = @intCast(number),
+                        });
                     }
+                },
+                .Z => {
+                    try q.board.actionLayer.undoLast(&q.board.sudoku);
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .Y => {
+                    try q.board.actionLayer.attemptRedo(&q.board.sudoku);
+                    try updateBoardNumbers(q.board, resources, materials);
                 },
                 else => {},
             }
