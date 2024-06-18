@@ -256,8 +256,10 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
                         self.board[index] = EmptySentinel;
                         return;
                     }
+                    const amt: Storage.ValueType = value - 1;
+                    const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
 
-                    self.board[index] = 0 | @shlExact(@as(Storage.BitFieldType, 1), value - 1);
+                    self.board[index] = 0 | mask;
                 },
                 .MATRIX => {
                     self.board[index] = value;
