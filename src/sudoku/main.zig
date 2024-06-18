@@ -9,7 +9,7 @@ const solve = @import("solve.zig");
 const puzzle_gen = @import("puzzle_gen.zig");
 
 pub fn main() !void {
-    var optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
+    const optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 
     //const board_stencil = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
     //var parser = parse.Stencil(3, 3, .BITFIELD).init(optionalAllocator);
@@ -28,7 +28,6 @@ pub fn main() !void {
     ////b.set_row(7, .{ 0, 0, 0, 0, 0, 0, 0, 7, 4 });
     ////b.set_row(8, .{ 0, 0, 5, 2, 0, 6, 3, 0, 0 });
     //
-    const writer = std.io.getStdOut().writer();
     //
     //_ = try b.display(writer);
     //
@@ -48,8 +47,9 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    var b2 = try puzzle_gen.generate_puzzle(3, 3, 20, &optionalAllocator);
-    defer b2.deinit();
-
-    _ = try b2.display(writer);
+    for (0..std.math.maxInt(u32)) |i| {
+        std.debug.print("({d}) ", .{i});
+        var b2 = puzzle_gen.generate_puzzle_safe(3, 3, 20, optionalAllocator);
+        b2.deinit();
+    }
 }

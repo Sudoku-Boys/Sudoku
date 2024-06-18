@@ -130,15 +130,7 @@ pub const SpawnBoard = struct {
 
         var numbers = std.ArrayList(engine.Entity).init(world.allocator);
 
-        // var sudoku = try puzzle_gen.generate_puzzle(3, 3, 70, world.allocator);
-        // errdefer sudoku.deinit();
-        var sudoku: board.Board(3, 3, .MATRIX, .HEAP) = undefined;
-        std.debug.print("beginning sudoku puzzle generation\n", .{});
-        while (true) {
-            std.debug.print("\tattempting to generate sudoku puzzle\n", .{});
-            sudoku = puzzle_gen.generate_puzzle(3, 3, 20, world.allocator) catch continue;
-            break;
-        }
+        var sudoku = puzzle_gen.generate_puzzle_safe(3, 3, 20, world.allocator);
         errdefer sudoku.deinit();
 
         const size = engine.Vec3.init(
@@ -259,21 +251,11 @@ pub fn boardInputSystem(
 
             switch (key) {
                 .Right => {
-                    const oldy = selected / q.board.sudoku.size;
                     selected += 1;
-                    const newy = selected / q.board.sudoku.size;
-                    if (oldy < newy) {
-                        selected -= q.board.sudoku.size;
-                    }
                     selected %= size;
                 },
                 .Left => {
-                    const oldy = (selected + size) / q.board.sudoku.size;
                     selected += size - 1;
-                    const newy = selected / q.board.sudoku.size;
-                    if (oldy > newy) {
-                        selected += q.board.sudoku.size;
-                    }
                     selected %= size;
                 },
                 .Up => {
@@ -299,16 +281,7 @@ pub fn boardInputSystem(
                 .R => {
                     q.board.sudoku.deinit();
 
-                    // var sudoku = try puzzle_gen.generate_puzzle(3, 3, 70, world.allocator);
-                    // errdefer sudoku.deinit();
-
-                    var sudoku: board.Board(3, 3, .MATRIX, .HEAP) = undefined;
-                    std.debug.print("beginning sudoku puzzle generation\n", .{});
-                    while (true) {
-                        std.debug.print("\tattempting to generate sudoku puzzle\n", .{});
-                        sudoku = puzzle_gen.generate_puzzle(3, 3, 20, allocator) catch continue;
-                        break;
-                    }
+                    var sudoku = puzzle_gen.generate_puzzle_safe(3, 3, 20, allocator);
                     errdefer sudoku.deinit();
 
                     q.board.sudoku = sudoku;
