@@ -4,7 +4,7 @@ const assert = std.debug.assert;
 const expect = std.testing.expect;
 const Coordinate = @import("Coordinate.zig");
 
-pub const DefaultBoard = Board(3, 3, .MATRIX, .HEAP);
+pub const DefaultBoard = Board(4, 4, .MATRIX, .HEAP);
 
 pub const BoardContraint = enum { ROW, COLUMN, GRID };
 pub const StorageLayout = enum { BITFIELD, MATRIX };
@@ -150,7 +150,11 @@ pub fn StorageType(comptime K: u16, comptime N: u16) type {
         @compileError(std.fmt.comptimePrint("Row and column have {d} inputs but the {d}x{d} grid has {d}\n", .{ size, N, N, area }));
     }
 
-    const value_size = @bitSizeOf(usize) - @clz(@as(usize, @max(size - 1, 0)));
+    const value_size = @as(usize, @intFromFloat(std.math.floor(std.math.log2(@as(f64, @floatFromInt(size)))))) + 1;
+
+    if (value_size > @bitSizeOf(usize)) {
+        @compileError("Value size is too large for storage type");
+    }
 
     return struct {
         pub const ValueType = std.meta.Int(.unsigned, value_size);
@@ -163,11 +167,13 @@ pub fn StorageType(comptime K: u16, comptime N: u16) type {
 /// We store a single value as a bitfield where its index is its value.
 /// We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
 /// TODO: Actually optimize bitfield storage to store multiple values in a single field.
-pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, comptime memory: StorageMemory) type {
+pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout, comptime memory: StorageMemory) type {
     return struct {
         const Self = @This();
 
-        pub const Storage = StorageType(K, N);
+        pub const K = _K;
+        pub const N = _N;
+        pub const Storage = StorageType(_K, _N);
         pub const StorageImplType = if (storage == .BITFIELD) Storage.BitFieldType else Storage.ValueType;
         pub const ValidationErrorType = SudokuValidationError(Storage.ValueType);
 
@@ -481,7 +487,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
                 const coord = Coordinate.random(size, rng);
 
-                const value = rng.intRangeLessThan(Storage.ValueType, 1, @as(Storage.ValueType, @intCast(size + 1)));
+                const value = rng.intRangeLessThan(Storage.ValueType, 1, @intCast(size + 1));
 
                 if (self.is_safe_move(coord, value)) {
                     self.set(coord, value);

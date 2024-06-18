@@ -130,7 +130,7 @@ pub const SpawnBoard = struct {
 
         var numbers = std.ArrayList(engine.Entity).init(world.allocator);
 
-        var sudoku = puzzle_gen.generate_puzzle_safe(3, 3, 20, world.allocator);
+        var sudoku = board.DefaultBoard.init(world.allocator);
         errdefer sudoku.deinit();
 
         const size = engine.Vec3.init(
@@ -281,7 +281,7 @@ pub fn boardInputSystem(
                 .R => {
                     q.board.sudoku.deinit();
 
-                    var sudoku = puzzle_gen.generate_puzzle_safe(3, 3, 20, allocator);
+                    var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, 20, allocator);
                     errdefer sudoku.deinit();
 
                     q.board.sudoku = sudoku;
