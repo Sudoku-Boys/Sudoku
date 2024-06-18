@@ -543,18 +543,6 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
             _ = try writer.write("\n");
         }
-
-        // Returns a pointer to a copy of this struct
-        //Do not use, it memcpy has weird side effects that express themselves down the line
-        pub fn copy(self: *Self, allocator: ?std.mem.Allocator) *Self {
-            const output = &init(allocator);
-            @memcpy(output.board, self.board);
-
-            std.debug.print("{any}\n", .{(output.*.board)});
-            std.debug.print("{any}\n", .{(self.board)});
-
-            return @constCast(output);
-        }
     };
 }
 

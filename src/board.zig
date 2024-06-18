@@ -355,7 +355,7 @@ pub const Action = struct {
     playerAction: PlayerActions, //what type of action is this?
     coord: Coordinate = Coordinate{ .i = 0, .j = 0 }, //Where on the board?
     value: usize = 0, //Any value connected to the action?
-    oldValue: usize = 0,
+    oldValue: usize = 0, //Do we need to remember something later?
 };
 
 //All player-to-board interactions happen through the methods in this struct.
@@ -368,26 +368,28 @@ pub const ActionLayer = struct {
     boardStack: std.ArrayList([]u8), //if a board asociated with an action should be kept, it goes here
     allocator: std.mem.Allocator,
 
-    pub fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
+    fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
         switch (action.playerAction) {
             .SET => {
-                //We save the current value of the square to action, before adding the action to the stack
+                //We save the current value of the square to the action, before adding the action to the stack
                 try self.actionStack.append(Action{
                     .playerAction = PlayerActions.SET,
                     .coord = action.coord,
                     .value = action.value,
-                    .oldValue = sudoku.get(action.coord),
+                    .oldValue = sudoku.get(action.coord), //this remembers
                 });
 
                 sudoku.set(action.coord, @intCast(action.value));
             },
             .CLEAR => {
+                //We save all the numbers of the current sudoku in an array and push it to the boardStack
                 var numbers: []u8 = try self.allocator.alloc(u8, sudoku.board.len);
                 for (0..sudoku.board.len) |i| {
                     numbers[i] = sudoku.board[i];
                 }
                 try self.boardStack.append(numbers);
 
+                //We remember to append the action to the actionStack
                 try self.actionStack.append(Action{
                     .playerAction = PlayerActions.CLEAR,
                     .coord = action.coord,
@@ -397,6 +399,7 @@ pub const ActionLayer = struct {
                 sudoku.clear();
             },
             .PSOLVE => {
+                //We save the board like with .CLEAR above
                 var numbers: []u8 = try self.allocator.alloc(u8, sudoku.board.len);
                 for (0..sudoku.board.len) |i| {
                     numbers[i] = sudoku.board[i];
@@ -420,6 +423,7 @@ pub const ActionLayer = struct {
         }
     }
 
+    //This function is the publicly accessible version of executeAction, to differentiate redoing, and doing for the first time
     pub fn performAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
         //When we perform an action after undoing, then we shouln't be able to redo afterwards
         self.redoStack.clearAndFree();
@@ -427,10 +431,11 @@ pub const ActionLayer = struct {
         try self.executeAction(sudoku, action);
     }
 
+    //We ask the actionlayer to recall the last action we did and undo it
     pub fn undoLast(self: *ActionLayer, sudoku: anytype) !void {
         if (self.actionStack.items.len > 0) {
             self.undoAction(sudoku, self.actionStack.getLast());
-            try self.redoStack.append(self.actionStack.pop());
+            try self.redoStack.append(self.actionStack.pop()); //Add the undone action to the redo stack so we can redo it later
         }
     }
 
@@ -440,6 +445,7 @@ pub const ActionLayer = struct {
         }
     }
 
+    //Uses the actions info and maybe the boardStack to reverse whatever action we just took
     fn undoAction(self: *ActionLayer, sudoku: anytype, action: Action) void {
         switch (action.playerAction) {
             .SET => {
