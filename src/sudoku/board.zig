@@ -4,7 +4,7 @@ const assert = std.debug.assert;
 const expect = std.testing.expect;
 const Coordinate = @import("Coordinate.zig");
 
-pub const DefaultBoard = Board(4, 4, .MATRIX, .HEAP);
+pub const DefaultBoard = Board(3, 3, .MATRIX, .HEAP);
 
 pub const BoardContraint = enum { ROW, COLUMN, GRID };
 pub const StorageLayout = enum { BITFIELD, MATRIX };
