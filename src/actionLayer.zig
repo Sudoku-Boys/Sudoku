@@ -42,6 +42,7 @@ pub const ActionLayer = struct {
                     numbers[i] = sudoku.board[i];
                 }
                 try self.boardStack.append(numbers);
+                //self.allocator.free(numbers);
 
                 //We remember to append the action to the actionStack
                 try self.actionStack.append(Action{
@@ -66,11 +67,14 @@ pub const ActionLayer = struct {
                     .value = action.value,
                 });
 
-                _ = try solve.solve(.ADVANCED, sudoku, self.allocator);
+                _ = try solve.solve(.MRV, sudoku, self.allocator);
             },
             .REGENERATE => {
                 //We don't actually generate the new sudoku here, but clear the stacks
                 self.redoStack.clearAndFree();
+                for (self.boardStack.items) |value| {
+                    self.allocator.free(value); //We remember to free the arrays stored in boardstack
+                }
                 self.boardStack.clearAndFree();
                 self.actionStack.clearAndFree();
             },
@@ -110,6 +114,7 @@ pub const ActionLayer = struct {
                 for (0..sudoku.board.len) |i| {
                     sudoku.board[i] = @intCast(numbers[i]);
                 }
+                self.allocator.free(numbers);
             },
             .REGENERATE => {
                 //JK. No undoing that
@@ -129,6 +134,9 @@ pub const ActionLayer = struct {
     pub fn deinit(self: *ActionLayer) void {
         self.actionStack.deinit();
         self.redoStack.deinit();
+        for (self.boardStack.items) |value| {
+            self.allocator.free(value);
+        }
         self.boardStack.deinit();
     }
 };
