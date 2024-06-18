@@ -383,7 +383,11 @@ pub const ActionLayer = struct {
             },
             .CLEAR => {
                 //Before we clear the board we make a copy and store a pointer to it in the boardStack
-                try self.boardStack.append(sudoku.copy(self.allocator));
+                const temp = sudoku.copy(self.allocator);
+                try self.boardStack.append(temp);
+
+                std.debug.print("{any}\n", .{(temp.*.board.len)});
+                std.debug.print("{any}\n", .{(sudoku.board)});
 
                 //self.oldBoards.put(self.actionStack.items.len, sudoku.copy());
                 try self.actionStack.append(Action{
@@ -435,9 +439,10 @@ pub const ActionLayer = struct {
             },
             .CLEAR, .PSOLVE => {
                 const oldBoard = self.boardStack.pop();
+                oldBoard.*.board.len = sudoku.board.len;
 
-                std.debug.print("{}\n", .{(oldBoard.*.board.len)});
-                std.debug.print("{}\n", .{(sudoku.board.len)});
+                std.debug.print("{any}\n", .{(oldBoard.*.board)});
+                std.debug.print("{any}\n", .{(sudoku.board)});
 
                 @memcpy(sudoku.board, oldBoard.*.board);
             },
@@ -460,16 +465,10 @@ pub const ActionLayer = struct {
         self.actionStack.deinit();
         self.redoStack.deinit();
 
-        //Deinitting the old boards is gonna take some real cursed fuckery.
-        //The below code segfaults. It wouldn't allow running .deinit() on the dereferenced
-        //pointers, which are board pointers that have deinit, as we're technically dereferencing anyopaque pointers.
-        //So for now, the code just has a memory leak. yay
-        //TODO: cry
-
         //Deinit old boards
-        //for (self.boardStack.items) |value| {
-        //    @as(*Board, @ptrCast(@alignCast(value))).*.deinit();
-        //}
+        for (self.boardStack.items) |value| {
+            value.*.deinit();
+        }
         self.boardStack.deinit();
     }
 };

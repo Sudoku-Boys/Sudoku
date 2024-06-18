@@ -546,9 +546,13 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
 
         // Returns a pointer to a copy of this struct
         pub fn copy(self: *Self, allocator: ?std.mem.Allocator) *Self {
-            var output = init(allocator);
+            const output = &init(allocator);
             @memcpy(output.board, self.board);
-            return &output;
+
+            std.debug.print("{any}\n", .{(output.*.board)});
+            std.debug.print("{any}\n", .{(self.board)});
+
+            return @constCast(output);
         }
     };
 }
