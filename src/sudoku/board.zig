@@ -545,6 +545,7 @@ pub fn Board(comptime K: u16, comptime N: u16, comptime storage: StorageLayout, 
         }
 
         // Returns a pointer to a copy of this struct
+        //Do not use, it memcpy has weird side effects that express themselves down the line
         pub fn copy(self: *Self, allocator: ?std.mem.Allocator) *Self {
             const output = &init(allocator);
             @memcpy(output.board, self.board);

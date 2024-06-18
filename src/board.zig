@@ -365,7 +365,7 @@ pub const Action = struct {
 pub const ActionLayer = struct {
     actionStack: std.ArrayList(Action), //The action stack is where all the players actions get pushed to.
     redoStack: std.ArrayList(Action), //The redo stack is where undone actions are pushed to
-    boardStack: std.ArrayList(*board.DefaultBoard), //if a board asociated with an action should be kept, it goes here
+    boardStack: std.ArrayList([]u8), //if a board asociated with an action should be kept, it goes here
     allocator: std.mem.Allocator,
 
     pub fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
@@ -382,14 +382,12 @@ pub const ActionLayer = struct {
                 sudoku.set(action.coord, @intCast(action.value));
             },
             .CLEAR => {
-                //Before we clear the board we make a copy and store a pointer to it in the boardStack
-                const temp = sudoku.copy(self.allocator);
-                try self.boardStack.append(temp);
+                var numbers: []u8 = try self.allocator.alloc(u8, sudoku.board.len);
+                for (0..sudoku.board.len) |i| {
+                    numbers[i] = sudoku.board[i];
+                }
+                try self.boardStack.append(numbers);
 
-                std.debug.print("{any}\n", .{(temp.*.board.len)});
-                std.debug.print("{any}\n", .{(sudoku.board)});
-
-                //self.oldBoards.put(self.actionStack.items.len, sudoku.copy());
                 try self.actionStack.append(Action{
                     .playerAction = PlayerActions.CLEAR,
                     .coord = action.coord,
@@ -399,8 +397,18 @@ pub const ActionLayer = struct {
                 sudoku.clear();
             },
             .PSOLVE => {
-                //Before we solve the board we make a copy and store a pointer to it in the boardStack
-                try self.boardStack.append(sudoku.copy(self.allocator));
+                var numbers: []u8 = try self.allocator.alloc(u8, sudoku.board.len);
+                for (0..sudoku.board.len) |i| {
+                    numbers[i] = sudoku.board[i];
+                }
+                try self.boardStack.append(numbers);
+
+                try self.actionStack.append(Action{
+                    .playerAction = PlayerActions.PSOLVE,
+                    .coord = action.coord,
+                    .value = action.value,
+                });
+
                 _ = try solve.solve(.ADVANCED, sudoku, self.allocator);
             },
             .REGENERATE => {
@@ -438,13 +446,10 @@ pub const ActionLayer = struct {
                 sudoku.set(action.coord, @intCast(action.oldValue));
             },
             .CLEAR, .PSOLVE => {
-                const oldBoard = self.boardStack.pop();
-                oldBoard.*.board.len = sudoku.board.len;
-
-                std.debug.print("{any}\n", .{(oldBoard.*.board)});
-                std.debug.print("{any}\n", .{(sudoku.board)});
-
-                @memcpy(sudoku.board, oldBoard.*.board);
+                const numbers: []u8 = self.boardStack.pop();
+                for (0..sudoku.board.len) |i| {
+                    sudoku.board[i] = @intCast(numbers[i]);
+                }
             },
             .REGENERATE => {
                 //JK. No undoing that
@@ -456,7 +461,7 @@ pub const ActionLayer = struct {
         return .{
             .actionStack = std.ArrayList(Action).init(allocator),
             .redoStack = std.ArrayList(Action).init(allocator),
-            .boardStack = std.ArrayList(*board.DefaultBoard).init(allocator),
+            .boardStack = std.ArrayList([]u8).init(allocator),
             .allocator = allocator,
         };
     }
@@ -464,11 +469,6 @@ pub const ActionLayer = struct {
     pub fn deinit(self: *ActionLayer) void {
         self.actionStack.deinit();
         self.redoStack.deinit();
-
-        //Deinit old boards
-        for (self.boardStack.items) |value| {
-            value.*.deinit();
-        }
         self.boardStack.deinit();
     }
 };
