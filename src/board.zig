@@ -6,7 +6,7 @@ const Coordinate = @import("sudoku/Coordinate.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 const solve = @import("sudoku/solve.zig");
 const parse = @import("sudoku/parse.zig");
-const aLayer = @import("sudoku/actionLayer.zig");
+const aLayer = @import("actionLayer.zig");
 
 pub const Board = struct {
     selected: ?usize,

@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 const board = @import("board.zig");
-const movement = @import("sudoku/movement.zig");
+const movement = @import("movement.zig");
 
 fn startup(
     commands: engine.Commands,
