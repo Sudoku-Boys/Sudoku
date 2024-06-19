@@ -71,11 +71,11 @@ test "stencil" {
     const allocator = std.testing.allocator;
     var format = StencilFormat.init(allocator);
 
-    const str = ".........1.....2.3...2...4....3.5......41....6.5.7......7.....2..8.91............";
+    const str = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
     var b = format.from(str);
     defer b.deinit();
 
-    const expected = ".........1.....2.3...2...4....3.5......41....6.5.7......7.....2..8.91............";
+    const expected = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
     const result = try format.into(b);
     defer allocator.free(result);
 
