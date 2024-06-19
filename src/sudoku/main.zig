@@ -47,9 +47,18 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
+    var stencil = parse.Stencil(3, 3).init(optionalAllocator);
+    const writer = std.io.getStdOut().writer();
+    var buffer_writer = std.io.bufferedWriter(writer);
+
     for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
-        var b2 = puzzle_gen.generate_puzzle_safe(3, 3, 20, optionalAllocator, 1000);
+        var b2 = puzzle_gen.generate_puzzle(3, 3, 20, optionalAllocator) catch continue;
+        const v = stencil.into(b2) catch continue;
+        _ = try buffer_writer.write(v);
+        _ = try buffer_writer.write("\n");
+        try buffer_writer.flush();
+        optionalAllocator.free(v);
         b2.deinit();
     }
 }

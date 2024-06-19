@@ -48,7 +48,11 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
     defer if (!has_solution) b.deinit();
 
     // Generate initial board
-    var rng = std.rand.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+    var seed = [_]u8{0} ** 8;
+    try std.posix.getrandom(&seed);
+    const seed_int = std.mem.readInt(u64, seed[0..8], .big);
+
+    var rng = std.rand.DefaultPrng.init(seed_int);
     var rand = rng.random();
 
     b.fill_random_valid(clues, clues, &rand);
@@ -64,12 +68,13 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
 
     has_solution = try solve.solve(.MRV, &b, allocator);
 
+    const total_time = std.time.milliTimestamp() - start_time;
+
     // Not all valid moves leads to a solvable board.
     if (!has_solution) {
+        std.debug.print("Failed to solve in {d} milliseconds\n", .{total_time});
         return GenerationError.PartialHasNoSolution;
     }
-
-    const total_time = std.time.milliTimestamp() - start_time;
 
     std.debug.print("Solved in {d} milliseconds\n", .{total_time});
 
