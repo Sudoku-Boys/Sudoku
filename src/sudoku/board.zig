@@ -452,7 +452,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
 
             var count: usize = 0;
 
-            for (0..size) |i| {
+            inline for (0..size) |i| {
                 if (bitfield & std.math.shl(Storage.BitFieldType, 1, i) != 0) {
                     count += 1;
                 }
