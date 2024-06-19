@@ -4,7 +4,20 @@ const assert = std.debug.assert;
 const expect = std.testing.expect;
 const Coordinate = @import("Coordinate.zig");
 
-pub const DefaultBoard = Board(3, 3, .HEAP);
+pub const SudokuSize = enum { _4x4, _9x9, _16x16, _25x25 };
+
+/// Compact and readable sudoku type.
+pub fn Sudoku(comptime size: SudokuSize) type {
+    return switch (size) {
+        ._4x4 => Board(2, 2, .HEAP),
+        ._9x9 => Board(3, 3, .HEAP),
+        ._16x16 => Board(4, 4, .HEAP),
+        ._25x25 => Board(5, 5, .HEAP),
+    };
+}
+
+/// Corresponds to the default 9x9 sudoku.
+pub const DefaultBoard = Sudoku(._9x9);
 
 pub const BoardContraint = enum { ROW, COLUMN, GRID };
 pub const StorageMemory = enum { STACK, HEAP };
@@ -143,8 +156,12 @@ fn BoardCoordIterator(comptime C: BoardContraint) type {
 }
 
 /// Infer size of type to fit valid sudoku. From description.
+/// In practice unless you allow a row to be shorter than N^2
+/// K is strictly equal to N.
 pub fn StorageType(comptime K: u16, comptime N: u16) type {
+    // We use numbers from 1 to N^2
     const size = K * N;
+    const numbers = N * N;
     const area = pow(usize, N, 2);
 
     // assert sudoku is of valid size
@@ -153,7 +170,12 @@ pub fn StorageType(comptime K: u16, comptime N: u16) type {
         @compileError(std.fmt.comptimePrint("Row and column have {d} inputs but the {d}x{d} grid has {d}\n", .{ size, N, N, area }));
     }
 
-    const value_size = @as(usize, @intFromFloat(std.math.floor(std.math.log2(@as(f64, @floatFromInt(size)))))) + 1;
+    if (numbers != size) {
+        @compileError(std.fmt.comptimePrint("N * N ({d}) must be equal to K * N ({d})\n", .{ numbers, size }));
+    }
+
+    // Find the smallest number of bits that can fit all numbers.
+    const value_size = @as(usize, @intFromFloat(std.math.floor(std.math.log2(@as(f64, @floatFromInt(numbers)))))) + 1;
 
     if (value_size > @bitSizeOf(usize)) {
         @compileError("Value size is too large for storage type");
@@ -161,7 +183,7 @@ pub fn StorageType(comptime K: u16, comptime N: u16) type {
 
     return struct {
         pub const ValueType = std.meta.Int(.unsigned, value_size);
-        pub const BitFieldType = std.meta.Int(.unsigned, size);
+        pub const BitFieldType = std.meta.Int(.unsigned, numbers);
     };
 }
 

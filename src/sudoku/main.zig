@@ -1,9 +1,6 @@
 const std = @import("std");
-// const Sudoku = @import("sudoku.zig");
-// const Solvers = @import("solvers.zig");
 
 const board = @import("board.zig");
-const sudoku = @import("sudoku.zig");
 const parse = @import("parse.zig");
 const solve = @import("solve.zig");
 const puzzle_gen = @import("puzzle_gen.zig");
@@ -47,14 +44,18 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    var stencil = parse.Stencil(3, 3).init(optionalAllocator);
+    const K = 4;
+    const N = 4;
+
+    var stencil = parse.Stencil(K, N).init(optionalAllocator);
     const writer = std.io.getStdOut().writer();
     var buffer_writer = std.io.bufferedWriter(writer);
 
     for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
-        var b2 = puzzle_gen.generate_puzzle(3, 3, 20, optionalAllocator) catch continue;
+        var b2 = puzzle_gen.generate_puzzle(K, N, 25, optionalAllocator) catch continue;
         const v = stencil.into(b2) catch continue;
+        _ = try b2.display(&buffer_writer);
         _ = try buffer_writer.write(v);
         _ = try buffer_writer.write("\n");
         try buffer_writer.flush();
