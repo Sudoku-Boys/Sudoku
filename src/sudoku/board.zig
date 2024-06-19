@@ -449,7 +449,6 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             }
         }
 
-        /// TODO optimize this and is_safe_move when in bitfield mode.
         fn iterator_contains(self: *Self, iterator: anytype, value: Storage.ValueType) bool {
             while (iterator.next()) |current| {
                 if (self.get(current) == value) {
