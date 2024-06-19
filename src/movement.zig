@@ -1,66 +1,78 @@
 const engine = @import("engine.zig");
 const std = @import("std");
 
-pub const moveInfo = struct {
+pub const PlayerMovement = struct {
     moveSpeed: f32 = 10.0,
     mouseSensitivity: f32 = 1.0,
     window: *engine.Window,
     grabbed: bool = false,
     lastMousePostition: engine.Vec2 = engine.Vec2.ZERO,
     viewDirection: engine.Vec2 = engine.Vec2.ZERO,
+    time_moved: f32 = 0.0,
 };
 
 pub fn moveSystem(
     time: *engine.Time,
     query: engine.Query(struct {
         transform: *engine.Transform,
-        moveInfo: *moveInfo,
+        movement: *PlayerMovement,
     }),
 ) !void {
     var it = query.iterator();
     while (it.next()) |q| {
         var direction = engine.Vec3.ZERO;
 
-        if (q.moveInfo.window.*.isKeyDown('w')) {
+        if (q.movement.window.isKeyDown('w')) {
             direction.subEq(engine.Vec3.Z);
         }
 
-        if (q.moveInfo.window.*.isKeyDown('s')) {
+        if (q.movement.window.isKeyDown('s')) {
             direction.addEq(engine.Vec3.Z);
         }
 
-        if (q.moveInfo.window.*.isKeyDown('a')) {
+        if (q.movement.window.isKeyDown('a')) {
             direction.subEq(engine.Vec3.X);
         }
 
-        if (q.moveInfo.window.*.isKeyDown('d')) {
+        if (q.movement.window.isKeyDown('d')) {
             direction.addEq(engine.Vec3.X);
         }
 
         var move = q.transform.rotation.inv().mul(direction);
         move._.y = 0;
-        move = move.normalize_or_zero().mul(time.dt * q.moveInfo.moveSpeed);
+        move = move.normalize_or_zero().mul(time.dt * q.movement.moveSpeed);
         q.transform.translation.addEq(move);
 
-        //moving the view with the mouse
-        const mouseDelta = q.moveInfo.window.*.mousePosition().sub(q.moveInfo.lastMousePostition);
-        q.moveInfo.lastMousePostition = q.moveInfo.window.*.mousePosition();
-
-        if (q.moveInfo.window.*.isMouseDown(0)) {
-            q.moveInfo.grabbed = true;
-            q.moveInfo.window.*.cursorDisabled();
-        } else if (q.moveInfo.window.*.isKeyDown(engine.Window.glfw.GLFW_KEY_ESCAPE)) {
-            q.moveInfo.grabbed = false;
-            q.moveInfo.window.*.cursorNormal();
+        if (move.len() > 0.0) {
+            q.movement.time_moved += time.dt;
+        } else {
+            q.movement.time_moved = 0.0;
         }
 
-        if (q.moveInfo.grabbed) {
-            q.moveInfo.viewDirection = q.moveInfo.viewDirection.add(mouseDelta.mul(q.moveInfo.mouseSensitivity * 0.001));
+        //moving the view with the mouse
+        const mouseDelta = q.movement.window.mousePosition().sub(q.movement.lastMousePostition);
+        q.movement.lastMousePostition = q.movement.window.*.mousePosition();
 
-            const rotX = engine.Quat.rotateY(q.moveInfo.viewDirection._.x);
-            const rotY = engine.Quat.rotateX(q.moveInfo.viewDirection._.y);
+        if (q.movement.window.isMouseDown(0)) {
+            q.movement.grabbed = true;
+            q.movement.window.*.cursorDisabled();
+        } else if (q.movement.window.isKeyDown(engine.Window.glfw.GLFW_KEY_ESCAPE)) {
+            q.movement.grabbed = false;
+            q.movement.window.*.cursorNormal();
+        }
+
+        if (q.movement.grabbed) {
+            q.movement.viewDirection = q.movement.viewDirection.add(
+                mouseDelta.mul(q.movement.mouseSensitivity * 0.001),
+            );
+
+            const rotX = engine.Quat.rotateY(q.movement.viewDirection._.x);
+            const rotY = engine.Quat.rotateX(q.movement.viewDirection._.y);
 
             q.transform.rotation = rotY.mul(rotX);
         }
+
+        // bobbing
+        q.transform.translation._.y = 2 + @sin(q.movement.time_moved * 10.0) * 0.1;
     }
 }

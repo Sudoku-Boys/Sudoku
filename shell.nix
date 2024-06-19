@@ -22,5 +22,6 @@ pkgs.mkShell {
     vulkan-loader
     vulkan-validation-layers
     wayland
+    libpulseaudio
   ];
 }

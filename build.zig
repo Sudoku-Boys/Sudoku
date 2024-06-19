@@ -18,6 +18,21 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    if (target.result.os.tag == .linux) {
+        exe.linkSystemLibrary("m");
+        exe.linkSystemLibrary("dl");
+        exe.linkSystemLibrary("pthread");
+    }
+
+    exe.root_module.addIncludePath(b.path("ext/miniaudio"));
+    exe.addCSourceFile(.{
+        .file = b.path("ext/miniaudio/miniaudio.c"),
+        .flags = &.{
+            "-std=c99",
+            "-fno-sanitize=undefined",
+        },
+    });
+
     if (b.host.result.os.tag == .windows) {
         vulkan.addIncludePath(exe);
         glfw.addIncludePath(exe);
