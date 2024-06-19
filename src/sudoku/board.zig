@@ -285,6 +285,37 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             }
         }
 
+        fn clear_board(self: *Self) void {
+            switch (memory) {
+                .STACK => {
+                    for (0..matrix_storage_size) |i| {
+                        self.board[i] = EmptySentinel;
+                    }
+                },
+                .HEAP => {
+                    @memset(self.board, EmptySentinel);
+                },
+            }
+        }
+
+        fn clear_constraints(self: *Self) void {
+            switch (memory) {
+                .STACK => {
+                    for (0..bitfield_storage_size) |i| {
+                        self.constraints[i] = 0;
+                    }
+                },
+                .HEAP => {
+                    @memset(self.constraints, 0);
+                },
+            }
+        }
+
+        pub fn clear(self: *Self) void {
+            self.clear_board();
+            self.clear_constraints();
+        }
+
         /// Get the value of the field at i, j.
         pub fn get(self: *const Self, coordinate: Coordinate) Storage.ValueType {
             assert(self.size == size);
@@ -293,7 +324,29 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             return self.board[coordinate.i * size + coordinate.j];
         }
 
+        /// Rebuild internal state from board data.
+        pub fn rebuild(self: *Self) void {
+            self.clear_constraints();
+
+            for (0..size) |i| {
+                for (0..size) |j| {
+                    const coord = Coordinate{ .i = i, .j = j };
+                    const value = self.get(coord);
+
+                    if (value != EmptySentinel) {
+                        assert(!Constraint.contains(self, coord, value));
+
+                        const amt: Storage.ValueType = value - 1;
+                        const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
+                        Constraint.bit_or(self, coord, mask);
+                    }
+                }
+            }
+        }
+
         /// Set the value of the field at i, j to value.
+        /// Ensures constraints are updated.
+        /// When setting board directly use rebuild function.
         pub fn set(self: *Self, coord: Coordinate, value: Storage.ValueType) void {
             assert(self.size == size);
             assert(value <= self.size and coord.i < size and coord.j < size);
@@ -330,24 +383,6 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             const amt: Storage.ValueType = value - 1;
             const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
             Constraint.bit_or(self, coord, mask);
-        }
-
-        pub fn clear(self: *Self) void {
-            switch (memory) {
-                .STACK => {
-                    for (0..matrix_storage_size) |i| {
-                        self.board[i] = EmptySentinel;
-                    }
-
-                    for (0..bitfield_storage_size) |i| {
-                        self.constraints[i] = 0;
-                    }
-                },
-                .HEAP => {
-                    @memset(self.board, EmptySentinel);
-                    @memset(self.constraints, 0);
-                },
-            }
         }
 
         /// Access a constraint based on its index
