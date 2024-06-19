@@ -336,7 +336,7 @@ pub fn boardInputSystem(
                 },
                 .H => {
                     //Grants a hint by revealing the a square of the solved sudoku
-                    const hintCoord = try q.board.actionLayer.solveOne(&q.board.sudoku).coord;
+                    _ = try q.board.actionLayer.solveOne(&q.board.sudoku).coord;
 
                     //TODO: make the square just revealed turn blue
 
