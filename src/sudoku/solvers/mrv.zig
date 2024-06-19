@@ -14,12 +14,14 @@ pub fn deinit(self: Self) void {
 }
 
 // Find an unassigned coordinate with the minimum possible values (MRV/Minimum Remaining Values heuristic)
-fn find_unassigned_coord(sudoku: anytype) ?Coordinate {
-    var min_pos: ?Coordinate = null;
-    var min_possibilities = sudoku.size + 1;
+inline fn find_unassigned_coord(sudoku: anytype) ?Coordinate {
+    const sudoku_size = @TypeOf(sudoku.*).size;
 
-    for (0..sudoku.size) |i| {
-        for (0..sudoku.size) |j| {
+    var min_pos: ?Coordinate = null;
+    var min_possibilities: usize = sudoku_size + 1;
+
+    for (0..sudoku_size) |i| {
+        for (0..sudoku_size) |j| {
             const pos = Coordinate{ .i = i, .j = j };
 
             if (sudoku.get(pos) == board.EmptySentinel) {
