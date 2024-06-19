@@ -114,6 +114,9 @@ pub const ActionLayer = struct {
                 for (0..sudoku.board.len) |i| {
                     sudoku.board[i] = @intCast(numbers[i]);
                 }
+
+                // Ensure internal state is consistent.
+                sudoku.rebuild();
                 self.allocator.free(numbers);
             },
             .REGENERATE => {

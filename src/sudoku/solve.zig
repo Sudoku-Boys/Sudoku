@@ -41,7 +41,7 @@ test "Backtrack solve advanced" {
     var allocator = std.testing.allocator;
 
     const puzzle = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
-    var parser = @import("parse.zig").Stencil(3, 3, .BITFIELD).init(allocator);
+    var parser = @import("parse.zig").Stencil(3, 3).init(allocator);
     var board = parser.from(puzzle);
     defer board.deinit();
 

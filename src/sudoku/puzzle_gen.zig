@@ -24,31 +24,35 @@ fn count_clues(sudoku: anytype) usize {
     return count;
 }
 
-pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) board.Board(K, N, .MATRIX, .HEAP) {
-    var attemps: usize = 10;
+pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator, comptime attempts: usize) board.Board(K, N, .HEAP) {
+    var i: usize = attempts;
 
-    while (attemps > 0) {
+    while (i > 0) {
         return generate_puzzle(K, N, clues, allocator) catch {
-            attemps -= 1;
+            i -= 1;
             continue;
         };
     }
 
-    @panic("Could not generate a puzzle in 10 attemps (Unlucky) Use WFC instead.");
+    @panic(std.fmt.comptimePrint("Could not generate a puzzle in {d} attemps (Unlucky) Use WFC instead.", .{attempts}));
 }
 
 /// Generate a solvable sudoku puzzle with a given number of clues.
 /// TODO: Maybe change the calling convention to take a preallocated board, although this is cleaner.
-pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) !board.Board(K, N, .MATRIX, .HEAP) {
+pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) !board.Board(K, N, .HEAP) {
     var has_solution = false;
 
-    var b = board.Board(K, N, .MATRIX, .HEAP).init(allocator);
+    var b = board.Board(K, N, .HEAP).init(allocator);
 
     // Clean up the board if the generation fails
     defer if (!has_solution) b.deinit();
 
     // Generate initial board
-    var rng = std.rand.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+    var seed = [_]u8{0} ** 8;
+    try std.posix.getrandom(&seed);
+    const seed_int = std.mem.readInt(u64, seed[0..8], .big);
+
+    var rng = std.rand.DefaultPrng.init(seed_int);
     var rand = rng.random();
 
     b.fill_random_valid(clues, clues, &rand);
@@ -66,12 +70,13 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
 
     const total_time = std.time.milliTimestamp() - start_time;
 
-    std.debug.print("Solved in {d} milliseconds\n", .{total_time});
-
     // Not all valid moves leads to a solvable board.
     if (!has_solution) {
+        std.debug.print("Failed to solve in {d} milliseconds\n", .{total_time});
         return GenerationError.PartialHasNoSolution;
     }
+
+    std.debug.print("Solved in {d} milliseconds\n", .{total_time});
 
     // Remove clues until the clues count is reached
     while (count_clues(b) > clues) {
