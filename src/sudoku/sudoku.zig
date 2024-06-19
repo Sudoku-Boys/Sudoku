@@ -21,8 +21,8 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
         board_set_grid: *const fn (*anyopaque, usize, []Storage.ValueType) void,
 
         /// Allocate the board with a layout, memory and allocator.
-        pub fn initBoard(comptime S: board.StorageLayout, comptime M: board.StorageMemory, allocator: ?*std.mem.Allocator) Self {
-            var b = board.Board(K, N, S, M).init(allocator);
+        pub fn initBoard(comptime M: board.StorageMemory, allocator: ?*std.mem.Allocator) Self {
+            var b = board.Board(K, N, M).init(allocator);
             return Self.init(&b);
         }
 
@@ -51,7 +51,7 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
         }
 
         pub fn get_board(self: *Self, comptime S: board.StorageLayout, comptime M: board.StorageMemory) *board.Board(K, N, S, M) {
-            return @as(*board.Board(K, N, S, M), self.board);
+            return @as(*board.Board(K, N, M), self.board);
         }
 
         pub fn get(self: *const Self, coord: Coordinate) Storage.ValueType {
@@ -81,7 +81,7 @@ pub fn Sudoku(comptime K: usize, comptime N: u16) type {
 }
 
 test "Type errasure" {
-    const Sudoku3x3 = board.Board(3, 3, .MATRIX, .STACK);
+    const Sudoku3x3 = board.Board(3, 3, .STACK);
     var s = Sudoku3x3.init(null);
     const c = Coordinate{ .i = 0, .j = 0 };
 

@@ -12,7 +12,7 @@ pub fn main() !void {
     const optionalAllocator: std.mem.Allocator = std.heap.page_allocator;
 
     //const board_stencil = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
-    //var parser = parse.Stencil(3, 3, .BITFIELD).init(optionalAllocator);
+    //var parser = parse.Stencil(3, 3).init(optionalAllocator);
     //
     //// Allocates b.
     //var b = parser.from(board_stencil);
@@ -49,7 +49,7 @@ pub fn main() !void {
 
     for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
-        var b2 = puzzle_gen.generate_puzzle_safe(3, 3, 20, optionalAllocator);
+        var b2 = puzzle_gen.generate_puzzle_safe(4, 4, 20, optionalAllocator);
         b2.deinit();
     }
 }

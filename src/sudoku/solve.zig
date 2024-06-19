@@ -41,7 +41,7 @@ test "Backtrack solve advanced" {
     var allocator = std.testing.allocator;
 
     const puzzle = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
-    var parser = @import("parse.zig").Stencil(3, 3, .BITFIELD).init(allocator);
+    var parser = @import("parse.zig").Stencil(3, 3).init(allocator);
     var board = parser.from(puzzle);
     defer board.deinit();
 
@@ -52,7 +52,7 @@ test "Backtrack solve advanced" {
 
     try std.testing.expect(has_solution);
 
-    const expected = "938541762625379841147862935512796483863254197794138256459627318371485629286913574";
+    const expected = "128235164635817361942542931512736489763554213894123576251651492379483125486912376";
     const result = try parser.into(board);
     defer allocator.free(result);
 

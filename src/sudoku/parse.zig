@@ -1,10 +1,11 @@
 const std = @import("std");
 const IntParser = @import("IntParser.zig");
 const board = @import("board.zig");
+const Coordinate = @import("Coordinate.zig");
 
 /// Common "stencil" format.
 /// .................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....
-pub fn Stencil(comptime k: u16, comptime n: u16, comptime layout: board.StorageLayout) type {
+pub fn Stencil(comptime k: u16, comptime n: u16) type {
     return struct {
         const Self = @This();
 
@@ -14,13 +15,13 @@ pub fn Stencil(comptime k: u16, comptime n: u16, comptime layout: board.StorageL
             return Self{ .allocator = allocator };
         }
 
-        pub fn from(self: *Self, str: []const u8) board.Board(k, n, layout, .HEAP) {
-            var b = board.Board(k, n, layout, .HEAP).init(self.allocator);
+        pub fn from(self: *Self, str: []const u8) board.Board(k, n, .HEAP) {
+            var b = board.Board(k, n, .HEAP).init(self.allocator);
             const ValueType = @TypeOf(b).Storage.ValueType;
+            var coord = Coordinate{ .i = 0, .j = 0 };
 
             for (0..str.len) |i| {
                 const char = str[i];
-                const coord = .{ .i = i / b.size, .j = i % b.size };
 
                 switch (char) {
                     '.' => b.set(coord, 0),
@@ -30,6 +31,14 @@ pub fn Stencil(comptime k: u16, comptime n: u16, comptime layout: board.StorageL
 
                         b.set(coord, val);
                     },
+                }
+
+                // Increment j until it reaches b.size - 1, then reset j and increment i.
+                coord.j += 1;
+
+                if (coord.j == b.size) {
+                    coord.j = 0;
+                    coord.i += 1;
                 }
             }
 
@@ -58,15 +67,17 @@ pub fn Stencil(comptime k: u16, comptime n: u16, comptime layout: board.StorageL
 }
 
 test "stencil" {
-    const StencilFormat = Stencil(3, 3, .BITFIELD);
-    const allocator = std.heap.page_allocator;
+    const StencilFormat = Stencil(3, 3);
+    const allocator = std.testing.allocator;
     var format = StencilFormat.init(allocator);
 
-    const str = ".........1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91............";
-    const b = format.from(str);
+    const str = ".........1.....2.3...2...4....3.5......41....6.5.7......7.....2..8.91............";
+    var b = format.from(str);
+    defer b.deinit();
 
-    const expected = ".........1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91............";
+    const expected = ".........1.....2.3...2...4....3.5......41....6.5.7......7.....2..8.91............";
     const result = try format.into(b);
+    defer allocator.free(result);
 
     try std.testing.expect(std.mem.eql(u8, result, expected));
 }
@@ -74,7 +85,7 @@ test "stencil" {
 /// Semi-colon format.
 /// Needs an aditional step that parses the first line
 /// That contains K and N values, this parses everything after that.
-pub fn Custom(comptime k: u16, comptime n: u16, comptime layout: board.StorageLayout) type {
+pub fn Custom(comptime k: u16, comptime n: u16) type {
     return struct {
         const Self = @This();
 
@@ -84,8 +95,8 @@ pub fn Custom(comptime k: u16, comptime n: u16, comptime layout: board.StorageLa
             return Self{ .allocator = allocator };
         }
 
-        pub fn from(self: *Self, str: []u8) board.Board(k, n, layout, .HEAP) {
-            var b = board.Board(k, n, layout, .HEAP).init(&self.allocator);
+        pub fn from(self: *Self, str: []u8) board.Board(k, n, .HEAP) {
+            var b = board.Board(k, n, .HEAP).init(&self.allocator);
             const ValueType = @TypeOf(b).Storage.ValueType;
 
             var int_parser = IntParser.init();

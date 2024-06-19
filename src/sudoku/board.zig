@@ -4,39 +4,45 @@ const assert = std.debug.assert;
 const expect = std.testing.expect;
 const Coordinate = @import("Coordinate.zig");
 
-pub const DefaultBoard = Board(3, 3, .MATRIX, .HEAP);
+pub const DefaultBoard = Board(3, 3, .HEAP);
 
 pub const BoardContraint = enum { ROW, COLUMN, GRID };
-pub const StorageLayout = enum { BITFIELD, MATRIX };
 pub const StorageMemory = enum { STACK, HEAP };
 pub const EmptySentinel = 0;
 
 /// TODO rewrite type.
-fn BoardContraintIterator(comptime C: BoardContraint) type {
+fn BoardCoordIterator(comptime C: BoardContraint) type {
     switch (C) {
         .ROW => {
             return struct {
                 start: Coordinate,
                 end: Coordinate,
+                done: bool,
 
                 pub fn initIndex(sudoku: anytype, constraint_index: usize) @This() {
                     assert(constraint_index < sudoku.size);
-                    const coord = .{ .i = constraint_index, .j = 0 };
+                    const coord = Coordinate.new_row_coord(constraint_index, 0);
                     return @This().init(sudoku, coord);
                 }
 
                 pub fn init(sudoku: anytype, coord: Coordinate) @This() {
                     return @This(){
-                        .start = .{ .i = coord.i, .j = 0 },
-                        .end = .{ .i = coord.i, .j = sudoku.size },
+                        .start = coord.get_first_row_coord(),
+                        .end = coord.get_last_row_coord(sudoku.size),
+                        .done = false,
                     };
                 }
 
                 pub fn next(self: *@This()) ?Coordinate {
+                    if (self.done) {
+                        return null;
+                    }
+
                     const current = self.start;
 
                     if (current.equals(self.end)) {
-                        return null;
+                        self.done = true;
+                        return self.end;
                     }
 
                     self.start.j += 1;
@@ -49,26 +55,33 @@ fn BoardContraintIterator(comptime C: BoardContraint) type {
             return struct {
                 start: Coordinate,
                 end: Coordinate,
+                done: bool,
 
                 pub fn initIndex(sudoku: anytype, constraint_index: usize) @This() {
                     // The size of the sudoku is the same as the row column count.
                     assert(constraint_index < sudoku.size);
-                    const coord = .{ .i = 0, .j = constraint_index };
+                    const coord = Coordinate.new_col_coord(constraint_index, 0);
                     return @This().init(sudoku, coord);
                 }
 
                 pub fn init(sudoku: anytype, coord: Coordinate) @This() {
                     return @This(){
-                        .start = .{ .i = 0, .j = coord.j },
-                        .end = .{ .i = sudoku.size, .j = coord.j },
+                        .start = coord.get_first_col_coord(),
+                        .end = coord.get_last_col_coord(sudoku.size),
+                        .done = false,
                     };
                 }
 
                 pub fn next(self: *@This()) ?Coordinate {
+                    if (self.done) {
+                        return null;
+                    }
+
                     const current = self.start;
 
                     if (current.equals(self.end)) {
-                        return null;
+                        self.done = true;
+                        return self.end;
                     }
 
                     self.start.i += 1;
@@ -89,18 +102,15 @@ fn BoardContraintIterator(comptime C: BoardContraint) type {
                 pub fn initIndex(sudoku: anytype, constraint_index: usize) @This() {
                     assert(constraint_index < sudoku.k * sudoku.k);
 
-                    const row = constraint_index / sudoku.k;
-                    const col = constraint_index % sudoku.k;
-
-                    const coord = .{ .i = row * sudoku.n, .j = col * sudoku.n };
+                    const coord = Coordinate.new_grid_coord(constraint_index, sudoku.k, sudoku.n, 0);
 
                     return @This().init(sudoku, coord);
                 }
 
                 pub fn init(sudoku: anytype, coord: Coordinate) @This() {
                     return @This(){
-                        .start = .{ .i = coord.i - (coord.i % sudoku.n), .j = coord.j - (coord.j % sudoku.n) },
-                        .end = .{ .i = coord.i - (coord.i % sudoku.n) + sudoku.n - 1, .j = coord.j - (coord.j % sudoku.n) + sudoku.n - 1 },
+                        .start = coord.get_first_grid_coord(sudoku.k, sudoku.n),
+                        .end = coord.get_last_grid_coord(sudoku.k, sudoku.n),
                         .n = sudoku.n,
                         .done = false,
                     };
@@ -132,13 +142,6 @@ fn BoardContraintIterator(comptime C: BoardContraint) type {
     }
 }
 
-fn SudokuValidationError(comptime T: type) type {
-    return struct {
-        coordinate: Coordinate,
-        value: T,
-    };
-}
-
 /// Infer size of type to fit valid sudoku. From description.
 pub fn StorageType(comptime K: u16, comptime N: u16) type {
     const size = K * N;
@@ -166,34 +169,82 @@ pub fn StorageType(comptime K: u16, comptime N: u16) type {
 /// A storage type which contains size bits.
 /// We store a single value as a bitfield where its index is its value.
 /// We can use this to optimize for solving, as we can use bitwise operations to check for valid moves.
-/// TODO: Actually optimize bitfield storage to store multiple values in a single field.
-pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout, comptime memory: StorageMemory) type {
+///
+/// The matrix storage layout is a simple 2D array. (size * size)
+///
+/// The bitfield storage layout stores each constraint in a single field, one for every row, every column and every grid. (2*size + 2*k)
+/// They are stored in a flat array with row, column and grid constraints in that order.
+pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory) type {
+    const _Storage = StorageType(_K, _N);
+    const _size = @bitSizeOf(_Storage.BitFieldType);
+
+    const bitfield_storage_size = _size * 2 + _K * _K;
+    const matrix_storage_size = _size * _size;
+
+    const _Constraint = struct {
+        const Self = @This();
+
+        pub fn possible_values(board: anytype, coord: Coordinate) _Storage.BitFieldType {
+            return ~(board.constraints[coord.i] | board.constraints[coord.j + _size] | board.constraints[coord.get_grid_index(_K, _N) + 2 * _size]);
+        }
+
+        pub fn contains(board: anytype, coord: Coordinate, value: _Storage.ValueType) bool {
+            assert(value > 0);
+
+            const amt: _Storage.ValueType = value - 1;
+            const mask: _Storage.BitFieldType = std.math.shl(_Storage.BitFieldType, 1, amt);
+
+            return (board.constraints[coord.i] & mask != 0) or (board.constraints[coord.j + _size] & mask != 0) or (board.constraints[coord.get_grid_index(_K, _N) + 2 * _size] & mask != 0);
+        }
+
+        pub fn bit_or(board: anytype, coord: Coordinate, mask: _Storage.BitFieldType) void {
+            board.constraints[coord.i] |= mask;
+            board.constraints[coord.j + _size] |= mask;
+            board.constraints[coord.get_grid_index(_K, _N) + 2 * _size] |= mask;
+        }
+
+        pub fn bit_and(board: anytype, coord: Coordinate, mask: _Storage.BitFieldType) void {
+            board.constraints[coord.i] &= mask;
+            board.constraints[coord.j + _size] &= mask;
+            board.constraints[coord.get_grid_index(_K, _N) + 2 * _size] &= mask;
+        }
+    };
+
     return struct {
         const Self = @This();
 
         pub const K = _K;
         pub const N = _N;
-        pub const Storage = StorageType(_K, _N);
-        pub const StorageImplType = if (storage == .BITFIELD) Storage.BitFieldType else Storage.ValueType;
-        pub const ValidationErrorType = SudokuValidationError(Storage.ValueType);
+        pub const size = _size;
 
-        pub const size = @bitSizeOf(Storage.BitFieldType);
+        pub const Storage = _Storage;
+        pub const Constraint = _Constraint;
 
-        pub const BoardType = switch (memory) {
-            .STACK => [size * size]StorageImplType,
-            .HEAP => []StorageImplType,
+        // Store the (x, y) values of the board.
+        // To know what field is set at (x, y).
+        pub const MatrixBoardType = switch (memory) {
+            .STACK => [matrix_storage_size]Storage.ValueType,
+            .HEAP => []Storage.ValueType,
+        };
+
+        // Optimize lookup for constraints.
+        // by storing bitfields for each row, column and grid.
+        pub const BitfieldConstraintsType = switch (memory) {
+            .STACK => [bitfield_storage_size]Storage.BitFieldType,
+            .HEAP => []Storage.BitFieldType,
         };
 
         allocator: ?std.mem.Allocator,
-        board: BoardType,
+        board: MatrixBoardType,
+        constraints: BitfieldConstraintsType,
         size: usize,
         k: usize,
         n: usize,
 
         pub fn init(allocator: ?std.mem.Allocator) Self {
             const board = switch (memory) {
-                .STACK => [_]StorageImplType{EmptySentinel} ** (size * size),
-                .HEAP => allocator.?.alloc(StorageImplType, size * size) catch |err| {
+                .STACK => [_]Storage.ValueType{EmptySentinel} ** matrix_storage_size,
+                .HEAP => allocator.?.alloc(Storage.ValueType, matrix_storage_size) catch |err| {
                     @panic(@errorName(err));
                 },
             };
@@ -202,9 +253,21 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
                 @memset(board, EmptySentinel);
             }
 
+            const constraints = switch (memory) {
+                .STACK => [_]Storage.BitFieldType{0} ** bitfield_storage_size,
+                .HEAP => allocator.?.alloc(Storage.BitFieldType, bitfield_storage_size) catch |err| {
+                    @panic(@errorName(err));
+                },
+            };
+
+            if (memory == .HEAP) {
+                @memset(constraints, 0);
+            }
+
             return Self{
                 .allocator = allocator,
                 .board = board,
+                .constraints = constraints,
                 .size = size,
                 .k = K,
                 .n = N,
@@ -215,6 +278,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
             if (memory == .HEAP) {
                 if (self.allocator != null) {
                     self.allocator.?.free(self.board);
+                    self.allocator.?.free(self.constraints);
                 } else {
                     @panic("No allocator provided");
                 }
@@ -226,70 +290,76 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
             assert(self.size == size);
             assert(coordinate.i < size and coordinate.j < size);
 
-            const field = self.board[coordinate.i * size + coordinate.j];
-
-            switch (storage) {
-                .BITFIELD => {
-                    if (field == EmptySentinel) {
-                        return EmptySentinel;
-                    }
-
-                    return @intCast(@ctz(field) + 1);
-                },
-                .MATRIX => return field,
-            }
+            return self.board[coordinate.i * size + coordinate.j];
         }
 
         /// Set the value of the field at i, j to value.
-        pub fn set(self: *Self, coordinate: Coordinate, value: Storage.ValueType) void {
+        pub fn set(self: *Self, coord: Coordinate, value: Storage.ValueType) void {
             assert(self.size == size);
-            assert(value <= self.size and coordinate.i < size and coordinate.j < size);
+            assert(value <= self.size and coord.i < size and coord.j < size);
 
-            const index = coordinate.i * size + coordinate.j;
+            const current_value = self.get(coord);
 
-            switch (storage) {
-                .BITFIELD => {
-                    // Ignore the previous value as we are setting a new value.
-                    // We set value - 1 as the bit field is 0 indexed.
-                    // The index 0 (first bit) is the first value.
-                    if (value == EmptySentinel) {
-                        self.board[index] = EmptySentinel;
-                        return;
-                    }
-                    const amt: Storage.ValueType = value - 1;
-                    const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
-
-                    self.board[index] = 0 | mask;
-                },
-                .MATRIX => {
-                    self.board[index] = value;
-                },
+            if (current_value == value) {
+                return;
             }
+
+            // Cannot reuse the same value in the same row, column or grid.
+            // TODO: maybe return error type.
+            if (value != EmptySentinel and Constraint.contains(self, coord, value)) {
+                @panic("Invalid move");
+            }
+
+            // Clear out constraints.
+            if (current_value != EmptySentinel) {
+                const amt: Storage.ValueType = current_value - 1;
+                const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
+                Constraint.bit_and(self, coord, mask);
+            }
+
+            // Set the value in the matrix.
+            self.board[coord.i * size + coord.j] = value;
+
+            // We can't set empty values in constraints.
+            if (value == EmptySentinel) {
+                return;
+            }
+
+            // We have to set the value in all constraints.
+            // We can reuse the same mask for all constraints.
+            const amt: Storage.ValueType = value - 1;
+            const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
+            Constraint.bit_or(self, coord, mask);
         }
 
         pub fn clear(self: *Self) void {
             switch (memory) {
                 .STACK => {
-                    for (0..size * size) |i| {
+                    for (0..matrix_storage_size) |i| {
                         self.board[i] = EmptySentinel;
+                    }
+
+                    for (0..bitfield_storage_size) |i| {
+                        self.constraints[i] = 0;
                     }
                 },
                 .HEAP => {
                     @memset(self.board, EmptySentinel);
+                    @memset(self.constraints, 0);
                 },
             }
         }
 
         /// Access a constraint based on its index
         /// So row N, col N or grid N.
-        pub fn index_iterator(self: *Self, comptime C: BoardContraint, constraint_index: usize) BoardContraintIterator(C) {
-            return BoardContraintIterator(C).initIndex(self, constraint_index);
+        pub fn index_iterator(self: *Self, comptime C: BoardContraint, constraint_index: usize) BoardCoordIterator(C) {
+            return BoardCoordIterator(C).initIndex(self, constraint_index);
         }
 
         /// Access the constraint based on any value from inside of it.
         /// Ei. coordinate X belongs to contraint N in row / col / grid.
-        pub fn coord_iterator(self: *Self, comptime C: BoardContraint, coord: Coordinate) BoardContraintIterator(C) {
-            return BoardContraintIterator(C).init(self, coord);
+        pub fn coord_iterator(self: *Self, comptime C: BoardContraint, coord: Coordinate) BoardCoordIterator(C) {
+            return BoardCoordIterator(C).init(self, coord);
         }
 
         /// Set entire row based on its index and a list of values.
@@ -330,8 +400,8 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
             return false;
         }
 
-        pub fn is_safe_move(self: *Self, coordinate: Coordinate, value: Storage.ValueType) bool {
-            const current_value = self.get(coordinate);
+        pub fn is_safe_move(self: *Self, coord: Coordinate, value: Storage.ValueType) bool {
+            const current_value = self.get(coord);
 
             // Cannot set a field that is already set.
             // Maybe this should return true if the value is the same.
@@ -340,32 +410,16 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
                 return false;
             }
 
-            // Loop over all constraints.
-            var it_row = self.coord_iterator(.ROW, coordinate);
-            if (self.iterator_contains(&it_row, value)) {
-                return false;
-            }
-
-            var it_col = self.coord_iterator(.COLUMN, coordinate);
-            if (self.iterator_contains(&it_col, value)) {
-                return false;
-            }
-
-            var it_grid = self.coord_iterator(.GRID, coordinate);
-            if (self.iterator_contains(&it_grid, value)) {
-                return false;
-            }
-
-            return true;
+            return !Constraint.contains(self, coord, value);
         }
 
         pub fn get_possibility_count(self: *Self, coord: Coordinate) usize {
+            const bitfield = Constraint.possible_values(self, coord);
+
             var count: usize = 0;
 
             for (0..size) |i| {
-                const v: Storage.ValueType = @intCast(i + 1);
-
-                if (self.is_safe_move(coord, v)) {
+                if (bitfield & std.math.shl(Storage.BitFieldType, 1, i) != 0) {
                     count += 1;
                 }
             }
@@ -376,106 +430,17 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
         /// Get a list of all possible values for a coordinate.
         /// This is used for backtracking.
         pub fn get_possibilities(self: *Self, coord: Coordinate, allocator: std.mem.Allocator) ![]Storage.ValueType {
-            var possibilities: []Storage.ValueType = try allocator.alloc(Storage.ValueType, size);
+            const possible_bitfield = Constraint.possible_values(self, coord);
+
+            var possibilities = std.ArrayList(Storage.ValueType).init(allocator);
 
             for (0..size) |i| {
-                const v: Storage.ValueType = @intCast(i + 1);
-
-                if (!self.is_safe_move(coord, v)) {
-                    possibilities[i] = EmptySentinel;
-                } else {
-                    possibilities[i] = v;
+                if (possible_bitfield & std.math.shl(Storage.BitFieldType, 1, i) != 0) {
+                    try possibilities.append(@intCast(i + 1));
                 }
             }
 
-            return possibilities;
-        }
-
-        /// Check if constraint is valid, if not return the first invalid coordinate.
-        /// This decides how many errors we generate, if we want to show ALL incompatible
-        /// positions we have to change it here.
-        fn validate_iterator(self: *Self, comptime C: BoardContraint, it: *BoardContraintIterator(C)) ?ValidationErrorType {
-            // Find coordinate based on constraint and index, then use iterator to get
-            // every coordinate in that constraint and check for item uniqueness with get.
-            switch (storage) {
-                .BITFIELD => {
-                    var field: Storage.BitFieldType = EmptySentinel;
-
-                    while (it.next()) |current| {
-                        const coordinate_field = self.board[current.i * size + current.j];
-
-                        if (field & coordinate_field != 0) {
-                            return ValidationErrorType{ .coordinate = current, .value = self.get(current) };
-                        }
-
-                        field |= coordinate_field;
-                    }
-                },
-                .MATRIX => {
-                    var seen = [_]bool{false} ** (size + 1);
-
-                    while (it.next()) |current| {
-                        const value = self.get(current);
-
-                        if (value == EmptySentinel) {
-                            continue;
-                        }
-
-                        if (seen[value]) {
-                            return ValidationErrorType{ .coordinate = current, .value = value };
-                        }
-
-                        seen[value] = true;
-                    }
-                },
-            }
-
-            return null;
-        }
-
-        /// TODO Sudoku Constraint + index should probably be collected as a struct / tuple
-        pub fn validate(self: *Self, comptime C: BoardContraint, index: usize) ?ValidationErrorType {
-            var it = self.index_iterator(C, index);
-            return self.validate_iterator(C, &it);
-        }
-
-        /// Caller needs to deallocate result.
-        /// Should probably extract return type into its own struct
-        /// to enforce alloc + dealloc.
-        pub fn validate_all(self: *Self, allocator: std.mem.Allocator) !std.EnumArray(BoardContraint, std.ArrayList(ValidationErrorType)) {
-            var row_errors = std.ArrayList(ValidationErrorType).init(allocator);
-            var column_errors = std.ArrayList(ValidationErrorType).init(allocator);
-            var grid_errors = std.ArrayList(ValidationErrorType).init(allocator);
-
-            errdefer {
-                row_errors.deinit();
-                column_errors.deinit();
-                grid_errors.deinit();
-            }
-
-            for (0..size) |i| {
-                if (self.validate(.ROW, i)) |e| {
-                    try row_errors.append(e);
-                }
-            }
-
-            for (0..size) |i| {
-                if (self.validate(.COLUMN, i)) |e| {
-                    try column_errors.append(e);
-                }
-            }
-
-            for (0..K * K) |i| {
-                if (self.validate(.GRID, i)) |e| {
-                    try grid_errors.append(e);
-                }
-            }
-
-            return std.EnumArray(BoardContraint, std.ArrayList(ValidationErrorType)).init(.{
-                .ROW = row_errors,
-                .COLUMN = column_errors,
-                .GRID = grid_errors,
-            });
+            return possibilities.toOwnedSlice();
         }
 
         /// Random fill, not real puzzle generation.
@@ -499,10 +464,11 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
         }
 
         /// Debug function to print board.
+        /// TODO: Actually make this work for abitrary sizes.
         pub fn display(self: *const Self, writer: anytype) !void {
             // Format in correct grid squares.
             // Border with | and -.
-            var int_buf: [1]u8 = [_]u8{0};
+            var int_buf: [2]u8 = [_]u8{0} ** 2;
             const min_text_width = std.math.log10(size + 1) + 1;
             const line_width = K * N * (min_text_width) + 7;
 
@@ -555,13 +521,13 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime storage: StorageLayout
 }
 
 test "Validate certain sudoku board sizes" {
-    _ = Board(2, 2, .BITFIELD, .STACK);
-    _ = Board(3, 3, .BITFIELD, .STACK);
+    _ = Board(2, 2, .STACK);
+    _ = Board(3, 3, .STACK);
 }
 
 test "Test 4x4 Sudoku" {
     // Also test memory leaks.
-    const S = Board(2, 2, .BITFIELD, .HEAP);
+    const S = Board(2, 2, .HEAP);
 
     const allocator = std.testing.allocator;
     var s = S.init(allocator);
@@ -603,7 +569,7 @@ test "Test 4x4 Sudoku" {
 }
 
 test "Test 9x9 Sudoku" {
-    const S = Board(3, 3, .BITFIELD, .STACK);
+    const S = Board(3, 3, .STACK);
 
     var s = S.init(null);
 
@@ -660,40 +626,12 @@ test "Test 9x9 Sudoku" {
 }
 
 test "Very large using matrix backend, does it compile?" {
-    const S = Board(32, 32, .MATRIX, .STACK);
+    const S = Board(32, 32, .HEAP);
 
-    var s = S.init(null);
+    var s = S.init(std.testing.allocator);
+    defer s.deinit();
 
     s.set(.{ .i = 999, .j = 999 }, 1000);
 
     try expect(s.get(.{ .i = 999, .j = 999 }) == 1000);
-}
-
-test "Sudoku validation" {
-    var sb = Board(3, 1, .BITFIELD, .STACK).init(null);
-
-    sb.set_row(0, .{ 1, 2, 3 });
-
-    try expect(sb.validate(.ROW, 0) == null);
-
-    sb.set_col(0, .{ 1, 2, 1 });
-
-    try expect(sb.validate(.COLUMN, 0) != null);
-
-    sb.set(.{ .i = 2, .j = 0 }, 3);
-
-    try expect(sb.validate(.COLUMN, 0) == null);
-
-    sb.set(.{ .i = 0, .j = 0 }, 1);
-
-    // Test basic matrix validation
-    var sm = Board(3, 1, .MATRIX, .STACK).init(null);
-
-    sm.set_row(0, .{ 1, 2, 3 });
-
-    try expect(sm.validate(.ROW, 0) == null);
-
-    sm.set_col(0, .{ 1, 1, 1 });
-
-    try expect(sm.validate(.COLUMN, 0) != null);
 }

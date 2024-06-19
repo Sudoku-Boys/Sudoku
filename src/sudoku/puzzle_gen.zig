@@ -24,7 +24,7 @@ fn count_clues(sudoku: anytype) usize {
     return count;
 }
 
-pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) board.Board(K, N, .MATRIX, .HEAP) {
+pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) board.Board(K, N, .HEAP) {
     var attemps: usize = 10;
 
     while (attemps > 0) {
@@ -39,10 +39,10 @@ pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allo
 
 /// Generate a solvable sudoku puzzle with a given number of clues.
 /// TODO: Maybe change the calling convention to take a preallocated board, although this is cleaner.
-pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) !board.Board(K, N, .MATRIX, .HEAP) {
+pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) !board.Board(K, N, .HEAP) {
     var has_solution = false;
 
-    var b = board.Board(K, N, .MATRIX, .HEAP).init(allocator);
+    var b = board.Board(K, N, .HEAP).init(allocator);
 
     // Clean up the board if the generation fails
     defer if (!has_solution) b.deinit();
