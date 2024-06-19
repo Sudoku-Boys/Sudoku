@@ -18,6 +18,10 @@ pub fn Sudoku(comptime size: SudokuSize) type {
 
 /// Corresponds to the default 9x9 sudoku.
 pub const DefaultBoard = Sudoku(._9x9);
+pub const Sudoku4x4 = Sudoku(._4x4);
+pub const Sudoku9x9 = Sudoku(._9x9);
+pub const Sudoku16x16 = Sudoku(._16x16);
+pub const Sudoku25x25 = Sudoku(._25x25);
 
 pub const BoardContraint = enum { ROW, COLUMN, GRID };
 pub const StorageMemory = enum { STACK, HEAP };
