@@ -125,6 +125,23 @@ pub const ActionLayer = struct {
         }
     }
 
+    //Places exactly N correct numbers on the current board, semi randomly
+    //Makes a copy of the board, solves it, and randomly picks squares with different numbers than the original board
+    fn solveN(self: *ActionLayer, sudoku: anytype, N: usize) void {
+        _ = try solve.solve(.MRV, sudoku, self.allocator);
+    }
+
+    //Places exactly 1 correct number on the current board, semi randomly
+    pub fn solveOne(self: *ActionLayer, sudoku: anytype) Action {
+        self.solveN(sudoku, 1);
+        return self.actionStack.getLast();
+    }
+
+    //Simply returns the last action done
+    pub fn getLastAction(self: *ActionLayer) Action {
+        return self.actionStack.getLast();
+    }
+
     pub fn init(allocator: std.mem.Allocator) ActionLayer {
         return .{
             .actionStack = std.ArrayList(Action).init(allocator),
