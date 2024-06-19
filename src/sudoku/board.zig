@@ -181,14 +181,14 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
     const bitfield_storage_size = _size * 2 + _K * _K;
     const matrix_storage_size = _size * _size;
 
-    const _Constraint = struct {
+    const Constraint = struct {
         const Self = @This();
 
-        pub fn possible_values(board: anytype, coord: Coordinate) _Storage.BitFieldType {
+        pub inline fn possible_values(board: anytype, coord: Coordinate) _Storage.BitFieldType {
             return ~(board.constraints[coord.i] | board.constraints[coord.j + _size] | board.constraints[coord.get_grid_index(_K, _N) + 2 * _size]);
         }
 
-        pub fn contains(board: anytype, coord: Coordinate, value: _Storage.ValueType) bool {
+        pub inline fn contains(board: anytype, coord: Coordinate, value: _Storage.ValueType) bool {
             assert(value > 0);
 
             const amt: _Storage.ValueType = value - 1;
@@ -197,13 +197,13 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             return (board.constraints[coord.i] & mask != 0) or (board.constraints[coord.j + _size] & mask != 0) or (board.constraints[coord.get_grid_index(_K, _N) + 2 * _size] & mask != 0);
         }
 
-        pub fn bit_or(board: anytype, coord: Coordinate, mask: _Storage.BitFieldType) void {
+        pub inline fn bit_or(board: anytype, coord: Coordinate, mask: _Storage.BitFieldType) void {
             board.constraints[coord.i] |= mask;
             board.constraints[coord.j + _size] |= mask;
             board.constraints[coord.get_grid_index(_K, _N) + 2 * _size] |= mask;
         }
 
-        pub fn bit_and(board: anytype, coord: Coordinate, mask: _Storage.BitFieldType) void {
+        pub inline fn bit_and(board: anytype, coord: Coordinate, mask: _Storage.BitFieldType) void {
             board.constraints[coord.i] &= mask;
             board.constraints[coord.j + _size] &= mask;
             board.constraints[coord.get_grid_index(_K, _N) + 2 * _size] &= mask;
@@ -218,7 +218,6 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
         pub const size = _size;
 
         pub const Storage = _Storage;
-        pub const Constraint = _Constraint;
 
         // Store the (x, y) values of the board.
         // To know what field is set at (x, y).
@@ -317,7 +316,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
         }
 
         /// Get the value of the field at i, j.
-        pub fn get(self: *const Self, coordinate: Coordinate) Storage.ValueType {
+        pub inline fn get(self: *const Self, coordinate: Coordinate) Storage.ValueType {
             assert(self.size == size);
             assert(coordinate.i < size and coordinate.j < size);
 
@@ -347,7 +346,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
         /// Set the value of the field at i, j to value.
         /// Ensures constraints are updated.
         /// When setting board directly use rebuild function.
-        pub fn set(self: *Self, coord: Coordinate, value: Storage.ValueType) void {
+        pub inline fn set(self: *Self, coord: Coordinate, value: Storage.ValueType) void {
             assert(self.size == size);
             assert(value <= self.size and coord.i < size and coord.j < size);
 
@@ -435,7 +434,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             return false;
         }
 
-        pub fn is_safe_move(self: *Self, coord: Coordinate, value: Storage.ValueType) bool {
+        pub inline fn is_safe_move(self: *Self, coord: Coordinate, value: Storage.ValueType) bool {
             const current_value = self.get(coord);
 
             // Cannot set a field that is already set.
@@ -448,7 +447,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             return !Constraint.contains(self, coord, value);
         }
 
-        pub fn get_possibility_count(self: *Self, coord: Coordinate) usize {
+        pub inline fn get_possibility_count(self: *Self, coord: Coordinate) usize {
             const bitfield = Constraint.possible_values(self, coord);
 
             var count: usize = 0;
@@ -469,7 +468,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
 
             var possibilities = std.ArrayList(Storage.ValueType).init(allocator);
 
-            for (0..size) |i| {
+            inline for (0..size) |i| {
                 if (possible_bitfield & std.math.shl(Storage.BitFieldType, 1, i) != 0) {
                     try possibilities.append(@intCast(i + 1));
                 }
