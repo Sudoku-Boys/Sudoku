@@ -49,7 +49,7 @@ pub fn main() !void {
 
     for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
-        var b2 = puzzle_gen.generate_puzzle_safe(4, 4, 20, optionalAllocator);
+        var b2 = puzzle_gen.generate_puzzle_safe(3, 3, 20, optionalAllocator, 1000);
         b2.deinit();
     }
 }

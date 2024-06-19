@@ -24,17 +24,17 @@ fn count_clues(sudoku: anytype) usize {
     return count;
 }
 
-pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator) board.Board(K, N, .HEAP) {
-    var attemps: usize = 10;
+pub fn generate_puzzle_safe(comptime K: u16, comptime N: u16, clues: usize, allocator: std.mem.Allocator, comptime attempts: usize) board.Board(K, N, .HEAP) {
+    var i: usize = attempts;
 
-    while (attemps > 0) {
+    while (i > 0) {
         return generate_puzzle(K, N, clues, allocator) catch {
-            attemps -= 1;
+            i -= 1;
             continue;
         };
     }
 
-    @panic("Could not generate a puzzle in 10 attemps (Unlucky) Use WFC instead.");
+    @panic(std.fmt.comptimePrint("Could not generate a puzzle in {d} attemps (Unlucky) Use WFC instead.", .{attempts}));
 }
 
 /// Generate a solvable sudoku puzzle with a given number of clues.
@@ -64,14 +64,14 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
 
     has_solution = try solve.solve(.MRV, &b, allocator);
 
-    const total_time = std.time.milliTimestamp() - start_time;
-
-    std.debug.print("Solved in {d} milliseconds\n", .{total_time});
-
     // Not all valid moves leads to a solvable board.
     if (!has_solution) {
         return GenerationError.PartialHasNoSolution;
     }
+
+    const total_time = std.time.milliTimestamp() - start_time;
+
+    std.debug.print("Solved in {d} milliseconds\n", .{total_time});
 
     // Remove clues until the clues count is reached
     while (count_clues(b) > clues) {

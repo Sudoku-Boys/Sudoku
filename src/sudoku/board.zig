@@ -313,7 +313,7 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             // Clear out constraints.
             if (current_value != EmptySentinel) {
                 const amt: Storage.ValueType = current_value - 1;
-                const mask: Storage.BitFieldType = std.math.shl(Storage.BitFieldType, 1, amt);
+                const mask: Storage.BitFieldType = ~std.math.shl(Storage.BitFieldType, 1, amt);
                 Constraint.bit_and(self, coord, mask);
             }
 
@@ -634,4 +634,18 @@ test "Very large using matrix backend, does it compile?" {
     s.set(.{ .i = 999, .j = 999 }, 1000);
 
     try expect(s.get(.{ .i = 999, .j = 999 }) == 1000);
+}
+
+test "Test internal bitfield implementation" {
+    var b = DefaultBoard.init(std.testing.allocator);
+    defer b.deinit();
+
+    // This sets the first bit in 3 constraints.
+    b.set(.{ .i = 0, .j = 0 }, 1);
+
+    // This removes the first bit in 3 constraints.
+    b.set(.{ .i = 0, .j = 0 }, 0);
+
+    // This sets the first bit in 3 constraints.
+    b.set(.{ .i = 0, .j = 0 }, 1);
 }

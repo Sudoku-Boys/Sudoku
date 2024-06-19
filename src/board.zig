@@ -281,7 +281,7 @@ pub fn boardInputSystem(
                 .R => {
                     q.board.sudoku.deinit();
 
-                    var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, 20, allocator);
+                    var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, 20, allocator, 15);
                     errdefer sudoku.deinit();
 
                     q.board.sudoku = sudoku;
