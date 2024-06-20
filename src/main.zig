@@ -4,6 +4,7 @@ const vk = @import("vulkan");
 const engine = @import("engine.zig");
 const board = @import("board.zig");
 const movement = @import("movement.zig");
+const audio = @import("audio.zig");
 
 fn startup(
     commands: engine.Commands,
@@ -17,7 +18,7 @@ fn startup(
 
     //Adding movement to the camera
     const winPtr = commands.world.resourcePtr(engine.Window);
-    try camera.addComponent(movement.moveInfo{ .mouseSensitivity = 0.3, .window = winPtr });
+    try camera.addComponent(movement.PlayerMovement{ .mouseSensitivity = 0.3, .window = winPtr });
 
     _ = try board.spawnBoard(commands);
 }
@@ -37,6 +38,7 @@ pub fn main() !void {
     try game.addPlugin(engine.HirachyPlugin{});
     try game.addPlugin(engine.RenderPlugin{});
     try game.addPlugin(engine.MaterialPlugin(engine.StandardMaterial){});
+    try game.addPlugin(audio.Plugin{});
 
     _ = try game.addSystem(board.boardInputSystem);
     _ = try game.addStartupSystem(startup);

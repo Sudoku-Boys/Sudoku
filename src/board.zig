@@ -53,10 +53,27 @@ pub const BoardResources = struct {
         const mesh = try engine.Mesh.cube(world.allocator, 0.5, 0xffffffff);
         const mesh_handle = try meshes.add(mesh);
 
+        const base_diffuse = try images.add(try engine.Image.load_qoi(
+            world.allocator,
+            "assets/leather/diffuse.qoi",
+        ));
+
+        const base_roughness = try images.add(try engine.Image.load_qoi(
+            world.allocator,
+            "assets/leather/roughness.qoi",
+        ));
+
+        const base_normal = try images.add(try engine.Image.load_qoi(
+            world.allocator,
+            "assets/leather/normal.qoi",
+        ));
+
         const base_handle = try materials.add(
             engine.StandardMaterial{
-                .color = engine.Color.rgb(0.4, 0.4, 0.4),
-                .metallic = 0.91,
+                .color = engine.Color.WHITE,
+                .color_texture = base_diffuse,
+                .roughness_texture = base_roughness,
+                .normal_map = base_normal,
             },
         );
 
@@ -124,6 +141,7 @@ pub const BoardResources = struct {
 
 pub const SpawnBoard = struct {
     entity: engine.Entity,
+    transform: engine.Transform = .{},
 
     pub fn apply(self: *SpawnBoard, world: *engine.World) !void {
         const resources = try world.resourceOrInit(BoardResources);
@@ -136,7 +154,7 @@ pub const SpawnBoard = struct {
         const size = engine.Vec3.init(
             @floatFromInt(sudoku.size - 1),
             @floatFromInt(sudoku.size - 1),
-            0.0,
+            0.5,
         ).add(0.2);
 
         const offset = size.div(-2.0);
@@ -153,7 +171,7 @@ pub const SpawnBoard = struct {
                 const position = engine.Vec3.init(
                     @as(f32, @floatFromInt(x)) + @as(f32, @floatFromInt(x / 3)) * 0.1,
                     @as(f32, @floatFromInt(y)) + @as(f32, @floatFromInt(y / 3)) * 0.1,
-                    0.0,
+                    0.5,
                 );
 
                 try cube.addComponent(resources.mesh);
@@ -183,7 +201,7 @@ pub const SpawnBoard = struct {
         try world.setParent(base.entity, self.entity);
 
         const root = world.entity(self.entity);
-        try root.addComponent(engine.Transform{});
+        try root.addComponent(self.transform);
         try root.addComponent(engine.GlobalTransform{});
         try root.addComponent(Board{
             .sudoku = sudoku,
@@ -315,6 +333,17 @@ pub fn boardInputSystem(
                 .Y => {
                     try q.board.actionLayer.attemptRedo(&q.board.sudoku);
                     try updateBoardNumbers(q.board, resources, materials);
+                },
+                .H => {
+                    //Grants a hint by revealing the a square of the solved sudoku
+                    const lastAction = try q.board.actionLayer.solveOne(&q.board.sudoku);
+                    //If oldvalue is 1, then its unsolvable
+                    if (lastAction.oldValue != 1) {
+
+                        //TODO: make the square just revealed turn blue
+
+                        try updateBoardNumbers(q.board, resources, materials);
+                    }
                 },
                 else => {},
             }

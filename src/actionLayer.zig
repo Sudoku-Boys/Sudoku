@@ -32,7 +32,6 @@ pub const ActionLayer = struct {
                     .value = action.value,
                     .oldValue = sudoku.get(action.coord), //this remembers
                 });
-
                 sudoku.set(action.coord, @intCast(action.value));
             },
             .CLEAR => {
@@ -123,6 +122,70 @@ pub const ActionLayer = struct {
                 //JK. No undoing that
             },
         }
+    }
+
+    //Places exactly N correct numbers on the current board, semi randomly
+    //Makes a copy of the board, solves it, and randomly picks squares with different numbers than the original board
+    fn solveN(self: *ActionLayer, sudoku: anytype, N: usize) !bool {
+        var sudokuCopy = sudoku.copy(self.allocator);
+        defer (sudokuCopy.deinit());
+
+        //Solving the copy to later compare to the original
+        if (!try solve.solve(.MRV, &sudokuCopy, self.allocator)) {
+            return false; //Can't solve N when its unsolvable
+        }
+
+        //We start by checking how many squares are empty
+        var Nreal: usize = 0;
+        for (0..(sudoku.size * sudoku.size - 1)) |i| {
+            if (sudoku.board[i] == 0) {
+                Nreal += 1;
+            }
+        }
+        //If there are fewer empty squares than the amount we want to solve, then clamp N.
+        if (N <= Nreal) {
+            Nreal = N;
+        }
+
+        //get ready to choose random numbers
+        var prng = std.rand.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+        const rand = prng.random();
+
+        //For each square we solve
+        for (0..Nreal) |i| {
+            _ = i;
+            var j: usize = 0;
+
+            while (true) {
+                //Generate a random index into the board
+                j = rand.uintAtMost(usize, sudoku.size * sudoku.size - 1);
+                if (sudoku.board[j] != sudokuCopy.board[j]) {
+                    //If the solved version of the board is different, we've found the square we need to modify
+                    break;
+                }
+            }
+
+            //Solving a square is an action
+            try self.executeAction(sudoku, Action{
+                .playerAction = PlayerActions.SET,
+                .coord = Coordinate{ .j = j % sudoku.size, .i = j / sudoku.size },
+                .value = sudokuCopy.board[j],
+            });
+        }
+        return true; //Everything went well
+    }
+
+    //Places exactly 1 correct number on the current board, semi randomly
+    pub fn solveOne(self: *ActionLayer, sudoku: anytype) !Action {
+        if (try self.solveN(sudoku, 1)) {
+            return self.actionStack.getLast();
+        }
+        return Action{ .playerAction = PlayerActions.SET, .oldValue = 1 };
+    }
+
+    //Simply returns the last action done
+    pub fn getLastAction(self: *ActionLayer) Action {
+        return self.actionStack.getLast();
     }
 
     pub fn init(allocator: std.mem.Allocator) ActionLayer {
