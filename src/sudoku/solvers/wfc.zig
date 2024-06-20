@@ -4,10 +4,7 @@ const EmptySentinel = Board.EmptySentinel;
 const Coordinate = @import("../Coordinate.zig");
 const assert = std.debug.assert;
 
-const WeightType = struct {
-    weight: usize,
-    coord: Coordinate
-};
+const WeightType = struct { weight: usize, coord: Coordinate };
 
 pub fn QuantumBoard(comptime SudokuT: type, comptime memory: Board.StorageMemory) type {
     return struct {
@@ -20,7 +17,6 @@ pub fn QuantumBoard(comptime SudokuT: type, comptime memory: Board.StorageMemory
             .STACK => [size * size]BitFieldType,
             .HEAP => []BitFieldType,
         };
-
 
         pub const DefaultValue: BitFieldType = (1 << SudokuT.N * SudokuT.K) - 1;
 
@@ -313,5 +309,5 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
             return weight;
         }
-        };
+    };
 }
