@@ -163,7 +163,6 @@ fn solve_internal(board: *const BoardType, allocator: std.mem.Allocator) !bool {
 // cell with each possible number in it
 pub fn solve(self: Self, sudoku: anytype, allocator: std.mem.Allocator) !bool {
     _ = self;
-    std.debug.print("Inside of wfc!\n", .{});
 
     // check input
     if (sudoku.n != sudoku.k) {
