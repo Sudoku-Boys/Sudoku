@@ -290,7 +290,6 @@ pub fn boardInputSystem(
                     selected %= size;
                 },
                 .P => {
-                    _ = try solve.solve(.WFC, &q.board.sudoku, allocator);
                     try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
                         .playerAction = aLayer.PlayerActions.PSOLVE,
                     });

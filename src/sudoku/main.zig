@@ -15,22 +15,39 @@ pub fn main() !void {
     //var b = parser.from(board_stencil);
     //defer b.deinit();
     //
-    ////b.set_row(0, .{ 3, 0, 6, 5, 0, 8, 4, 0, 0 });
-    ////b.set_row(1, .{ 5, 2, 0, 0, 0, 0, 0, 0, 0 });
-    ////b.set_row(2, .{ 0, 8, 7, 0, 0, 0, 0, 3, 1 });
-    ////b.set_row(3, .{ 0, 0, 3, 0, 1, 0, 0, 8, 0 });
-    ////b.set_row(4, .{ 9, 0, 0, 8, 6, 3, 0, 0, 5 });
-    ////b.set_row(5, .{ 0, 5, 0, 0, 9, 0, 6, 0, 0 });
-    ////b.set_row(6, .{ 1, 3, 0, 0, 0, 0, 2, 5, 0 });
-    ////b.set_row(7, .{ 0, 0, 0, 0, 0, 0, 0, 7, 4 });
-    ////b.set_row(8, .{ 0, 0, 5, 2, 0, 6, 3, 0, 0 });
-    //
-    //
-    //_ = try b.display(writer);
-    //
-    //const solveable = try solve.solve(.ADVANCED, &b, &optionalAllocator);
-    //
-    //_ = try b.display(writer);
+
+    var b = board.DefaultBoard.init(optionalAllocator);
+
+    b.set_row(0, .{ 0, 0, 5, 0, 0, 0, 0, 9, 0 });
+    b.set_row(1, .{ 0, 8, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(2, .{ 0, 0, 0, 0, 0, 0, 0, 2, 0 });
+    b.set_row(3, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(4, .{ 0, 6, 0, 0, 0, 3, 0, 0, 8 });
+    b.set_row(5, .{ 0, 0, 0, 0, 0, 0, 2, 0, 0 });
+    b.set_row(6, .{ 0, 0, 0, 0, 4, 0, 0, 0, 0 });
+    b.set_row(7, .{ 0, 0, 0, 5, 0, 0, 8, 0, 0 });
+    b.set_row(8, .{ 1, 0, 3, 0, 0, 0, 0, 0, 0 });
+
+    b.clear();
+
+    b.set_row(0, .{ 0, 0, 0, 0, 0, 0, 7, 8, 0 });
+    b.set_row(1, .{ 4, 0, 0, 0, 0, 0, 0, 0, 9 });
+    b.set_row(2, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(3, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(4, .{ 0, 0, 0, 9, 0, 0, 0, 0, 0 });
+    b.set_row(5, .{ 0, 5, 8, 0, 0, 0, 3, 6, 0 });
+    b.set_row(6, .{ 6, 0, 9, 0, 0, 0, 0, 0, 0 });
+    b.set_row(7, .{ 0, 0, 0, 8, 7, 0, 0, 0, 0 });
+    b.set_row(8, .{ 0, 0, 4, 0, 0, 0, 0, 0, 0 });
+
+    const writer = std.io.getStdOut().writer();
+
+    _ = try b.display(writer);
+
+    _ = try solve.solve(.WFC, &b, optionalAllocator);
+
+    _ = try b.display(writer);
+
     //
     //std.debug.print("Solveable: {}\n", .{solveable});
     //
@@ -44,16 +61,17 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    const K = 4;
-    const N = 4;
+    std.process.exit(0);
+
+    const K = 3;
+    const N = 3;
 
     var stencil = parse.Stencil(K, N).init(optionalAllocator);
-    const writer = std.io.getStdOut().writer();
     var buffer_writer = std.io.bufferedWriter(writer);
 
     for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
-        var b2 = puzzle_gen.generate_puzzle(K, N, 25, optionalAllocator) catch continue;
+        var b2 = puzzle_gen.generate_puzzle(K, N, 20, optionalAllocator) catch continue;
         const v = stencil.into(b2) catch continue;
         _ = try b2.display(&buffer_writer);
         _ = try buffer_writer.write(v);
