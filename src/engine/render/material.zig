@@ -36,14 +36,14 @@ pub const MaterialPipeline = struct {
     color_attachment: vk.GraphicsPipeline.ColorBlendAttachment = .{},
 };
 
-pub const Context = struct {
+pub const MaterialContext = struct {
     device: vk.Device,
     staging_buffer: *vk.StagingBuffer,
     images: asset.Assets(PreparedImage),
     white_image: PreparedImage,
     normal_image: PreparedImage,
 
-    pub fn get_image(self: Context, optional_id: ?asset.AssetId(Image)) PreparedImage {
+    pub fn get_image(self: MaterialContext, optional_id: ?asset.AssetId(Image)) PreparedImage {
         if (optional_id) |id| {
             return self.images.get(id.cast(PreparedImage)) orelse self.white_image;
         } else {
@@ -51,7 +51,7 @@ pub const Context = struct {
         }
     }
 
-    pub fn get_normal_map(self: Context, optional_id: ?asset.AssetId(Image)) PreparedImage {
+    pub fn get_normal_map(self: MaterialContext, optional_id: ?asset.AssetId(Image)) PreparedImage {
         if (optional_id) |id| {
             return self.images.get(id.cast(PreparedImage)) orelse self.normal_image;
         } else {
@@ -226,7 +226,7 @@ pub fn MaterialPlugin(comptime T: type) type {
             images: *asset.Assets(PreparedImage),
             fallabck_images: *FallbackImages,
         ) !void {
-            const context = Context{
+            const context = MaterialContext{
                 .device = device.*,
                 .staging_buffer = staging_buffer,
                 .images = images.*,

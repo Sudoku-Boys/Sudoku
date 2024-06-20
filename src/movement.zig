@@ -2,7 +2,7 @@ const engine = @import("engine.zig");
 const std = @import("std");
 
 pub const PlayerMovement = struct {
-    moveSpeed: f32 = 10.0,
+    moveSpeed: f32 = 3.0,
     mouseSensitivity: f32 = 1.0,
     window: *engine.Window,
     grabbed: bool = false,
@@ -51,7 +51,7 @@ pub fn moveSystem(
 
         //moving the view with the mouse
         const mouseDelta = q.movement.window.mousePosition().sub(q.movement.lastMousePostition);
-        q.movement.lastMousePostition = q.movement.window.*.mousePosition();
+        q.movement.lastMousePostition = q.movement.window.mousePosition();
 
         if (q.movement.window.isMouseDown(0)) {
             q.movement.grabbed = true;
@@ -66,6 +66,12 @@ pub fn moveSystem(
                 mouseDelta.mul(q.movement.mouseSensitivity * 0.001),
             );
 
+            q.movement.viewDirection._.y = std.math.clamp(
+                q.movement.viewDirection._.y,
+                -0.1,
+                0.1,
+            );
+
             const rotX = engine.Quat.rotateY(q.movement.viewDirection._.x);
             const rotY = engine.Quat.rotateX(q.movement.viewDirection._.y);
 
@@ -73,6 +79,6 @@ pub fn moveSystem(
         }
 
         // bobbing
-        q.transform.translation._.y = 2 + @sin(q.movement.time_moved * 10.0) * 0.1;
+        q.transform.translation._.y = 2 + @sin(q.movement.time_moved * 7.0) * 0.05;
     }
 }
