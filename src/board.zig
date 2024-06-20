@@ -44,7 +44,8 @@ pub const BoardResources = struct {
             const path = try std.fmt.allocPrint(world.allocator, "assets/{}.qoi", .{i + 1});
             defer world.allocator.free(path);
 
-            const image = try engine.Image.load_qoi(world.allocator, path);
+            var image = try engine.Image.load_qoi(world.allocator, path);
+            image.filter = .Nearest;
 
             numbers[i] = try images.add(image);
         }
@@ -212,12 +213,13 @@ pub const SpawnBoard = struct {
     }
 };
 
-pub fn spawnBoard(commands: engine.Commands) !engine.Entity {
+pub fn spawnBoard(commands: engine.Commands, transform: engine.Transform,) !engine.Entity {
     const root = try commands.spawn();
     const entity = root.entity;
 
     try commands.append(SpawnBoard{
         .entity = entity,
+        .transform = transform,
     });
 
     return entity;

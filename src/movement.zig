@@ -51,7 +51,7 @@ pub fn moveSystem(
 
         //moving the view with the mouse
         const mouseDelta = q.movement.window.mousePosition().sub(q.movement.lastMousePostition);
-        q.movement.lastMousePostition = q.movement.window.*.mousePosition();
+        q.movement.lastMousePostition = q.movement.window.mousePosition();
 
         if (q.movement.window.isMouseDown(0)) {
             q.movement.grabbed = true;
@@ -64,6 +64,12 @@ pub fn moveSystem(
         if (q.movement.grabbed) {
             q.movement.viewDirection = q.movement.viewDirection.add(
                 mouseDelta.mul(q.movement.mouseSensitivity * 0.001),
+            );
+
+            q.movement.viewDirection._.y = std.math.clamp(
+                q.movement.viewDirection._.y,
+                -0.1,
+                0.1,
             );
 
             const rotX = engine.Quat.rotateY(q.movement.viewDirection._.x);

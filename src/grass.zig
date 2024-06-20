@@ -27,7 +27,7 @@ fn generateBlade(
         const v = @as(f32, @floatFromInt(i)) /
             @as(f32, @floatFromInt(segments - 1));
 
-        const width_factor = std.math.pow(f32, 1.0 - v, 0.3);
+        const width_factor = std.math.pow(f32, 1.0 - v, 0.8);
 
         const right = engine.Vec3.init(
             width / 2.0 * width_factor * @sin(angle) + offset_x,

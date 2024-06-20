@@ -27,7 +27,7 @@ fn startup(
     const grass_material = grass.Material{};
     const grass_material_handle = try grass_materials.add(grass_material);
 
-    const grass_instances = 6;
+    const grass_instances = 4;
 
     for (0..grass_instances) |i| {
         for (0..grass_instances) |j| {
@@ -47,7 +47,7 @@ fn startup(
         }
     }
 
-    const ground_mesh = try engine.Mesh.plane(allocator, 1000.0, 0xffffffff);
+    const ground_mesh = try engine.Mesh.plane(allocator, 100.0, 0xffffffff);
     const ground_mesh_handle = try meshes.add(ground_mesh);
 
     const ground_material = engine.StandardMaterial{
@@ -69,7 +69,9 @@ fn startup(
         .window = winPtr,
     });
 
-    _ = try board.spawnBoard(commands);
+    _ = try board.spawnBoard(commands, .{
+        .translation = engine.Vec3.init(0.0, 6.0, -10.0),
+    });
 }
 
 pub fn main() !void {
