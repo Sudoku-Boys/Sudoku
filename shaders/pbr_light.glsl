@@ -137,7 +137,7 @@ vec3 pbr_light_surface(PbrPixel pixel, Light light) {
 
     color *= light.color * light.intensity * light.attenuation;
 
-    return color;
+    return max(color, vec3(0.0));
 }
 
 vec3 pbr_light_directional(

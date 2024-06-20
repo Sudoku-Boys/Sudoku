@@ -136,7 +136,7 @@ pub fn update(
     self: StandardMaterial,
     state: *State,
     bind_group: vk.BindGroup,
-    cx: material.Context,
+    cx: material.MaterialContext,
 ) !void {
     const uniforms = Uniforms{
         .color = self.color.asArray(),
