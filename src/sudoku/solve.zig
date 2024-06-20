@@ -1,11 +1,11 @@
 const std = @import("std");
 const naive = @import("solvers/naive.zig");
 const basic = @import("solvers/basic.zig");
-const advanced = @import("solvers/advanced.zig");
+const mrv = @import("solvers/mrv.zig");
 const simd = @import("solvers/simd.zig");
 const wfc = @import("solvers/wfc.zig");
 
-pub const Solvers = enum { NAIVE, BASIC, ADVANCED, SIMD, WFC };
+pub const Solvers = enum { NAIVE, BASIC, MRV, SIMD, WFC };
 
 const Self = @This();
 
@@ -28,8 +28,8 @@ pub fn solve(solver: Solvers, sudoku: anytype, allocator: std.mem.Allocator) !bo
     return switch (solver) {
         .NAIVE => naive.init().solve(sudoku),
         .BASIC => basic.init().solve(sudoku),
-        .ADVANCED => {
-            var s = advanced.init(allocator);
+        .MRV => {
+            var s = mrv.init(allocator);
             defer s.deinit();
             return try s.solve(sudoku);
         },
@@ -45,11 +45,11 @@ test "Backtrack solve advanced" {
     var allocator = std.testing.allocator;
 
     const puzzle = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
-    var parser = @import("parse.zig").Stencil(3, 3, .BITFIELD).init(allocator);
+    var parser = @import("parse.zig").Stencil(3, 3).init(allocator);
     var board = parser.from(puzzle);
     defer board.deinit();
 
-    var solver = advanced.init(allocator);
+    var solver = mrv.init(allocator);
     defer solver.deinit();
 
     const has_solution = try solver.solve(&board);

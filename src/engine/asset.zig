@@ -318,7 +318,7 @@ pub fn Assets(comptime T: type) type {
         }
 
         /// Get a pointer to the asset with the given `id`.
-        pub fn getPtr(self: Self, id: AssetId(T)) ?*T {
+        pub fn getPtr(self: *Self, id: AssetId(T)) !?*T {
             if (self.getAsset(id)) |entry| {
                 const e = AssetEvent(T){ .Modified = id };
                 try self.events.append(self.allocator, e);
@@ -354,7 +354,7 @@ pub fn Assets(comptime T: type) type {
 
             pub fn next(self: *AssetIterator) ?*T {
                 if (self.it.next()) |entry| {
-                    return &entry.value_ptr.asset;
+                    return &entry.value_ptr.item;
                 }
 
                 return null;

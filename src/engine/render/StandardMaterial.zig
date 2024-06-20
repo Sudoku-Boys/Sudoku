@@ -19,6 +19,8 @@ metallic: f32 = 0.01,
 roughness: f32 = 0.089,
 reflectance: f32 = 0.5,
 
+roughness_texture: ?asset.AssetId(Image) = null,
+
 normal_map: ?asset.AssetId(Image) = null,
 
 emissive: Color = Color.BLACK,
@@ -67,6 +69,11 @@ pub fn bindGroupLayoutEntries() []const vk.BindGroupLayout.Entry {
         },
         .{
             .binding = 2,
+            .type = .CombinedImageSampler,
+            .stages = .{ .fragment = true },
+        },
+        .{
+            .binding = 3,
             .type = .CombinedImageSampler,
             .stages = .{ .fragment = true },
         },
@@ -129,7 +136,7 @@ pub fn update(
     self: StandardMaterial,
     state: *State,
     bind_group: vk.BindGroup,
-    cx: material.Context,
+    cx: material.MaterialContext,
 ) !void {
     const uniforms = Uniforms{
         .color = self.color.asArray(),
@@ -159,6 +166,7 @@ pub fn update(
     });
 
     const color = cx.get_image(self.color_texture);
+    const roughness = cx.get_image(self.roughness_texture);
     const normal = cx.get_normal_map(self.normal_map);
 
     cx.device.updateBindGroups(.{
@@ -183,6 +191,15 @@ pub fn update(
             .{
                 .dst = bind_group,
                 .binding = 2,
+                .resource = .{ .combined_image = .{
+                    .sampler = roughness.sampler,
+                    .view = roughness.view,
+                    .layout = .ShaderReadOnlyOptimal,
+                } },
+            },
+            .{
+                .dst = bind_group,
+                .binding = 3,
                 .resource = .{ .combined_image = .{
                     .sampler = normal.sampler,
                     .view = normal.view,

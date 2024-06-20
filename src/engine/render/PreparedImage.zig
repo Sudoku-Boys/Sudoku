@@ -86,12 +86,20 @@ pub fn system(
                     },
                 });
 
+                const filter = switch (image.filter) {
+                    .Nearest => vk.Filter.Nearest,
+                    .Linear => vk.Filter.Linear,
+                };
+
                 _ = try prepared.put(id.cast(PreparedImage), .{
                     .image = vk_image,
                     .view = try vk_image.createView(.{
                         .aspect = .{ .color = true },
                     }),
-                    .sampler = try device.createSampler(.{}),
+                    .sampler = try device.createSampler(.{
+                        .mag_filter = filter,
+                        .min_filter = filter,
+                    }),
                 });
             },
             .Removed => |id| {

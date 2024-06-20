@@ -13,7 +13,6 @@ pub fn solve(self: Self, sudoku: anytype) !bool {
 }
 
 // This gets stuck on a lot of solutions, taken from here https://www.geeksforgeeks.org/sudoku-backtracking-7/.
-// TODO generalize sudoku struct more.
 fn naive_solve(self: Self, sudoku: anytype, row: usize, col: usize) bool {
     if (row == sudoku.size and col == 0) {
         return true;

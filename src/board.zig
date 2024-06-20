@@ -2,8 +2,27 @@ const std = @import("std");
 
 const engine = @import("engine.zig");
 const board = @import("sudoku/board.zig");
+const Coordinate = @import("sudoku/Coordinate.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 const solve = @import("sudoku/solve.zig");
+const parse = @import("sudoku/parse.zig");
+const aLayer = @import("actionLayer.zig");
+
+pub const Board = struct {
+    selected: ?usize,
+
+    numbers: std.ArrayList(engine.Entity),
+
+    sudoku: board.DefaultBoard,
+
+    actionLayer: aLayer.ActionLayer,
+
+    pub fn deinit(self: *Board) void {
+        self.sudoku.deinit();
+        self.numbers.deinit();
+        self.actionLayer.deinit();
+    }
+};
 
 pub const BoardResources = struct {
     mesh: engine.AssetId(engine.Mesh),
@@ -25,7 +44,8 @@ pub const BoardResources = struct {
             const path = try std.fmt.allocPrint(world.allocator, "assets/{}.qoi", .{i + 1});
             defer world.allocator.free(path);
 
-            const image = try engine.Image.load_qoi(world.allocator, path);
+            var image = try engine.Image.load_qoi(world.allocator, path);
+            image.filter = .Nearest;
 
             numbers[i] = try images.add(image);
         }
@@ -34,10 +54,27 @@ pub const BoardResources = struct {
         const mesh = try engine.Mesh.cube(world.allocator, 0.5, 0xffffffff);
         const mesh_handle = try meshes.add(mesh);
 
+        const base_diffuse = try images.add(try engine.Image.load_qoi(
+            world.allocator,
+            "assets/leather/diffuse.qoi",
+        ));
+
+        const base_roughness = try images.add(try engine.Image.load_qoi(
+            world.allocator,
+            "assets/leather/roughness.qoi",
+        ));
+
+        const base_normal = try images.add(try engine.Image.load_qoi(
+            world.allocator,
+            "assets/leather/normal.qoi",
+        ));
+
         const base_handle = try materials.add(
             engine.StandardMaterial{
-                .color = engine.Color.rgb(0.4, 0.4, 0.4),
-                .metallic = 0.91,
+                .color = engine.Color.WHITE,
+                .color_texture = base_diffuse,
+                .roughness_texture = base_roughness,
+                .normal_map = base_normal,
             },
         );
 
@@ -103,42 +140,22 @@ pub const BoardResources = struct {
     }
 };
 
-pub const Board = struct {
-    selected: ?usize,
-
-    numbers: std.ArrayList(engine.Entity),
-
-    sudoku: board.DefaultBoard,
-
-    pub fn deinit(self: *Board) void {
-        self.sudoku.deinit();
-        self.numbers.deinit();
-    }
-};
-
 pub const SpawnBoard = struct {
     entity: engine.Entity,
+    transform: engine.Transform = .{},
 
     pub fn apply(self: *SpawnBoard, world: *engine.World) !void {
         const resources = try world.resourceOrInit(BoardResources);
 
         var numbers = std.ArrayList(engine.Entity).init(world.allocator);
 
-        // var sudoku = try puzzle_gen.generate_puzzle(3, 3, 70, world.allocator);
-        // errdefer sudoku.deinit();
-        var sudoku: board.Board(3, 3, .MATRIX, .HEAP) = undefined;
-        std.debug.print("beginning sudoku puzzle generation\n", .{});
-        while (true) {
-            std.debug.print("\tattempting to generate sudoku puzzle\n", .{});
-            sudoku = puzzle_gen.generate_puzzle(3, 3, 20, world.allocator) catch continue;
-            break;
-        }
+        var sudoku = board.DefaultBoard.init(world.allocator);
         errdefer sudoku.deinit();
 
         const size = engine.Vec3.init(
             @floatFromInt(sudoku.size - 1),
             @floatFromInt(sudoku.size - 1),
-            0.0,
+            0.5,
         ).add(0.2);
 
         const offset = size.div(-2.0);
@@ -155,7 +172,7 @@ pub const SpawnBoard = struct {
                 const position = engine.Vec3.init(
                     @as(f32, @floatFromInt(x)) + @as(f32, @floatFromInt(x / 3)) * 0.1,
                     @as(f32, @floatFromInt(y)) + @as(f32, @floatFromInt(y / 3)) * 0.1,
-                    0.0,
+                    0.5,
                 );
 
                 try cube.addComponent(resources.mesh);
@@ -185,22 +202,27 @@ pub const SpawnBoard = struct {
         try world.setParent(base.entity, self.entity);
 
         const root = world.entity(self.entity);
-        try root.addComponent(engine.Transform{});
+        try root.addComponent(self.transform);
         try root.addComponent(engine.GlobalTransform{});
         try root.addComponent(Board{
             .sudoku = sudoku,
             .selected = null,
             .numbers = numbers,
+            .actionLayer = aLayer.ActionLayer.init(world.allocator),
         });
     }
 };
 
-pub fn spawnBoard(commands: engine.Commands) !engine.Entity {
+pub fn spawnBoard(
+    commands: engine.Commands,
+    transform: engine.Transform,
+) !engine.Entity {
     const root = try commands.spawn();
     const entity = root.entity;
 
     try commands.append(SpawnBoard{
         .entity = entity,
+        .transform = transform,
     });
 
     return entity;
@@ -252,21 +274,11 @@ pub fn boardInputSystem(
 
             switch (key) {
                 .Right => {
-                    const oldy = selected / q.board.sudoku.size;
                     selected += 1;
-                    const newy = selected / q.board.sudoku.size;
-                    if (oldy < newy) {
-                        selected -= q.board.sudoku.size;
-                    }
                     selected %= size;
                 },
                 .Left => {
-                    const oldy = (selected + size) / q.board.sudoku.size;
                     selected += size - 1;
-                    const newy = selected / q.board.sudoku.size;
-                    if (oldy > newy) {
-                        selected += q.board.sudoku.size;
-                    }
                     selected %= size;
                 },
                 .Up => {
@@ -279,28 +291,29 @@ pub fn boardInputSystem(
                 },
                 .P => {
                     _ = try solve.solve(.WFC, &q.board.sudoku, allocator);
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.PSOLVE,
+                    });
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .C => {
-                    q.board.sudoku.clear();
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.CLEAR,
+                    });
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .R => {
                     q.board.sudoku.deinit();
 
-                    // var sudoku = try puzzle_gen.generate_puzzle(3, 3, 70, world.allocator);
-                    // errdefer sudoku.deinit();
-
-                    var sudoku: board.Board(3, 3, .MATRIX, .HEAP) = undefined;
-                    std.debug.print("beginning sudoku puzzle generation\n", .{});
-                    while (true) {
-                        std.debug.print("\tattempting to generate sudoku puzzle\n", .{});
-                        sudoku = puzzle_gen.generate_puzzle(3, 3, 20, allocator) catch continue;
-                        break;
-                    }
+                    var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, 20, allocator, 15);
                     errdefer sudoku.deinit();
 
                     q.board.sudoku = sudoku;
+
+                    //We need to inform the actionlayer that we made a new sudoku
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.REGENERATE,
+                    });
 
                     try updateBoardNumbers(q.board, resources, materials);
                 },
@@ -312,7 +325,30 @@ pub fn boardInputSystem(
                     };
 
                     if (q.board.sudoku.is_safe_move(coord, @intCast(number))) {
-                        q.board.sudoku.set(coord, @intCast(number));
+                        try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                            .playerAction = aLayer.PlayerActions.SET,
+                            .coord = coord,
+                            .value = @intCast(number),
+                        });
+                    }
+                },
+                .Z => {
+                    try q.board.actionLayer.undoLast(&q.board.sudoku);
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .Y => {
+                    try q.board.actionLayer.attemptRedo(&q.board.sudoku);
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .H => {
+                    //Grants a hint by revealing the a square of the solved sudoku
+                    const lastAction = try q.board.actionLayer.solveOne(&q.board.sudoku);
+                    //If oldvalue is 1, then its unsolvable
+                    if (lastAction.oldValue != 1) {
+
+                        //TODO: make the square just revealed turn blue
+
+                        try updateBoardNumbers(q.board, resources, materials);
                     }
                 },
                 else => {},
