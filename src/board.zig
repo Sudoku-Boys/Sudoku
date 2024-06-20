@@ -334,6 +334,17 @@ pub fn boardInputSystem(
                     try q.board.actionLayer.attemptRedo(&q.board.sudoku);
                     try updateBoardNumbers(q.board, resources, materials);
                 },
+                .H => {
+                    //Grants a hint by revealing the a square of the solved sudoku
+                    const lastAction = try q.board.actionLayer.solveOne(&q.board.sudoku);
+                    //If oldvalue is 1, then its unsolvable
+                    if (lastAction.oldValue != 1) {
+
+                        //TODO: make the square just revealed turn blue
+
+                        try updateBoardNumbers(q.board, resources, materials);
+                    }
+                },
                 else => {},
             }
 

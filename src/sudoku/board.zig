@@ -341,6 +341,15 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             self.clear_constraints();
         }
 
+        pub fn copy(self: Self, allocator: std.mem.Allocator) Board(K, N, .HEAP) {
+            const new_board = Board(K, N, .HEAP).init(allocator);
+
+            std.mem.copyForwards(Storage.ValueType, new_board.board, self.board);
+            std.mem.copyForwards(Storage.BitFieldType, new_board.constraints, self.constraints);
+
+            return new_board;
+        }
+
         /// Get the value of the field at i, j.
         pub inline fn get(self: *const Self, coordinate: Coordinate) Storage.ValueType {
             assert(self.size == size);
@@ -449,7 +458,6 @@ pub fn Board(comptime _K: u16, comptime _N: u16, comptime memory: StorageMemory)
             }
         }
 
-        /// TODO optimize this and is_safe_move when in bitfield mode.
         fn iterator_contains(self: *Self, iterator: anytype, value: Storage.ValueType) bool {
             while (iterator.next()) |current| {
                 if (self.get(current) == value) {
@@ -708,4 +716,26 @@ test "Test internal bitfield implementation" {
 
     // This sets the first bit in 3 constraints.
     b.set(.{ .i = 0, .j = 0 }, 1);
+}
+
+test "Test Copy" {
+    var b = DefaultBoard.init(std.testing.allocator);
+    defer b.deinit();
+
+    b.set(.{ .i = 0, .j = 0 }, 1);
+    b.set(.{ .i = 0, .j = 1 }, 2);
+    b.set(.{ .i = 1, .j = 0 }, 3);
+    b.set(.{ .i = 1, .j = 1 }, 0);
+
+    var c = b.copy(std.testing.allocator);
+    defer c.deinit();
+
+    try expect(c.get(.{ .i = 0, .j = 0 }) == 1);
+    try expect(c.get(.{ .i = 0, .j = 1 }) == 2);
+    try expect(c.get(.{ .i = 1, .j = 0 }) == 3);
+    try expect(c.get(.{ .i = 1, .j = 1 }) == 0);
+
+    // CHange c and make sure b is not changed.
+    c.set(.{ .i = 0, .j = 0 }, 0);
+    try expect(b.get(.{ .i = 0, .j = 0 }) == 1);
 }

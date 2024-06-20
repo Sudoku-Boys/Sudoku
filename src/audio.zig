@@ -37,7 +37,7 @@ pub const Plugin = struct {
 
         result = c.ma_sound_init_from_file(
             &audio.engine,
-            "summer_rain_rain.flac",
+            "Clair-de-lune-piano.flac",
             c.MA_SOUND_FLAG_STREAM,
             null,
             null,
