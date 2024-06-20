@@ -278,7 +278,7 @@ pub fn boardInputSystem(
                     selected %= size;
                 },
                 .P => {
-                    _ = try solve.solve(.ADVANCED, &q.board.sudoku, allocator);
+                    _ = try solve.solve(.WFC, &q.board.sudoku, allocator);
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .C => {

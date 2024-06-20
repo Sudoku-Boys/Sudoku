@@ -3,8 +3,9 @@ const naive = @import("solvers/naive.zig");
 const basic = @import("solvers/basic.zig");
 const advanced = @import("solvers/advanced.zig");
 const simd = @import("solvers/simd.zig");
+const wfc = @import("solvers/wfc.zig");
 
-pub const Solvers = enum { NAIVE, BASIC, ADVANCED, SIMD };
+pub const Solvers = enum { NAIVE, BASIC, ADVANCED, SIMD, WFC };
 
 const Self = @This();
 
@@ -33,6 +34,9 @@ pub fn solve(solver: Solvers, sudoku: anytype, allocator: std.mem.Allocator) !bo
             return try s.solve(sudoku);
         },
         //.SIMD => simd.solve(sudoku),
+        .WFC => {
+            return wfc.init().solve(sudoku, allocator);
+        },
         else => unreachable,
     };
 }
