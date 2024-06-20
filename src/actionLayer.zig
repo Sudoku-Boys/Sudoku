@@ -130,6 +130,7 @@ pub const ActionLayer = struct {
         var sudokuCopy = sudoku.copy(self.allocator);
         defer (sudokuCopy.deinit());
 
+        //Solving the copy to later compare to the original
         if (!try solve.solve(.MRV, &sudokuCopy, self.allocator)) {
             return false; //Can't solve N when its unsolvable
         }
@@ -154,6 +155,7 @@ pub const ActionLayer = struct {
         for (0..Nreal) |i| {
             _ = i;
             var j: usize = 0;
+
             while (true) {
                 //Generate a random index into the board
                 j = rand.uintAtMost(usize, sudoku.size * sudoku.size - 1);
@@ -162,13 +164,15 @@ pub const ActionLayer = struct {
                     break;
                 }
             }
+
+            //Solving a square is an action
             try self.executeAction(sudoku, Action{
                 .playerAction = PlayerActions.SET,
                 .coord = Coordinate{ .j = j % sudoku.size, .i = j / sudoku.size },
                 .value = sudokuCopy.board[j],
             });
         }
-        return true;
+        return true; //Everything went well
     }
 
     //Places exactly 1 correct number on the current board, semi randomly
