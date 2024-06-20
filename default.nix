@@ -36,6 +36,8 @@ pkgs.stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out/bin
     cp zig-out/bin/Sudoku $out/bin
+    cp summer_rain_rain.flac $out/bin
+    cp -r assets $out/bin
   '';
 
   postFixup = ''

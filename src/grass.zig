@@ -3,6 +3,10 @@ const vk = @import("vulkan");
 
 const engine = @import("engine.zig");
 
+fn random(st: engine.Vec2) f32 {
+    return @mod(@sin(st.dot(engine.Vec2.init(12.9898, 78.233))) * 43758.5453123, 1.0);
+}
+
 fn generateBlade(
     position: engine.Vec3,
     positions: *engine.Mesh.Vertices([3]f32),
@@ -10,16 +14,31 @@ fn generateBlade(
     stiffness: *engine.Mesh.Vertices(f32),
     indices: *std.ArrayList(u32),
 ) !void {
-    const segments = 8;
-    const width = 0.1;
-    const height = 1.0;
+    const segments = 6;
+    const width = 0.08;
+    const height = 1.3;
+
+    const angle = random(position.swizzle("xz")) * 3.14159 * 2.0;
+
+    const offset_x = random(position.swizzle("xz").add(132.0)) * 0.1 - 0.05;
+    const offset_z = random(position.swizzle("xz").add(567.0)) * 0.1 - 0.05;
 
     for (0..segments) |i| {
         const v = @as(f32, @floatFromInt(i)) /
             @as(f32, @floatFromInt(segments - 1));
 
-        const right = engine.Vec3.init(width / 2.0, v * height, 0.0);
-        const left = engine.Vec3.init(-width / 2.0, v * height, 0.0);
+        const width_factor = std.math.pow(f32, 1.0 - v, 0.3);
+
+        const right = engine.Vec3.init(
+            width / 2.0 * width_factor * @sin(angle) + offset_x,
+            v * height,
+            width / 2.0 * width_factor * @cos(angle) + offset_z,
+        );
+        const left = engine.Vec3.init(
+            -width / 2.0 * width_factor * @sin(angle) + offset_x,
+            v * height,
+            -width / 2.0 * width_factor * @cos(angle) + offset_z,
+        );
 
         try positions.append(position.add(right).f);
         try positions.append(position.add(left).f);
@@ -27,6 +46,7 @@ fn generateBlade(
         try tex_coords.append(.{ 0.0, v });
         try tex_coords.append(.{ 1.0, v });
 
+        try stiffness.append(1.0 - v);
         try stiffness.append(1.0 - v);
 
         if (i > 0) {
@@ -57,10 +77,10 @@ pub fn generateMesh(allocator: std.mem.Allocator) !engine.Mesh {
     const tex_coords = mesh.getAttributePtr([2]f32, engine.Mesh.TEX_COORD_0).?;
     const stiffness = mesh.getAttributePtr(f32, "stiffness").?;
 
-    for (0..100) |x_i| {
-        for (0..100) |z_i| {
-            const x = @as(f32, @floatFromInt(x_i)) / 100.0;
-            const z = @as(f32, @floatFromInt(z_i)) / 100.0;
+    for (0..500) |x_i| {
+        for (0..500) |z_i| {
+            const x = @as(f32, @floatFromInt(x_i)) / 10.0 - 25.0;
+            const z = @as(f32, @floatFromInt(z_i)) / 10.0 - 25.0;
             const position = engine.Vec3.init(x, 0.0, z);
 
             try generateBlade(
@@ -76,9 +96,19 @@ pub fn generateMesh(allocator: std.mem.Allocator) !engine.Mesh {
     return mesh;
 }
 
+pub fn system(
+    time: *engine.Time,
+    materials: *engine.Assets(Material),
+) !void {
+    var it = materials.iterator();
+    while (it.next()) |entry| {
+        _ = try materials.getPtr(entry.id);
+        entry.asset.item.time = time.since_start;
+    }
+}
+
 pub const Material = struct {
     time: f32 = 0.0,
-    texture: ?engine.AssetId(engine.Image) = null,
 
     pub fn vertexShader() vk.Spirv {
         return vk.embedSpirv(@embedFile("shaders/grass.vert"));
@@ -91,9 +121,6 @@ pub const Material = struct {
     pub fn vertexAttributes() []const engine.VertexAttribute {
         return &.{
             .{ .name = engine.Mesh.POSITION, .format = .f32x3 },
-            .{ .name = engine.Mesh.NORMAL, .format = .f32x3 },
-            .{ .name = engine.Mesh.TANGENT, .format = .f32x4 },
-            .{ .name = engine.Mesh.TEX_COORD_0, .format = .f32x2 },
             .{ .name = "stiffness", .format = .f32x1 },
         };
     }
@@ -103,12 +130,15 @@ pub const Material = struct {
             .{
                 .binding = 0,
                 .type = .UniformBuffer,
-                .stages = .{ .fragment = true },
+                .stages = .{ .vertex = true, .fragment = true },
             },
-            .{
-                .binding = 1,
-                .type = .CombinedImageSampler,
-                .stages = .{ .fragment = true },
+        };
+    }
+
+    pub fn materialPipeline() engine.MaterialPipeline {
+        return .{
+            .rasterization = .{
+                .cull_mode = .{},
             },
         };
     }
@@ -158,8 +188,6 @@ pub const Material = struct {
             .size = @sizeOf(Uniforms),
         });
 
-        const texture = cx.get_image(self.texture);
-
         cx.device.updateBindGroups(.{
             .writes = &.{
                 .{
@@ -168,15 +196,6 @@ pub const Material = struct {
                     .resource = .{ .buffer = .{
                         .buffer = state.uniform_buffer,
                         .size = @sizeOf(Uniforms),
-                    } },
-                },
-                .{
-                    .dst = bind_group,
-                    .binding = 1,
-                    .resource = .{ .combined_image = .{
-                        .sampler = texture.sampler,
-                        .view = texture.view,
-                        .layout = .ShaderReadOnlyOptimal,
                     } },
                 },
             },

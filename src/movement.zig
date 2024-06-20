@@ -2,7 +2,7 @@ const engine = @import("engine.zig");
 const std = @import("std");
 
 pub const PlayerMovement = struct {
-    moveSpeed: f32 = 10.0,
+    moveSpeed: f32 = 3.0,
     mouseSensitivity: f32 = 1.0,
     window: *engine.Window,
     grabbed: bool = false,
@@ -73,6 +73,6 @@ pub fn moveSystem(
         }
 
         // bobbing
-        q.transform.translation._.y = 2 + @sin(q.movement.time_moved * 10.0) * 0.1;
+        q.transform.translation._.y = 2 + @sin(q.movement.time_moved * 7.0) * 0.05;
     }
 }
