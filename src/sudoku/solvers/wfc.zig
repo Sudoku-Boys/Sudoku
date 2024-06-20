@@ -259,6 +259,10 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                     continue;
                 }
 
+                // if (!Self.validate_board(newBoard)) {
+                //     return false;
+                // }
+
                 if (Self.solve_internal(&newBoard, allocator)) {
                     board.copy(newBoard);
                     return true;
@@ -268,10 +272,89 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             return false;
         }
 
-        fn rank_cell(board: QBoard, coord: Coordinate) QBoard.BitFieldType {
-            var pop = @popCount(board.get(coord));
+        fn validate_board(board: QBoard) bool {
+            const epsilon: f32 = 0.02;
+
+            // check rows
+            for (0..board.size) |i| { // rows
+
+                var counts = [_]f32{0} ** QBoard.size;
+
+                // sum
+                for (0..board.size) |j| {
+                    const c: Coordinate = .{ .i = i, .j = j };
+                    const b: QBoard.BitFieldType = board.get(c);
+                    const pop: f32 = @floatFromInt(@popCount(b));
+
+                    for (0..board.size) |v| {
+                        counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
+                    }
+                }
+
+                // check counts
+                for (0..board.size) |v| {
+                    if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
+                }
+            }
+
+            // check columns
+            for (0..board.size) |j| { // columns
+
+                var counts = [_]f32{0} ** QBoard.size;
+
+                // sum
+                for (0..board.size) |i| {
+                    const c: Coordinate = .{ .i = i, .j = j };
+                    const b: QBoard.BitFieldType = board.get(c);
+
+                    const pop: f32 = @floatFromInt(@popCount(b));
+
+                    for (0..board.size) |v| {
+                        counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
+                    }
+                }
+
+                // check counts
+                for (0..board.size) |v| {
+                    if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
+                }
+            }
+
+            for (0..board.k) |si| { // square row
+                for (0..board.k) |sj| { // square column
+
+                    var counts = [_]f32{0} ** QBoard.size;
+
+                    for (si * board.n..(si + 1) * board.n) |i| { //row
+                        for (sj * board.n..(sj + 1) * board.n) |j| { //col
+
+                            const c: Coordinate = .{ .i = i, .j = j };
+                            const b: QBoard.BitFieldType = board.get(c);
+
+                            const pop: f32 = @floatFromInt(@popCount(b));
+
+                            for (0..board.size) |v| {
+                                counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
+                            }
+                        }
+                    }
+
+                    // check counts
+                    for (0..board.size) |v| {
+                        if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        fn rank_cell(board: QBoard, coord: Coordinate) usize {
+            var pop: usize = @popCount(board.get(coord));
             assert(pop != 0);
-            var weight: QBoard.BitFieldType = pop - 1;
+            var weight: usize = (pop - 1) * (27 << 6);
+
+            // if (true) return weight;
 
             const row = coord.i;
             for (0..board.size) |j| {
