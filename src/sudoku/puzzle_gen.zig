@@ -64,7 +64,7 @@ pub fn generate_puzzle(comptime K: u16, comptime N: u16, clues: usize, allocator
 
     const start_time = std.time.milliTimestamp();
 
-    has_solution = try solve.solve(.WFC, &b, allocator);
+    has_solution = try solve.solve(.MRV, &b, allocator);
 
     const total_time = std.time.milliTimestamp() - start_time;
 

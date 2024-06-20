@@ -44,7 +44,7 @@ pub fn main() !void {
 
     _ = try b.display(writer);
 
-    _ = try solve.solve(.MRV, &b, optionalAllocator);
+    _ = try solve.solve(.WFC, &b, optionalAllocator);
 
     _ = try b.display(writer);
 
