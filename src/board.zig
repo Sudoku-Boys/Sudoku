@@ -213,7 +213,10 @@ pub const SpawnBoard = struct {
     }
 };
 
-pub fn spawnBoard(commands: engine.Commands, transform: engine.Transform,) !engine.Entity {
+pub fn spawnBoard(
+    commands: engine.Commands,
+    transform: engine.Transform,
+) !engine.Entity {
     const root = try commands.spawn();
     const entity = root.entity;
 
