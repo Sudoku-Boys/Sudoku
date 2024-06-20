@@ -15,22 +15,45 @@ pub fn main() !void {
     //var b = parser.from(board_stencil);
     //defer b.deinit();
     //
-    ////b.set_row(0, .{ 3, 0, 6, 5, 0, 8, 4, 0, 0 });
-    ////b.set_row(1, .{ 5, 2, 0, 0, 0, 0, 0, 0, 0 });
-    ////b.set_row(2, .{ 0, 8, 7, 0, 0, 0, 0, 3, 1 });
-    ////b.set_row(3, .{ 0, 0, 3, 0, 1, 0, 0, 8, 0 });
-    ////b.set_row(4, .{ 9, 0, 0, 8, 6, 3, 0, 0, 5 });
-    ////b.set_row(5, .{ 0, 5, 0, 0, 9, 0, 6, 0, 0 });
-    ////b.set_row(6, .{ 1, 3, 0, 0, 0, 0, 2, 5, 0 });
-    ////b.set_row(7, .{ 0, 0, 0, 0, 0, 0, 0, 7, 4 });
-    ////b.set_row(8, .{ 0, 0, 5, 2, 0, 6, 3, 0, 0 });
+
+    var b = board.DefaultBoard.init(optionalAllocator);
+
+    b.set_row(0, .{ 5, 3, 0, 0, 7, 0, 0, 0, 0 });
+    b.set_row(1, .{ 6, 0, 0, 1, 9, 5, 0, 0, 0 });
+    b.set_row(2, .{ 0, 9, 8, 0, 0, 0, 0, 6, 0 });
+    b.set_row(3, .{ 8, 0, 0, 0, 6, 0, 0, 0, 3 });
+    b.set_row(4, .{ 4, 0, 0, 8, 0, 3, 0, 0, 1 });
+    b.set_row(5, .{ 7, 0, 0, 0, 2, 0, 0, 0, 6 });
+    b.set_row(6, .{ 0, 6, 0, 0, 0, 0, 2, 8, 0 });
+    b.set_row(7, .{ 0, 0, 0, 4, 1, 9, 0, 0, 5 });
+    b.set_row(8, .{ 0, 0, 0, 0, 8, 0, 0, 7, 9 });
+
+    b.clear();
+
+    b.set_row(0, .{ 8, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(1, .{ 0, 0, 3, 6, 0, 0, 0, 0, 0 });
+    b.set_row(2, .{ 0, 7, 0, 0, 9, 0, 2, 0, 0 });
+    b.set_row(3, .{ 0, 5, 0, 0, 0, 7, 0, 0, 0 });
+    b.set_row(4, .{ 0, 0, 0, 0, 4, 5, 7, 0, 0 });
+    b.set_row(5, .{ 0, 0, 0, 1, 0, 0, 0, 3, 0 });
+    b.set_row(6, .{ 0, 0, 1, 0, 0, 0, 0, 6, 8 });
+    b.set_row(7, .{ 0, 0, 8, 5, 0, 0, 0, 1, 0 });
+    b.set_row(8, .{ 0, 9, 0, 0, 0, 0, 4, 0, 0 });
+
+    const writer = std.io.getStdOut().writer();
+
     //
     //
-    //_ = try b.display(writer);
+    _ = try b.display(writer);
     //
-    //const solveable = try solve.solve(.ADVANCED, &b, &optionalAllocator);
+    const start_time = std.time.nanoTimestamp();
+    _ = try solve.solve(.MRV, &b, optionalAllocator);
+    const total_time = std.time.nanoTimestamp() - start_time;
+
     //
-    //_ = try b.display(writer);
+    _ = try b.display(writer);
+
+    std.debug.print("Time: {d} ns & {d} ms\n", .{ total_time, @as(f64, @floatFromInt(total_time)) / 1_000_000.0 });
     //
     //std.debug.print("Solveable: {}\n", .{solveable});
     //
@@ -44,11 +67,12 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
+    std.process.exit(0);
+
     const K = 4;
     const N = 4;
 
     var stencil = parse.Stencil(K, N).init(optionalAllocator);
-    const writer = std.io.getStdOut().writer();
     var buffer_writer = std.io.bufferedWriter(writer);
 
     for (0..std.math.maxInt(u32)) |i| {
@@ -61,5 +85,7 @@ pub fn main() !void {
         try buffer_writer.flush();
         optionalAllocator.free(v);
         b2.deinit();
+
+        break;
     }
 }

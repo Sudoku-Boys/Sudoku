@@ -13,9 +13,7 @@ fn count_clues(sudoku: anytype) usize {
 
     for (0..sudoku.size) |i| {
         for (0..sudoku.size) |j| {
-            const c = Coordinate{ .i = i, .j = j };
-
-            if (sudoku.get(c) != board.EmptySentinel) {
+            if (sudoku.get(.{ .i = i, .j = j }) != board.EmptySentinel) {
                 count += 1;
             }
         }

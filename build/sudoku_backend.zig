@@ -10,7 +10,9 @@ pub fn addSudokuExe(b: *std.Build, target: std.Build.ResolvedTarget, optimize: s
         .optimize = optimize,
     });
 
+    b.installArtifact(exe);
     const run_exe = b.addRunArtifact(exe);
+    run_exe.step.dependOn(b.getInstallStep());
 
     const run_step = b.step("run-sudoku", "Run the executable");
     run_step.dependOn(&run_exe.step);
