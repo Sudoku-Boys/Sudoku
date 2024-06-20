@@ -2,10 +2,9 @@ const std = @import("std");
 const naive = @import("solvers/naive.zig");
 const basic = @import("solvers/basic.zig");
 const mrv = @import("solvers/mrv.zig");
-const simd = @import("solvers/simd.zig");
 const wfc = @import("solvers/wfc.zig");
 
-pub const Solvers = enum { NAIVE, BASIC, MRV, SIMD, WFC };
+pub const Solvers = enum { NAIVE, BASIC, MRV, WFC };
 
 const Self = @This();
 
@@ -33,11 +32,9 @@ pub fn solve(solver: Solvers, sudoku: anytype, allocator: std.mem.Allocator) !bo
             defer s.deinit();
             return try s.solve(sudoku);
         },
-        //.SIMD => simd.solve(sudoku),
         .WFC => {
-            return wfc.init().solve(sudoku, allocator);
+            return wfc.WaveFunctionCollapse(@TypeOf(sudoku.*)).init().solve(sudoku, allocator);
         },
-        else => unreachable,
     };
 }
 
