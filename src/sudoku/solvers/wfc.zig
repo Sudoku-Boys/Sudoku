@@ -4,8 +4,6 @@ const EmptySentinel = Board.EmptySentinel;
 const Coordinate = @import("../Coordinate.zig");
 const assert = std.debug.assert;
 
-const SudokuError = error{ Invalid };
-
 const WeightType = struct {
     weight: usize,
     coord: Coordinate
@@ -115,8 +113,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             // clear board ( boolean array is filled with all possible values)
             for (0..QBoard.size) |j| { // col
                 for (0..QBoard.size) |i| { // row
-                    const c = Coordinate{ .i = i, .j = j };
-                    board.set(c, ~@as(QBoard.BitFieldType, 0));
+                    board.set(.{ .i = i, .j = j }, ~@as(QBoard.BitFieldType, 0));
                 }
             }
 
@@ -141,10 +138,10 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             _ = self;
 
             // create quantum board
-            var qb = board_init(sudoku, allocator);
+            var qb = Self.board_init(sudoku, allocator);
             defer qb.deinit();
 
-            _ = try solve_internal(&qb, allocator);
+            _ = Self.solve_internal(&qb, allocator);
 
             for (0..SudokuT.size) |i| {
                 for (0..SudokuT.size) |j| {
@@ -162,7 +159,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             return true;
         }
 
-        fn set_cell(board: anytype, coord: Coordinate, value: u7) bool {
+        fn set_cell(board: *QBoard, coord: Coordinate, value: u7) bool {
             // set cell, if down to 1 possibility on any updated,000
             const mask: QBoard.BitFieldType = @as(QBoard.BitFieldType, 1) << @truncate(value - 1);
 
@@ -182,7 +179,8 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                 board.set(c, val);
 
                 if (@popCount(old) > 1 and @popCount(val) == 1) {
-                    if (set_cell(board, c, @ctz(val) + 1) == false) return false;
+                    if (Self.set_cell(board, c, @ctz(val) + 1) == false)
+                        return false;
                 } else if (@popCount(val) == 0) return false;
             }
 
@@ -199,7 +197,8 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                 board.set(c, val);
 
                 if (@popCount(old) > 1 and @popCount(val) == 1) {
-                    if (set_cell(board, c, @ctz(val) + 1) == false) return false;
+                    if (Self.set_cell(board, c, @ctz(val) + 1) == false)
+                        return false;
                 } else if (@popCount(val) == 0) return false;
             }
 
@@ -218,7 +217,8 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                     board.set(c, val);
 
                     if (@popCount(old) > 1 and @popCount(val) == 1) {
-                        if (set_cell(board, c, @ctz(val) + 1) == false) return false;
+                        if (Self.set_cell(board, c, @ctz(val) + 1) == false)
+                            return false;
                     } else if (@popCount(val) == 0) return false;
                 }
             }
@@ -226,7 +226,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             return true;
         }
 
-        fn solve_internal(board: anytype, allocator: std.mem.Allocator) !bool {
+        fn solve_internal(board: *const QBoard, allocator: std.mem.Allocator) bool {
             var optimal: WeightType = .{ .weight = 9999, .coord = .{ .i = 99, .j = 99 } };
 
             // find uncertain cells
@@ -234,8 +234,9 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                 for (0..board.size) |j| {
                     const c: Coordinate = .{ .i = i, .j = j };
                     if (@popCount(board.get(c)) == 1) continue;
+
                     // rank uncertain cells based on entropy
-                    const weight = rank_cell(board.*, c) catch return false;
+                    const weight = rank_cell(board.*, c);
 
                     if (weight > optimal.weight) continue;
 
@@ -248,20 +249,21 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             if (optimal.weight == 9999) return true;
 
             // start with lowest entropy (last in stack)
-            var newBoard = @TypeOf(board.*).init(allocator);
+            var newBoard = QBoard.init(allocator);
             defer newBoard.deinit();
 
             const val = board.get(optimal.coord);
 
-            for (0..board.size) |i| {
+            for (0..QBoard.size) |i| {
                 if ((val >> @truncate(i)) & 1 == 0) continue;
 
                 newBoard.copy(board.*);
-                if (!set_cell(&newBoard, optimal.coord, @truncate(i + 1))) {
+
+                if (!Self.set_cell(&newBoard, optimal.coord, @truncate(i + 1))) {
                     continue;
                 }
 
-                if (try solve_internal(&newBoard, allocator)) {
+                if (Self.solve_internal(&newBoard, allocator)) {
                     board.copy(newBoard);
                     return true;
                 }
@@ -270,9 +272,9 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             return false;
         }
 
-        fn rank_cell(board: anytype, coord: Coordinate) !QBoard.BitFieldType {
+        fn rank_cell(board: QBoard, coord: Coordinate) QBoard.BitFieldType {
             var pop = @popCount(board.get(coord));
-            if (pop == 0) return SudokuError.Invalid;
+            assert(pop != 0);
             var weight: QBoard.BitFieldType = pop - 1;
 
             const row = coord.i;
@@ -281,7 +283,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
                 const c: Coordinate = .{ .i = row, .j = j };
                 pop = @popCount(board.get(c));
-                if (pop == 0) return SudokuError.Invalid;
+                assert(pop != 0);
                 weight += pop - 1;
             }
 
@@ -291,7 +293,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
                 const c: Coordinate = .{ .i = i, .j = col };
                 pop = @popCount(board.get(c));
-                if (pop == 0) return SudokuError.Invalid;
+                assert(pop != 0);
                 weight += pop - 1;
             }
 
@@ -304,7 +306,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
                     const c: Coordinate = .{ .i = i, .j = j };
                     pop = @popCount(board.get(c));
-                    if (pop == 0) return SudokuError.Invalid;
+                    assert(pop != 0);
                     weight += pop - 1;
                 }
             }
