@@ -18,6 +18,7 @@ pub fn main() !void {
 
     var b = board.DefaultBoard.init(optionalAllocator);
 
+    // No solutions
     b.set_row(0, .{ 0, 0, 5, 0, 0, 0, 0, 9, 0 });
     b.set_row(1, .{ 0, 8, 0, 0, 0, 0, 0, 0, 0 });
     b.set_row(2, .{ 0, 0, 0, 0, 0, 0, 0, 2, 0 });
@@ -28,25 +29,28 @@ pub fn main() !void {
     b.set_row(7, .{ 0, 0, 0, 5, 0, 0, 8, 0, 0 });
     b.set_row(8, .{ 1, 0, 3, 0, 0, 0, 0, 0, 0 });
 
-    b.clear();
-
-    b.set_row(0, .{ 0, 0, 0, 0, 0, 0, 7, 8, 0 });
-    b.set_row(1, .{ 4, 0, 0, 0, 0, 0, 0, 0, 9 });
-    b.set_row(2, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-    b.set_row(3, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-    b.set_row(4, .{ 0, 0, 0, 9, 0, 0, 0, 0, 0 });
-    b.set_row(5, .{ 0, 5, 8, 0, 0, 0, 3, 6, 0 });
-    b.set_row(6, .{ 6, 0, 9, 0, 0, 0, 0, 0, 0 });
-    b.set_row(7, .{ 0, 0, 0, 8, 7, 0, 0, 0, 0 });
-    b.set_row(8, .{ 0, 0, 4, 0, 0, 0, 0, 0, 0 });
+    //b.clear();
+    //
+    //b.set_row(0, .{ 0, 0, 0, 0, 0, 0, 7, 8, 0 });
+    //b.set_row(1, .{ 4, 0, 0, 0, 0, 0, 0, 0, 9 });
+    //b.set_row(2, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    //b.set_row(3, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    //b.set_row(4, .{ 0, 0, 0, 9, 0, 0, 0, 0, 0 });
+    //b.set_row(5, .{ 0, 5, 8, 0, 0, 0, 3, 6, 0 });
+    //b.set_row(6, .{ 6, 0, 9, 0, 0, 0, 0, 0, 0 });
+    //b.set_row(7, .{ 0, 0, 0, 8, 7, 0, 0, 0, 0 });
+    //b.set_row(8, .{ 0, 0, 4, 0, 0, 0, 0, 0, 0 });
 
     const writer = std.io.getStdOut().writer();
 
     _ = try b.display(writer);
-
-    _ = try solve.solve(.WFC, &b, optionalAllocator);
+    const start_time = std.time.nanoTimestamp();
+    //_ = try solve.solve(.MRV, &b, optionalAllocator);
+    const total_time = std.time.nanoTimestamp() - start_time;
 
     _ = try b.display(writer);
+
+    std.debug.print("Total time: {d} ns & {d} ms\n", .{total_time, @as(f64, @floatFromInt(total_time)) / 1_000_000.0});
 
     //
     //std.debug.print("Solveable: {}\n", .{solveable});
@@ -61,7 +65,7 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    std.process.exit(0);
+    //std.process.exit(0);
 
     const K = 3;
     const N = 3;
@@ -71,7 +75,7 @@ pub fn main() !void {
 
     for (0..std.math.maxInt(u32)) |i| {
         std.debug.print("({d}) ", .{i});
-        var b2 = puzzle_gen.generate_puzzle(K, N, 20, optionalAllocator) catch continue;
+        var b2 = puzzle_gen.generate_puzzle(K, N, .WFC, 5, 20, optionalAllocator) catch continue;
         const v = stencil.into(b2) catch continue;
         _ = try b2.display(&buffer_writer);
         _ = try buffer_writer.write(v);

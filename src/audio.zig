@@ -37,7 +37,7 @@ pub const Plugin = struct {
 
         result = c.ma_sound_init_from_file(
             &audio.engine,
-            "Clair-de-lune-piano.flac",
+            "sounds/Clair-de-lune-piano.flac",
             c.MA_SOUND_FLAG_STREAM,
             null,
             null,
@@ -50,10 +50,13 @@ pub const Plugin = struct {
 
         c.ma_sound_set_looping(&audio.music, c.MA_TRUE);
 
+        // Turn volume down.
+        c.ma_sound_set_volume(&audio.music, 0.5);
+
         result = c.ma_sound_start(&audio.music);
 
         if (result != c.MA_SUCCESS) {
             return std.log.err("Failed to start music", .{});
         }
     }
-};
+    };
