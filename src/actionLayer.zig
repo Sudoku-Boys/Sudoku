@@ -3,7 +3,7 @@ const Coordinate = @import("sudoku/Coordinate.zig");
 const solve = @import("sudoku/solve.zig");
 
 //The player actions are the players interactions with the sudoku that modifies it in any way
-pub const PlayerActions = enum { SET, CLEAR, REGENERATE, PSOLVE }; // The P in PSOLVE is left as an excersise for the reader
+pub const PlayerActions = enum { SET, CLEAR, REGENERATE, PSOLVE, GENERATE }; // The P in PSOLVE is left as an excersise for the reader
 
 pub const Action = struct {
     playerAction: PlayerActions, //what type of action is this?
@@ -22,7 +22,7 @@ pub const ActionLayer = struct {
     boardStack: std.ArrayList([]u8), //if a board asociated with an action should be kept, it goes here
     allocator: std.mem.Allocator,
 
-    fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) !void {
+    fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) std.mem.Allocator.Error!void {
         switch (action.playerAction) {
             .SET => {
                 //We save the current value of the square to the action, before adding the action to the stack
@@ -68,7 +68,20 @@ pub const ActionLayer = struct {
 
                 _ = try solve.solve(.MRV, sudoku, self.allocator);
             },
-            .REGENERATE => {
+            .REGENERATE => { //Generate a new layout on the same sudoku struct
+                //We start by clearing the board
+                try self.executeAction(sudoku, Action{
+                    .playerAction = PlayerActions.CLEAR,
+                });
+
+                //Then we solve N, where N is the value parsed in the action, populating the board
+                const success = try self.solveN(sudoku, action.value);
+                if (!success) {
+                    //We should always succeed as empty boards always have solutions
+                    unreachable;
+                }
+            },
+            .GENERATE => {
                 //We don't actually generate the new sudoku here, but clear the stacks
                 self.redoStack.clearAndFree();
                 for (self.boardStack.items) |value| {
@@ -119,6 +132,9 @@ pub const ActionLayer = struct {
                 self.allocator.free(numbers);
             },
             .REGENERATE => {
+                //Regeneration uses clear and set actions and just undoes using them.
+            },
+            .GENERATE => {
                 //JK. No undoing that
             },
         }

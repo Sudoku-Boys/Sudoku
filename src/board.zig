@@ -302,6 +302,19 @@ pub fn boardInputSystem(
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .R => {
+                    //New board generation function using the actionLayers generation function, guaranteed to be solvable and compatible with undo/redo
+                    //It uses the old board, and therefore doens't need to have a specific board-type
+                    try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
+                        .playerAction = aLayer.PlayerActions.REGENERATE,
+                        .value = 20,
+                    });
+
+                    try updateBoardNumbers(q.board, resources, materials);
+                },
+                .N => {
+                    //Old function for generating new puzzles
+                    //Still works fine, but invalidates the undo redo stack because a new board object is created
+                    //The one using R is the new generation function
                     q.board.sudoku.deinit();
 
                     var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, 20, allocator, 15);
@@ -311,7 +324,7 @@ pub fn boardInputSystem(
 
                     //We need to inform the actionlayer that we made a new sudoku
                     try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
-                        .playerAction = aLayer.PlayerActions.REGENERATE,
+                        .playerAction = aLayer.PlayerActions.GENERATE,
                     });
 
                     try updateBoardNumbers(q.board, resources, materials);
