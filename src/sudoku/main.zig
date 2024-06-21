@@ -29,17 +29,17 @@ pub fn main() !void {
     b.set_row(7, .{ 0, 0, 0, 5, 0, 0, 8, 0, 0 });
     b.set_row(8, .{ 1, 0, 3, 0, 0, 0, 0, 0, 0 });
 
-    b.clear();
-
-    b.set_row(0, .{ 8, 0, 0, 0, 0, 0, 0, 0, 0 });
-    b.set_row(1, .{ 5, 0, 0, 0, 0, 0, 0, 0, 0 });
-    b.set_row(2, .{ 0, 0, 0, 7, 0, 0, 1, 0, 0 });
-    b.set_row(3, .{ 0, 0, 0, 0, 9, 2, 0, 0, 0 });
-    b.set_row(4, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-    b.set_row(5, .{ 0, 1, 0, 0, 0, 0, 2, 0, 0 });
-    b.set_row(6, .{ 0, 0, 0, 6, 0, 0, 0, 4, 0 });
-    b.set_row(7, .{ 0, 0, 0, 5, 8, 0, 0, 0, 0 });
-    b.set_row(8, .{ 0, 2, 3, 0, 0, 0, 0, 7, 1 });
+    //b.clear();
+    //
+    //b.set_row(0, .{ 8, 0, 0, 0, 0, 0, 0, 0, 0 });
+    //b.set_row(1, .{ 5, 0, 0, 0, 0, 0, 0, 0, 0 });
+    //b.set_row(2, .{ 0, 0, 0, 7, 0, 0, 1, 0, 0 });
+    //b.set_row(3, .{ 0, 0, 0, 0, 9, 2, 0, 0, 0 });
+    //b.set_row(4, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    //b.set_row(5, .{ 0, 1, 0, 0, 0, 0, 2, 0, 0 });
+    //b.set_row(6, .{ 0, 0, 0, 6, 0, 0, 0, 4, 0 });
+    //b.set_row(7, .{ 0, 0, 0, 5, 8, 0, 0, 0, 0 });
+    //b.set_row(8, .{ 0, 2, 3, 0, 0, 0, 0, 7, 1 });
 
     const writer = std.io.getStdOut().writer();
 
@@ -65,7 +65,7 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    std.process.exit(0);
+    //std.process.exit(0);
 
     const K = 3;
     const N = 3;
@@ -83,5 +83,6 @@ pub fn main() !void {
         try buffer_writer.flush();
         optionalAllocator.free(v);
         b2.deinit();
+        break;
     }
 }
