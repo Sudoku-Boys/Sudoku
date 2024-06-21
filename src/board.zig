@@ -312,12 +312,12 @@ pub fn boardInputSystem(
                     try updateBoardNumbers(q.board, resources, materials);
                 },
                 .N => {
-                    //Old function for generating new puzzles
-                    //Still works fine, but invalidates the undo redo stack because a new board object is created
-                    //The one using R is the new generation function
+                    // Old function for generating new puzzles
+                    // Still works fine, but invalidates the undo redo stack because a new board object is created
+                    // The one using R is the new generation function
                     q.board.sudoku.deinit();
 
-                    var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, .MRV, 5, 20, allocator, 15);
+                    var sudoku = puzzle_gen.generate_puzzle_safe(board.DefaultBoard.K, board.DefaultBoard.N, .MRV, true, 5, 20, allocator, 15);
                     errdefer sudoku.deinit();
 
                     q.board.sudoku = sudoku;
