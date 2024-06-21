@@ -139,12 +139,12 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
             // check if initial input state is ok
             if (Self.validate_board(qb) == false) {
-                std.debug.print("failed to solve\n", .{});
+                // std.debug.print("failed to solve\n", .{});
                 return false;
             }
 
             if (Self.solve_internal(&qb, allocator) == false) {
-                std.debug.print("failed in internal\n", .{});
+                // std.debug.print("failed in internal\n", .{});
                 return false;
             }
 
