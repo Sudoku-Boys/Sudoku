@@ -3,7 +3,6 @@ const Coordinate = @import("sudoku/Coordinate.zig");
 const solve = @import("sudoku/solve.zig");
 const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 
-
 //The player actions are the players interactions with the sudoku that modifies it in any way
 pub const PlayerActions = enum { SET, CLEAR, REGENERATE, PSOLVE, GENERATE }; // The P in PSOLVE is left as an excersise for the reader
 

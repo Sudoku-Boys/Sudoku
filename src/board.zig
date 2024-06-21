@@ -230,7 +230,7 @@ pub fn spawnBoard(
 
 const MaterialQuery = engine.Query(struct {
     material: *engine.AssetId(engine.StandardMaterial),
-    });
+});
 
 fn updateBoardNumbers(
     board_: *const Board,
@@ -259,7 +259,7 @@ pub fn boardInputSystem(
     resources: *BoardResources,
     boards: engine.Query(struct {
         board: *Board,
-        }),
+    }),
     materials: MaterialQuery,
 ) !void {
     while (inputs.next()) |input| {

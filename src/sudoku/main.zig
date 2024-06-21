@@ -62,7 +62,7 @@ pub fn gen_100k_bench(comptime sudoku_size: board.SudokuSize, solver: solve.Solv
     }
     const total_time = std.time.nanoTimestamp() - start_time;
 
-    std.debug.print("Total time: {d} ns & {d} ms\n", .{total_time, @as(f64, @floatFromInt(total_time)) / 1_000_000.0});
+    std.debug.print("Total time: {d} ns & {d} ms\n", .{ total_time, @as(f64, @floatFromInt(total_time)) / 1_000_000.0 });
 }
 
 pub fn solve_stencil(comptime sudoku_size: board.SudokuSize, solver: solve.Solvers, allocator: std.mem.Allocator, stencil: []u8) !void {
@@ -149,7 +149,6 @@ pub fn main() !void {
             ._16x16 => fuzz(._16x16, solver, allocator, gen_clues),
             ._25x25 => fuzz(._25x25, solver, allocator, gen_clues),
         };
-
     } else if (std.mem.eql(u8, test_arg, "solve_stencil") and args.len >= 4) {
         const stencil = args[3];
         try switch (sudoku_size) {

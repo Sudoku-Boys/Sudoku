@@ -59,4 +59,4 @@ pub const Plugin = struct {
             return std.log.err("Failed to start music", .{});
         }
     }
-    };
+};

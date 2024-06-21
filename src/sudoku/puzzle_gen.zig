@@ -4,7 +4,7 @@ const solve = @import("solve.zig");
 const Coordinate = @import("Coordinate.zig");
 
 const GenerationError = error{
-PartialHasNoSolution,
+    PartialHasNoSolution,
 };
 
 // Used to remove clues from the board

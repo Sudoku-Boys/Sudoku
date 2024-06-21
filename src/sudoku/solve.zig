@@ -57,7 +57,6 @@ test "Backtrack MRV solve" {
     try std.testing.expect(std.mem.eql(u8, result, expected));
 }
 
-
 test "WFC Solve" {
     var allocator = std.testing.allocator;
 
