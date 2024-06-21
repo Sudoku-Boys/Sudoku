@@ -21,6 +21,7 @@ pub const ActionLayer = struct {
     redoStack: std.ArrayList(Action), //The redo stack is where undone actions are pushed to
     boardStack: std.ArrayList([]u8), //if a board asociated with an action should be kept, it goes here
     allocator: std.mem.Allocator,
+    solverType: solve.Solvers = .WFC,
 
     fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) std.mem.Allocator.Error!void {
         switch (action.playerAction) {
@@ -66,7 +67,7 @@ pub const ActionLayer = struct {
                     .value = action.value,
                 });
 
-                _ = try solve.solve(.MRV, sudoku, self.allocator);
+                _ = try solve.solve(self.solverType, sudoku, self.allocator);
             },
             .REGENERATE => { //Generate a new layout on the same sudoku struct
                 //We start by clearing the board
@@ -147,7 +148,7 @@ pub const ActionLayer = struct {
         defer (sudokuCopy.deinit());
 
         //Solving the copy to later compare to the original
-        if (!try solve.solve(.MRV, &sudokuCopy, self.allocator)) {
+        if (!try solve.solve(self.solverType, &sudokuCopy, self.allocator)) {
             return false; //Can't solve N when its unsolvable
         }
 
