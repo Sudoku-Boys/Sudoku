@@ -138,9 +138,15 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             defer qb.deinit();
 
             // check if initial input state is ok
-            if (!Self.validate_board(qb)) return false;
+            if (Self.validate_board(qb) == false) {
+                std.debug.print("failed to solve\n", .{});
+                return false;
+            }
 
-            if (Self.solve_internal(&qb, allocator) == false) return false;
+            if (Self.solve_internal(&qb, allocator) == false) {
+                std.debug.print("failed in internal\n", .{});
+                return false;
+            }
 
             for (0..SudokuT.size) |i| {
                 for (0..SudokuT.size) |j| {
@@ -150,9 +156,11 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                     if (@popCount(v) > 1) {
                         sudoku.set(c, Board.EmptySentinel);
                     } else {
+                        // std.debug.print("{} ", .{@ctz(v) + 1});
                         sudoku.set(c, @truncate(@ctz(v) + 1));
                     }
                 }
+                // std.debug.print("\n", .{});
             }
 
             return true;
@@ -278,12 +286,12 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
         }
 
         fn validate_board(board: QBoard) bool {
-            const epsilon: f32 = 0.02;
+            // const epsilon: f32 = 0.02;
 
             // check rows
             for (0..board.size) |i| { // rows
 
-                var counts = [_]f32{0} ** QBoard.size;
+                // var counts = [_]f32{0} ** QBoard.size;
 
                 // sum
                 for (0..board.size) |j| {
@@ -293,21 +301,21 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
                     if (pop == 0) return false;
 
-                    for (0..board.size) |v| {
-                        counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
-                    }
+                    // for (0..board.size) |v| {
+                    //     counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
+                    // }
                 }
 
                 // check counts
-                for (0..board.size) |v| {
-                    if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
-                }
+                // for (0..board.size) |v| {
+                //     if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
+                // }
             }
 
             // check columns
             for (0..board.size) |j| { // columns
 
-                var counts = [_]f32{0} ** QBoard.size;
+                // var counts = [_]f32{0} ** QBoard.size;
 
                 // sum
                 for (0..board.size) |i| {
@@ -318,21 +326,21 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
                     if (pop == 0) return false;
 
-                    for (0..board.size) |v| {
-                        counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
-                    }
+                    // for (0..board.size) |v| {
+                    //     counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
+                    // }
                 }
 
                 // check counts
-                for (0..board.size) |v| {
-                    if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
-                }
+                // for (0..board.size) |v| {
+                //     if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
+                // }
             }
 
             for (0..board.k) |si| { // square row
                 for (0..board.k) |sj| { // square column
 
-                    var counts = [_]f32{0} ** QBoard.size;
+                    // var counts = [_]f32{0} ** QBoard.size;
 
                     for (si * board.n..(si + 1) * board.n) |i| { //row
                         for (sj * board.n..(sj + 1) * board.n) |j| { //col
@@ -344,16 +352,16 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
                             if (pop == 0) return false;
 
-                            for (0..board.size) |v| {
-                                counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
-                            }
+                            // for (0..board.size) |v| {
+                            //     counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
+                            // }
                         }
                     }
 
                     // check counts
-                    for (0..board.size) |v| {
-                        if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
-                    }
+                    // for (0..board.size) |v| {
+                    //     if (counts[v] < 1.0 - epsilon or counts[v] > 1.0 + epsilon) return false;
+                    // }
                 }
             }
 
