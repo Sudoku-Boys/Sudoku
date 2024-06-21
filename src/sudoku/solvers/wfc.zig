@@ -107,14 +107,14 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             var board = QBoard.init(allocator);
 
             // clear board ( boolean array is filled with all possible values)
-            for (0..QBoard.size) |j| { // col
-                for (0..QBoard.size) |i| { // row
+            for (0..QBoard.size) |i| { // row
+                for (0..QBoard.size) |j| { // col
                     board.set(.{ .i = i, .j = j }, ~@as(QBoard.BitFieldType, 0));
                 }
             }
 
-            for (0..SudokuT.size) |j| { // col
-                for (0..SudokuT.size) |i| { // row
+            for (0..SudokuT.size) |i| { // row
+                for (0..SudokuT.size) |j| { // col
                     const c = Coordinate{ .i = i, .j = j };
 
                     const v = sudoku.get(c);
@@ -137,7 +137,10 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
             var qb = Self.board_init(sudoku, allocator);
             defer qb.deinit();
 
-            _ = Self.solve_internal(&qb, allocator);
+            // check if initial input state is ok
+            if (!Self.validate_board(qb)) return false;
+
+            if (Self.solve_internal(&qb, allocator) == false) return false;
 
             for (0..SudokuT.size) |i| {
                 for (0..SudokuT.size) |j| {
@@ -157,6 +160,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
 
         fn set_cell(board: *QBoard, coord: Coordinate, value: u7) bool {
             // set cell, if down to 1 possibility on any updated,000
+
             const mask: QBoard.BitFieldType = @as(QBoard.BitFieldType, 1) << @truncate(value - 1);
 
             // set cell
@@ -259,6 +263,7 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                     continue;
                 }
 
+                // should not be necessary as set_cell should always return false if it puts the board in an invalid state
                 // if (!Self.validate_board(newBoard)) {
                 //     return false;
                 // }
@@ -286,6 +291,8 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                     const b: QBoard.BitFieldType = board.get(c);
                     const pop: f32 = @floatFromInt(@popCount(b));
 
+                    if (pop == 0) return false;
+
                     for (0..board.size) |v| {
                         counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
                     }
@@ -308,6 +315,8 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                     const b: QBoard.BitFieldType = board.get(c);
 
                     const pop: f32 = @floatFromInt(@popCount(b));
+
+                    if (pop == 0) return false;
 
                     for (0..board.size) |v| {
                         counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
@@ -332,6 +341,8 @@ pub fn WaveFunctionCollapse(comptime SudokuT: type) type {
                             const b: QBoard.BitFieldType = board.get(c);
 
                             const pop: f32 = @floatFromInt(@popCount(b));
+
+                            if (pop == 0) return false;
 
                             for (0..board.size) |v| {
                                 counts[v] += @as(f32, @floatFromInt((b >> @truncate(v)) & 1)) / pop;
