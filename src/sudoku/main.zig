@@ -27,9 +27,10 @@ pub fn test_worst_case(solver: solve.Solvers, allocator: std.mem.Allocator) !voi
     _ = try b.display(writer);
 }
 
-pub fn fuzz(solver: solve.Solvers, allocator: std.mem.Allocator, gen_clues: usize) !void {
-    const K = 3;
-    const N = 3;
+pub fn fuzz(comptime sudoku_size: board.SudokuSize, solver: solve.Solvers, allocator: std.mem.Allocator, gen_clues: usize) !void {
+    const SudokuT = board.Sudoku(sudoku_size);
+    const K = SudokuT.K;
+    const N = SudokuT.N;
 
     var stencil = parse.Stencil(K, N).init(allocator);
     const writer = std.io.getStdErr().writer();
@@ -48,9 +49,10 @@ pub fn fuzz(solver: solve.Solvers, allocator: std.mem.Allocator, gen_clues: usiz
     }
 }
 
-pub fn gen_100k_bench(solver: solve.Solvers, allocator: std.mem.Allocator) void {
-    const K = 3;
-    const N = 3;
+pub fn gen_100k_bench(comptime sudoku_size: board.SudokuSize, solver: solve.Solvers, allocator: std.mem.Allocator) void {
+    const SudokuT = board.Sudoku(sudoku_size);
+    const K = SudokuT.K;
+    const N = SudokuT.N;
 
     const start_time = std.time.nanoTimestamp();
 
@@ -63,9 +65,10 @@ pub fn gen_100k_bench(solver: solve.Solvers, allocator: std.mem.Allocator) void 
     std.debug.print("Total time: {d} ns & {d} ms\n", .{total_time, @as(f64, @floatFromInt(total_time)) / 1_000_000.0});
 }
 
-pub fn solve_stencil(solver: solve.Solvers, allocator: std.mem.Allocator, stencil: []u8) !void {
-    const K = 3;
-    const N = 3;
+pub fn solve_stencil(comptime sudoku_size: board.SudokuSize, solver: solve.Solvers, allocator: std.mem.Allocator, stencil: []u8) !void {
+    const SudokuT = board.Sudoku(sudoku_size);
+    const K = SudokuT.K;
+    const N = SudokuT.N;
 
     const writer = std.io.getStdOut().writer();
 
@@ -90,36 +93,73 @@ pub fn main() !void {
     const args = argv[1..];
 
     // Get and print them!
-    if (args.len < 2) {
-        std.debug.print("Usage: {s} <solver> <test> <input?>\n", .{argv[0]});
+    if (args.len < 3) {
+        std.debug.print("Usage: {s} <sudoku_size> <solver> <test> <input?>\n", .{argv[0]});
+        std.debug.print("  sudoku_size: 4x4, 9x9, 16x16, 25x25\n", .{});
         std.debug.print("  solver: WFC, MRV\n", .{});
-        std.debug.print("  tests: test_worst_case, gen_100k_bench, fuzz <gen_clues>, solve_stencil <stencil str>\n", .{});
+        std.debug.print("  tests: test_worst_case (Only 9x9), gen_100k_bench, fuzz <gen_clues>, solve_stencil <stencil str>\n", .{});
+        return;
+    }
+
+    const size_arg = args[0];
+    const solver_arg = args[1];
+    const test_arg = args[2];
+
+    var sudoku_size: board.SudokuSize = ._9x9;
+
+    if (std.mem.eql(u8, size_arg, "4x4")) {
+        sudoku_size = ._4x4;
+    } else if (std.mem.eql(u8, size_arg, "9x9")) {
+        sudoku_size = ._9x9;
+    } else if (std.mem.eql(u8, size_arg, "16x16")) {
+        sudoku_size = ._16x16;
+    } else if (std.mem.eql(u8, size_arg, "25x25")) {
+        sudoku_size = ._25x25;
+    } else {
+        std.debug.print("Invalid sudoku size: {s}\n", .{size_arg});
         return;
     }
 
     var solver: solve.Solvers = .MRV;
 
-    if (std.mem.eql(u8, args[0], "WFC")) {
+    if (std.mem.eql(u8, solver_arg, "WFC")) {
         solver = .WFC;
-    } else if (std.mem.eql(u8, args[0], "MRV")) {
+    } else if (std.mem.eql(u8, solver_arg, "MRV")) {
         solver = .MRV;
     } else {
-        std.debug.print("Invalid solver: {s}\n", .{args[0]});
+        std.debug.print("Invalid solver: {s}\n", .{solver_arg});
         return;
     }
 
-    if (std.mem.eql(u8, args[1], "test_worst_case")) {
+    if (std.mem.eql(u8, test_arg, "test_worst_case") and sudoku_size == ._9x9) {
         try test_worst_case(solver, allocator);
-    } else if (std.mem.eql(u8, args[1], "gen_100k_bench")) {
-        gen_100k_bench(solver, allocator);
-    } else if (std.mem.eql(u8, args[1], "fuzz") and args.len >= 3) {
-        const gen_clues = try std.fmt.parseInt(usize, args[2], 10);
-        try fuzz(solver, allocator, gen_clues);
-    } else if (std.mem.eql(u8, args[1], "solve_stencil") and args.len >= 3) {
-        const stencil = args[2];
-        try solve_stencil(solver, allocator, stencil);
+    } else if (std.mem.eql(u8, test_arg, "gen_100k_bench")) {
+        switch (sudoku_size) {
+            ._4x4 => gen_100k_bench(._4x4, solver, allocator),
+            ._9x9 => gen_100k_bench(._9x9, solver, allocator),
+            ._16x16 => gen_100k_bench(._16x16, solver, allocator),
+            ._25x25 => gen_100k_bench(._25x25, solver, allocator),
+        }
+    } else if (std.mem.eql(u8, test_arg, "fuzz") and args.len >= 4) {
+        const gen_clues = try std.fmt.parseInt(usize, args[3], 10);
+
+        try switch (sudoku_size) {
+            ._4x4 => fuzz(._4x4, solver, allocator, gen_clues),
+            ._9x9 => fuzz(._9x9, solver, allocator, gen_clues),
+            ._16x16 => fuzz(._16x16, solver, allocator, gen_clues),
+            ._25x25 => fuzz(._25x25, solver, allocator, gen_clues),
+        };
+
+    } else if (std.mem.eql(u8, test_arg, "solve_stencil") and args.len >= 4) {
+        const stencil = args[3];
+        try switch (sudoku_size) {
+            ._4x4 => solve_stencil(._4x4, solver, allocator, stencil),
+            ._9x9 => solve_stencil(._9x9, solver, allocator, stencil),
+            ._16x16 => solve_stencil(._16x16, solver, allocator, stencil),
+            ._25x25 => solve_stencil(._25x25, solver, allocator, stencil),
+        };
     } else {
-        std.debug.print("Invalid test: {s}\n", .{args[1]});
+        std.debug.print("Invalid test: {s}\n", .{test_arg});
         return;
     }
 }
