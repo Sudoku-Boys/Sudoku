@@ -303,7 +303,7 @@ pub fn boardInputSystem(
                 },
                 .R => {
                     //New board generation function using the actionLayers generation function, guaranteed to be solvable and compatible with undo/redo
-                    //It uses the old board, and therefore doens't need to have a specific board-type
+                    //It uses the old board, and therefore doesn't need to have a specific board-type
                     try q.board.actionLayer.performAction(&q.board.sudoku, aLayer.Action{
                         .playerAction = aLayer.PlayerActions.REGENERATE,
                         .value = 20,
