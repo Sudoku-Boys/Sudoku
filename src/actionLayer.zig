@@ -1,6 +1,7 @@
 const std = @import("std");
 const Coordinate = @import("sudoku/Coordinate.zig");
 const solve = @import("sudoku/solve.zig");
+const puzzle_gen = @import("sudoku/puzzle_gen.zig");
 
 //The player actions are the players interactions with the sudoku that modifies it in any way
 pub const PlayerActions = enum { SET, CLEAR, REGENERATE, PSOLVE, GENERATE }; // The P in PSOLVE is left as an excersise for the reader
@@ -21,7 +22,7 @@ pub const ActionLayer = struct {
     redoStack: std.ArrayList(Action), //The redo stack is where undone actions are pushed to
     boardStack: std.ArrayList([]u8), //if a board asociated with an action should be kept, it goes here
     allocator: std.mem.Allocator,
-    solverType: solve.Solvers = .WFC,
+    solverType: solve.Solvers = .MRV,
 
     fn executeAction(self: *ActionLayer, sudoku: anytype, action: Action) std.mem.Allocator.Error!void {
         switch (action.playerAction) {
@@ -143,9 +144,10 @@ pub const ActionLayer = struct {
 
     //Places exactly N correct numbers on the current board, semi randomly
     //Makes a copy of the board, solves it, and randomly picks squares with different numbers than the original board
+    // TODO: This function always uses the same basic board so a lot of values will be similar a lot of the time. Use puzzle_gen to get proper random boards.
     fn solveN(self: *ActionLayer, sudoku: anytype, N: usize) !bool {
         var sudokuCopy = sudoku.copy(self.allocator);
-        defer (sudokuCopy.deinit());
+        defer sudokuCopy.deinit();
 
         //Solving the copy to later compare to the original
         if (!try solve.solve(self.solverType, &sudokuCopy, self.allocator)) {
@@ -165,7 +167,7 @@ pub const ActionLayer = struct {
         }
 
         //get ready to choose random numbers
-        var prng = std.rand.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+        var prng = std.rand.DefaultPrng.init(puzzle_gen.get_secure_seed());
         const rand = prng.random();
 
         //For each square we solve

@@ -30,7 +30,7 @@ pub fn solve(solver: Solvers, sudoku: anytype, allocator: std.mem.Allocator) !bo
         .MRV => {
             var s = mrv.init(allocator);
             defer s.deinit();
-            return try s.solve(sudoku);
+            return s.solve(sudoku);
         },
         .WFC => {
             return wfc.WaveFunctionCollapse(@TypeOf(sudoku.*)).init().solve(sudoku, allocator);
@@ -38,7 +38,7 @@ pub fn solve(solver: Solvers, sudoku: anytype, allocator: std.mem.Allocator) !bo
     };
 }
 
-test "Backtrack solve advanced" {
+test "Backtrack MRV solve" {
     var allocator = std.testing.allocator;
 
     const puzzle = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
@@ -46,10 +46,26 @@ test "Backtrack solve advanced" {
     var board = parser.from(puzzle);
     defer board.deinit();
 
-    var solver = mrv.init(allocator);
-    defer solver.deinit();
+    const has_solution = try solve(.MRV, &board, allocator);
 
-    const has_solution = try solver.solve(&board);
+    try std.testing.expect(has_solution);
+
+    const expected = "938541762625379841147862935512796483863254197794138256459627318371485629286913574";
+    const result = try parser.into(board);
+    defer allocator.free(result);
+
+    try std.testing.expect(std.mem.eql(u8, result, expected));
+}
+
+test "WFC Solve" {
+    var allocator = std.testing.allocator;
+
+    const puzzle = ".................1.....2.3...2...4....3.5......41....6.5.6......7.....2..8.91....";
+    var parser = @import("parse.zig").Stencil(3, 3).init(allocator);
+    var board = parser.from(puzzle);
+    defer board.deinit();
+
+    const has_solution = try solve(.WFC, &board, allocator);
 
     try std.testing.expect(has_solution);
 
