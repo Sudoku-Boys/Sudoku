@@ -29,23 +29,23 @@ pub fn main() !void {
     b.set_row(7, .{ 0, 0, 0, 5, 0, 0, 8, 0, 0 });
     b.set_row(8, .{ 1, 0, 3, 0, 0, 0, 0, 0, 0 });
 
-    //b.clear();
-    //
-    //b.set_row(0, .{ 0, 0, 0, 0, 0, 0, 7, 8, 0 });
-    //b.set_row(1, .{ 4, 0, 0, 0, 0, 0, 0, 0, 9 });
-    //b.set_row(2, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-    //b.set_row(3, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-    //b.set_row(4, .{ 0, 0, 0, 9, 0, 0, 0, 0, 0 });
-    //b.set_row(5, .{ 0, 5, 8, 0, 0, 0, 3, 6, 0 });
-    //b.set_row(6, .{ 6, 0, 9, 0, 0, 0, 0, 0, 0 });
-    //b.set_row(7, .{ 0, 0, 0, 8, 7, 0, 0, 0, 0 });
-    //b.set_row(8, .{ 0, 0, 4, 0, 0, 0, 0, 0, 0 });
+    b.clear();
+
+    b.set_row(0, .{ 8, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(1, .{ 5, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(2, .{ 0, 0, 0, 7, 0, 0, 1, 0, 0 });
+    b.set_row(3, .{ 0, 0, 0, 0, 9, 2, 0, 0, 0 });
+    b.set_row(4, .{ 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    b.set_row(5, .{ 0, 1, 0, 0, 0, 0, 2, 0, 0 });
+    b.set_row(6, .{ 0, 0, 0, 6, 0, 0, 0, 4, 0 });
+    b.set_row(7, .{ 0, 0, 0, 5, 8, 0, 0, 0, 0 });
+    b.set_row(8, .{ 0, 2, 3, 0, 0, 0, 0, 7, 1 });
 
     const writer = std.io.getStdOut().writer();
 
     _ = try b.display(writer);
     const start_time = std.time.nanoTimestamp();
-    //_ = try solve.solve(.MRV, &b, optionalAllocator);
+    _ = try solve.solve(.WFC, &b, optionalAllocator);
     const total_time = std.time.nanoTimestamp() - start_time;
 
     _ = try b.display(writer);
@@ -65,7 +65,7 @@ pub fn main() !void {
     //std.debug.print("Column errors count: {d}\n", .{errors.get(.COLUMN).items.len});
     //std.debug.print("Grid errors count: {d}\n", .{errors.get(.GRID).items.len});
 
-    //std.process.exit(0);
+    std.process.exit(0);
 
     const K = 3;
     const N = 3;
